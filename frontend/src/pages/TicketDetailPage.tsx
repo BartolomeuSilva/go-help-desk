@@ -21,6 +21,7 @@ import {
 import { TagInput } from '@/components/TagInput'
 import { AttachmentUpload, type UploadState } from '@/components/AttachmentUpload'
 import { listStatuses, listUsers } from '@/api/admin'
+import { listCannedResponses } from '@/api/canned'
 import { extractError } from '@/api/client'
 import { useAuthStore } from '@/store/auth'
 import { Layout } from '@/components/Layout'
@@ -103,24 +104,24 @@ function AssigneePanel({ ticketId, assigneeUserId, assigneeGroupId, users, group
           <span className="font-medium">{currentUser.display_name}</span>
         ) : currentGroup ? (
           <span className="inline-flex items-center gap-1 font-medium">
-            <span className="h-2 w-2 rounded-full bg-blue-400" />
+            <span className="h-2 w-2 rounded-full bg-blue-400 dark:bg-[#faff69]" />
             {currentGroup.name}
           </span>
         ) : (
-          <span className="text-gray-400">Unassigned</span>
+          <span className="text-gray-400 dark:text-gray-600">Unassigned</span>
         )}
       </div>
 
       {/* Assignment controls */}
       <div className="flex gap-1 text-xs">
         <button
-          className={`px-2 py-0.5 rounded ${mode === 'user' ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-500 hover:text-gray-700'}`}
+          className={`px-2 py-0.5 rounded ${mode === 'user' ? 'bg-blue-100 text-blue-700 dark:bg-[#1a1a1a] dark:text-[#faff69] font-medium' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
           onClick={() => setMode('user')}
         >
           User
         </button>
         <button
-          className={`px-2 py-0.5 rounded ${mode === 'group' ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-500 hover:text-gray-700'}`}
+          className={`px-2 py-0.5 rounded ${mode === 'group' ? 'bg-blue-100 text-blue-700 dark:bg-[#1a1a1a] dark:text-[#faff69] font-medium' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
           onClick={() => setMode('group')}
         >
           Group
@@ -253,12 +254,12 @@ function CustomFieldsPanel({ ticketId, isStaffOrAdmin }: CustomFieldsPanelProps)
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
             Custom Fields
           </CardTitle>
           {isStaffOrAdmin && !editValues && (
             <button
-              className="text-xs text-blue-600 hover:underline"
+              className="text-xs text-blue-600 dark:text-[#faff69] hover:underline"
               onClick={() => {
                 const init: Record<string, string> = {}
                 for (const v of values) init[v.field_def_id] = v.value
@@ -273,11 +274,11 @@ function CustomFieldsPanel({ ticketId, isStaffOrAdmin }: CustomFieldsPanelProps)
       <CardContent className="space-y-3 text-sm">
         {displayValues.map((v) => (
           <div key={v.field_def_id} className="space-y-0.5">
-            <Label className="text-xs text-gray-500">{v.field_name}</Label>
+            <Label className="text-xs text-gray-500 dark:text-gray-400">{v.field_name}</Label>
             {isStaffOrAdmin && editValues ? (
               renderInput(v)
             ) : (
-              <p className="text-sm">{v.value || <span className="text-gray-400">—</span>}</p>
+              <p className="text-sm">{v.value || <span className="text-gray-400 dark:text-gray-600">—</span>}</p>
             )}
           </div>
         ))}
@@ -417,6 +418,12 @@ export function TicketDetailPage() {
     enabled: isStaffOrAdmin,
   })
 
+  const { data: cannedResponses = [] } = useQuery({
+    queryKey: ['canned-responses'],
+    queryFn: listCannedResponses,
+    enabled: isStaffOrAdmin,
+  })
+
   const { data: attachments = [] } = useQuery({
     queryKey: ['attachments', id],
     queryFn: () => listAttachments(id),
@@ -493,12 +500,12 @@ export function TicketDetailPage() {
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
               <span>{ticket.tracking_number}</span>
               <span>·</span>
               <span>Opened {formatDate(ticket.created_at)}</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">{ticket.subject}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{ticket.subject}</h1>
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium"
@@ -543,20 +550,20 @@ export function TicketDetailPage() {
             {/* Description */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm text-gray-500">Description</CardTitle>
+                <CardTitle className="text-sm text-gray-500 dark:text-gray-400">Description</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="whitespace-pre-wrap text-sm">
-                  {ticket.description || <span className="text-gray-400">No description provided.</span>}
+                  {ticket.description || <span className="text-gray-400 dark:text-gray-600">No description provided.</span>}
                 </p>
               </CardContent>
             </Card>
 
             {/* Timeline */}
             <div className="space-y-2">
-              <h2 className="text-base font-semibold text-gray-900">Timeline</h2>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Timeline</h2>
               {timeline.length === 0 && (
-                <p className="text-sm text-gray-400">No activity yet.</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">No activity yet.</p>
               )}
               {timeline.map((item) => {
                 if (item.kind === 'reply') {
@@ -564,12 +571,12 @@ export function TicketDetailPage() {
                   return (
                     <div
                       key={r.id}
-                      className={`rounded-lg border p-4 text-sm ${r.internal ? 'border-yellow-200 bg-yellow-50' : 'bg-white'}`}
+                      className={`rounded-lg border p-4 text-sm ${r.internal ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-900/40 dark:bg-yellow-950/20' : 'bg-white dark:bg-[#121212]'} dark:border-[#2a2a2a]`}
                     >
-                      <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+                      <div className="mb-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span>{r.author_id ?? 'Customer'}</span>
                         <span className="flex items-center gap-2">
-                          {r.internal && <span className="text-yellow-600 font-medium">Internal note</span>}
+                          {r.internal && <span className="text-yellow-600 dark:text-yellow-500 font-medium">Internal note</span>}
                           {formatDate(r.created_at)}
                         </span>
                       </div>
@@ -580,8 +587,8 @@ export function TicketDetailPage() {
                 // Status history event
                 const h = item.data
                 return (
-                  <div key={h.id} className="flex items-center gap-3 py-1 text-xs text-gray-400">
-                    <div className="flex-1 border-t border-gray-100" />
+                  <div key={h.id} className="flex items-center gap-3 py-1 text-xs text-gray-400 dark:text-gray-500">
+                    <div className="flex-1 border-t border-gray-100 dark:border-[#2a2a2a]" />
                     <span className="shrink-0 text-center">
                       {h.from_status_id ? (
                         <>
@@ -605,7 +612,7 @@ export function TicketDetailPage() {
                       {' · '}
                       {formatDate(h.created_at)}
                     </span>
-                    <div className="flex-1 border-t border-gray-100" />
+                    <div className="flex-1 border-t border-gray-100 dark:border-[#2a2a2a]" />
                   </div>
                 )
               })}
@@ -620,6 +627,36 @@ export function TicketDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {isStaffOrAdmin && cannedResponses.length > 0 && (
+                    <div className="flex items-center gap-2 mb-1 justify-end">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Canned response:</span>
+                      <select
+                        className="h-8 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] px-2 py-1 text-xs text-gray-700 dark:text-gray-300 shadow-sm focus:border-blue-500 dark:focus:border-[#faff69] focus:outline-none"
+                        onChange={(e) => {
+                          const val = e.target.value
+                          if (val) {
+                            const canned = cannedResponses.find((cr) => cr.id === val)
+                            if (canned) {
+                              setReplyBody((prev) => {
+                                const space = prev ? '\n\n' : ''
+                                return prev + space + canned.content
+                              })
+                            }
+                            e.target.value = '' // Reset
+                          }
+                        }}
+                        defaultValue=""
+                      >
+                        <option value="">Insert template...</option>
+                        {cannedResponses.map((cr) => (
+                          <option key={cr.id} value={cr.id}>
+                            {cr.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <Textarea
                     placeholder={isStaffOrAdmin ? 'Describe the work performed or add a note…' : 'Type your reply…'}
                     rows={4}
@@ -694,7 +731,7 @@ export function TicketDetailPage() {
             {isStaffOrAdmin && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                     Assignee
                   </CardTitle>
                 </CardHeader>
@@ -711,11 +748,102 @@ export function TicketDetailPage() {
               </Card>
             )}
 
+            {ticket.sla && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    SLA Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Status</span>
+                    <span
+                      className={
+                        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ' +
+                        (ticket.sla.status === 'red'
+                          ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/50'
+                          : ticket.sla.status === 'amber'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50'
+                          : 'bg-green-50 text-green-700 border border-green-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50')
+                      }
+                    >
+                      <span
+                        className={
+                          'h-1.5 w-1.5 rounded-full ' +
+                          (ticket.sla.status === 'red'
+                            ? 'bg-red-600'
+                            : ticket.sla.status === 'amber'
+                            ? 'bg-amber-600'
+                            : 'bg-emerald-600')
+                        }
+                      />
+                      {ticket.sla.status === 'red'
+                        ? 'Breached'
+                        : ticket.sla.status === 'amber'
+                        ? 'Critical'
+                        : 'Within SLA'}
+                    </span>
+                  </div>
+
+                  {ticket.sla.response_deadline && (
+                    <div className="flex justify-between flex-col gap-0.5 border-t border-gray-50 dark:border-[#2a2a2a] pt-2">
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">Response Deadline</span>
+                      <span className="text-xs font-mono text-gray-900 dark:text-white">
+                        {formatDate(ticket.sla.response_deadline)}
+                      </span>
+                    </div>
+                  )}
+
+                  {ticket.sla.first_response_at ? (
+                    <div className="flex justify-between flex-col gap-0.5">
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">Responded At</span>
+                      <span className="text-xs font-mono text-green-600 dark:text-emerald-400">
+                        {formatDate(ticket.sla.first_response_at)}
+                      </span>
+                    </div>
+                  ) : ticket.sla.response_breached_at ? (
+                    <div className="flex justify-between flex-col gap-0.5">
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">Response Breached</span>
+                      <span className="text-xs font-mono text-red-600 dark:text-red-400">
+                        {formatDate(ticket.sla.response_breached_at)}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {ticket.sla.resolution_deadline && (
+                    <div className="flex justify-between flex-col gap-0.5 border-t border-gray-50 dark:border-[#2a2a2a] pt-2">
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">Resolution Deadline</span>
+                      <span className="text-xs font-mono text-gray-900 dark:text-white">
+                        {formatDate(ticket.sla.resolution_deadline)}
+                      </span>
+                    </div>
+                  )}
+
+                  {ticket.sla.resolved_at ? (
+                    <div className="flex justify-between flex-col gap-0.5">
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">Resolved At</span>
+                      <span className="text-xs font-mono text-green-600 dark:text-emerald-400">
+                        {formatDate(ticket.sla.resolved_at)}
+                      </span>
+                    </div>
+                  ) : ticket.sla.resolution_breached_at ? (
+                    <div className="flex justify-between flex-col gap-0.5">
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">Resolution Breached</span>
+                      <span className="text-xs font-mono text-red-600 dark:text-red-400">
+                        {formatDate(ticket.sla.resolution_breached_at)}
+                      </span>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+            )}
+
             <CustomFieldsPanel ticketId={id} isStaffOrAdmin={isStaffOrAdmin} />
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                   Tags
                 </CardTitle>
               </CardHeader>
@@ -727,7 +855,7 @@ export function TicketDetailPage() {
             {attachments.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                     Attachments
                   </CardTitle>
                 </CardHeader>
@@ -736,10 +864,10 @@ export function TicketDetailPage() {
                     <a
                       key={a.id}
                       href={attachmentDownloadUrl(id, a.id)}
-                      className="flex items-center gap-2 text-sm text-blue-600 hover:underline truncate"
+                      className="flex items-center gap-2 text-sm text-blue-600 dark:text-[#faff69] hover:underline truncate"
                       download={a.filename}
                     >
-                      <span className="shrink-0 text-gray-400">↓</span>
+                      <span className="shrink-0 text-gray-400 dark:text-gray-500">↓</span>
                       <span className="truncate">{a.filename}</span>
                     </a>
                   ))}
@@ -750,11 +878,11 @@ export function TicketDetailPage() {
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                     Classification
                   </CardTitle>
                   {isStaffOrAdmin && !ctiEdit && (
-                    <button className="text-xs text-blue-600 hover:underline" onClick={startCtiEdit}>
+                    <button className="text-xs text-blue-600 dark:text-[#faff69] hover:underline" onClick={startCtiEdit}>
                       Edit
                     </button>
                   )}
@@ -764,7 +892,7 @@ export function TicketDetailPage() {
                 {ctiEdit ? (
                   <div className="space-y-2">
                     <div className="space-y-0.5">
-                      <Label className="text-xs text-gray-500">Category</Label>
+                      <Label className="text-xs text-gray-500 dark:text-gray-400">Category</Label>
                       <Select
                         className="h-7 text-xs w-full"
                         value={ctiCategoryId}
@@ -778,7 +906,7 @@ export function TicketDetailPage() {
                     </div>
                     {ctiTypes.length > 0 && (
                       <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-500">Type</Label>
+                        <Label className="text-xs text-gray-500 dark:text-gray-400">Type</Label>
                         <Select
                           className="h-7 text-xs w-full"
                           value={ctiTypeId}
@@ -793,7 +921,7 @@ export function TicketDetailPage() {
                     )}
                     {ctiItems.length > 0 && (
                       <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-500">Item</Label>
+                        <Label className="text-xs text-gray-500 dark:text-gray-400">Item</Label>
                         <Select
                           className="h-7 text-xs w-full"
                           value={ctiItemId}
@@ -829,19 +957,19 @@ export function TicketDetailPage() {
                 ) : (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Category</span>
-                      <span className="text-right text-xs font-medium">{categoryName ?? '—'}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Category</span>
+                      <span className="text-right text-xs font-medium dark:text-white">{categoryName ?? '—'}</span>
                     </div>
                     {ticket.type_id && (
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Type</span>
-                        <span className="text-right text-xs">{typeName ?? '—'}</span>
+                        <span className="text-gray-500 dark:text-gray-400">Type</span>
+                        <span className="text-right text-xs dark:text-gray-300">{typeName ?? '—'}</span>
                       </div>
                     )}
                     {ticket.item_id && (
                       <div className="flex justify-between">
-                        <span className="text-gray-500">Item</span>
-                        <span className="text-right text-xs">{itemName ?? '—'}</span>
+                        <span className="text-gray-500 dark:text-gray-400">Item</span>
+                        <span className="text-right text-xs dark:text-gray-300">{itemName ?? '—'}</span>
                       </div>
                     )}
                   </>
@@ -851,23 +979,23 @@ export function TicketDetailPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                   Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Priority</span>
+                  <span className="text-gray-500 dark:text-gray-400">Priority</span>
                   <Badge variant={priorityVariant(ticket.priority) as never}>{ticket.priority}</Badge>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Created</span>
-                  <span className="text-right text-xs">{formatDate(ticket.created_at)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Created</span>
+                  <span className="text-right text-xs dark:text-gray-300">{formatDate(ticket.created_at)}</span>
                 </div>
                 {ticket.resolved_at && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Resolved</span>
-                    <span className="text-right text-xs">{formatDate(ticket.resolved_at)}</span>
+                    <span className="text-gray-500 dark:text-gray-400">Resolved</span>
+                    <span className="text-right text-xs dark:text-gray-300">{formatDate(ticket.resolved_at)}</span>
                   </div>
                 )}
               </CardContent>

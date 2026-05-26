@@ -33,14 +33,14 @@ export function ConfirmDialog({
         <Dialog.Content
           className={cn(
             'fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2',
-            'rounded-lg bg-white p-5 shadow-lg focus:outline-none',
+            'rounded-lg bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a] p-5 shadow-lg focus:outline-none',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95'
           )}
         >
-          <Dialog.Title className="text-base font-semibold text-gray-900">{title}</Dialog.Title>
+          <Dialog.Title className="text-base font-semibold text-gray-900 dark:text-white">{title}</Dialog.Title>
           {description && (
             <Dialog.Description asChild>
-              <div className="mt-2 text-sm text-gray-600">{description}</div>
+              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">{description}</div>
             </Dialog.Description>
           )}
           <div className="mt-5 flex justify-end gap-2">

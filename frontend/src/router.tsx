@@ -17,9 +17,11 @@ import { RolesPage } from '@/pages/admin/RolesPage'
 import { SettingsPage } from '@/pages/admin/SettingsPage'
 import { TagsPage } from '@/pages/admin/TagsPage'
 import { CustomFieldsPage } from '@/pages/admin/CustomFieldsPage'
+import { PluginsPage } from '@/pages/admin/PluginsPage'
 import { GuestTicketPage } from '@/pages/GuestTicketPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
+import { CannedResponsesPage } from '@/pages/admin/CannedResponsesPage'
 
 async function requireAuth() {
   const { user, setUser } = useAuthStore.getState()
@@ -152,6 +154,20 @@ const adminCustomFieldsRoute = createRoute({
   component: CustomFieldsPage,
 })
 
+const adminPluginsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/plugins',
+  beforeLoad: requireAdmin,
+  component: PluginsPage,
+})
+
+const adminCannedResponsesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/canned-responses',
+  beforeLoad: requireAdmin,
+  component: CannedResponsesPage,
+})
+
 // ── Guest ─────────────────────────────────────────────────────────────────────
 const submitRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -202,7 +218,9 @@ export const router = createRouter({
     adminStatusesRoute,
     adminTagsRoute,
     adminCustomFieldsRoute,
+    adminPluginsRoute,
     adminSettingsRoute,
+    adminCannedResponsesRoute,
   ]),
 })
 

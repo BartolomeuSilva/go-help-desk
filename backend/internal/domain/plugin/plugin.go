@@ -43,6 +43,12 @@ type Registry interface {
 	// Register adds a native plugin. Called at startup for first-party plugins.
 	Register(manifest Manifest, handler Handler) error
 
+	// LoadWASM compiles and registers a third-party WASM plugin.
+	LoadWASM(ctx context.Context, p Plugin) error
+
+	// Unload removes a WASM plugin from the registry.
+	Unload(id string) error
+
 	// Dispatch sends an event to all enabled plugins subscribed to it.
 	Dispatch(ctx context.Context, event notification.Event) error
 
@@ -52,6 +58,9 @@ type Registry interface {
 	// Enable/Disable toggle a plugin without uninstalling it.
 	Enable(id string) error
 	Disable(id string) error
+
+	// Close shuts down the registry and releases WASM runtime resources.
+	Close(ctx context.Context) error
 }
 
 // Store persists plugin installation state.

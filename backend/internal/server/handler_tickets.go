@@ -3,13 +3,97 @@ package server
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/sla"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
 	authmw "github.com/publiciallc/go-help-desk/backend/internal/middleware"
 )
+
+type TicketResponse struct {
+	ticket.Ticket
+	SLA *sla.SLASummary `json:"sla,omitempty"`
+}
+
+func (s *Server) respondTickets(w http.ResponseWriter, r *http.Request, tickets []ticket.Ticket) {
+	ctx := r.Context()
+	slaEnabled := s.adminSvc.SLAEnabled(ctx)
+
+	var pendingStatusID uuid.UUID
+	if slaEnabled {
+		statuses, err := s.tickets.ListStatuses(ctx)
+		if err == nil {
+			for _, st := range statuses {
+				if st.Name == "Pending" {
+					pendingStatusID = st.ID
+					break
+				}
+			}
+		}
+	}
+
+	now := time.Now()
+	if tVal := ctx.Value("now"); tVal != nil {
+		if tTime, ok := tVal.(time.Time); ok {
+			now = tTime
+		}
+	}
+
+	res := make([]TicketResponse, len(tickets))
+	for i, t := range tickets {
+		res[i] = TicketResponse{Ticket: t}
+		if slaEnabled && pendingStatusID != uuid.Nil {
+			history, err := s.tickets.ListStatusHistory(ctx, t.ID)
+			if err == nil {
+				summary, err := s.slaPolicies.GetSLASummary(ctx, t, now, history, pendingStatusID)
+				if err == nil && summary != nil {
+					res[i].SLA = summary
+				}
+			}
+		}
+	}
+
+	JSON(w, http.StatusOK, res)
+}
+
+func (s *Server) respondTicket(w http.ResponseWriter, r *http.Request, t ticket.Ticket, statusCode int) {
+	ctx := r.Context()
+	slaEnabled := s.adminSvc.SLAEnabled(ctx)
+
+	res := TicketResponse{Ticket: t}
+	if slaEnabled {
+		statuses, err := s.tickets.ListStatuses(ctx)
+		if err == nil {
+			var pendingStatusID uuid.UUID
+			for _, st := range statuses {
+				if st.Name == "Pending" {
+					pendingStatusID = st.ID
+					break
+				}
+			}
+			if pendingStatusID != uuid.Nil {
+				history, err := s.tickets.ListStatusHistory(ctx, t.ID)
+				if err == nil {
+					now := time.Now()
+					if tVal := ctx.Value("now"); tVal != nil {
+						if tTime, ok := tVal.(time.Time); ok {
+							now = tTime
+						}
+					}
+					summary, err := s.slaPolicies.GetSLASummary(ctx, t, now, history, pendingStatusID)
+					if err == nil && summary != nil {
+						res.SLA = summary
+					}
+				}
+			}
+		}
+	}
+
+	JSON(w, statusCode, res)
+}
 
 // GET /api/v1/tickets
 // Returns tickets relevant to the current user:
@@ -47,7 +131,7 @@ func (s *Server) handleListTickets(w http.ResponseWriter, r *http.Request) {
 			handleError(w, err)
 			return
 		}
-		JSON(w, http.StatusOK, tickets)
+		s.respondTickets(w, r, tickets)
 		return
 	}
 
@@ -79,7 +163,7 @@ func (s *Server) handleListTickets(w http.ResponseWriter, r *http.Request) {
 			handleError(w, err)
 			return
 		}
-		JSON(w, http.StatusOK, tickets)
+		s.respondTickets(w, r, tickets)
 		return
 	}
 
@@ -98,7 +182,7 @@ func (s *Server) handleListTickets(w http.ResponseWriter, r *http.Request) {
 			handleError(w, err)
 			return
 		}
-		JSON(w, http.StatusOK, tickets)
+		s.respondTickets(w, r, tickets)
 		return
 	}
 
@@ -146,7 +230,7 @@ func (s *Server) handleListTickets(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	JSON(w, http.StatusOK, all)
+	s.respondTickets(w, r, all)
 }
 
 // POST /api/v1/tickets
@@ -248,7 +332,7 @@ func (s *Server) handleCreateTicket(w http.ResponseWriter, r *http.Request) {
 		_ = s.customFields.SetValue(r.Context(), t.ID, fieldDefID, value)
 	}
 
-	JSON(w, http.StatusCreated, t)
+	s.respondTicket(w, r, t, http.StatusCreated)
 }
 
 // GET /api/v1/tickets/{id}
@@ -277,7 +361,7 @@ func (s *Server) handleGetTicket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	JSON(w, http.StatusOK, t)
+	s.respondTicket(w, r, t, http.StatusOK)
 }
 
 // PATCH /api/v1/tickets/{id}
@@ -332,7 +416,7 @@ func (s *Server) handleUpdateTicket(w http.ResponseWriter, r *http.Request) {
 		handleError(w, err)
 		return
 	}
-	JSON(w, http.StatusOK, t)
+	s.respondTicket(w, r, t, http.StatusOK)
 }
 
 // POST /api/v1/tickets/{id}/replies

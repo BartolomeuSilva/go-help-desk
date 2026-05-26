@@ -20,16 +20,21 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/database/customfieldstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/groupstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/slastore"
+	"github.com/publiciallc/go-help-desk/backend/internal/database/pluginstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/database/registrationstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/database/cannedstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/sla"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/tagstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/ticketstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/userstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/auth"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/canned"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/category"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/customfield"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/group"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/plugin"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/registration"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/tag"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
@@ -40,6 +45,11 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
+
+type mockMailer struct{}
+func (mockMailer) SendVerificationEmail(to, token, baseURL string) error {
+	return nil
+}
 
 // harness is a test server wired against a real (rolled-back) DB transaction.
 type harness struct {
@@ -70,6 +80,9 @@ func newHarness(t *testing.T) (*harness, func()) {
 	authSt := authstore.New(q)
 	cfStore := customfieldstore.New(q)
 	tagSt := tagstore.New(q)
+	regStore := registrationstore.New(q)
+	pluginStore := pluginstore.New(q)
+	canStore := cannedstore.New(q)
 
 	// Services
 	userSvc := user.NewService(uStore)
@@ -78,8 +91,13 @@ func newHarness(t *testing.T) (*harness, func()) {
 	adminSvc := admin.NewService(aStore)
 	tagSvc := tag.NewService(tagSt)
 	customFieldSvc := customfield.NewService(cfStore)
+	registrationSvc := registration.NewService(regStore, userSvc, mockMailer{}, "")
+	cannedSvc := canned.NewService(canStore)
 	dispatcher := notify.NewMulti() // no-op in tests
-	ticketSvc := ticket.NewService(tStore, tStore, dispatcher, auStore, nil)
+	slaSvc := sla.NewService(slastore.New(q)).WithEnabledFunc(func(ctx context.Context) bool {
+		return adminSvc.SLAEnabled(ctx)
+	})
+	ticketSvc := ticket.NewService(tStore, tStore, dispatcher, auStore, slaSvc)
 	require.NoError(t, ticketSvc.LoadSystemStatuses(ctx))
 
 	// Seed an admin user.
@@ -158,12 +176,14 @@ func newHarness(t *testing.T) (*harness, func()) {
 		tagSvc,
 		adminSvc,
 		customFieldSvc,
-		sla.NewService(slastore.New(q)),
-		plugin.NewRegistry(),
+		slaSvc,
+		plugin.NewRegistry(ctx),
+		pluginStore,
 		apiKeyLookup,
 		authSt,
 		authSt,
-		nil, // registration service not needed in integration tests
+		registrationSvc,
+		cannedSvc,
 	)
 
 	h := &harness{
@@ -719,7 +739,7 @@ func TestCreateStatus_AsAdmin(t *testing.T) {
 	defer cleanup()
 
 	resp := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/statuses", map[string]any{
-		"name":       "In Progress",
+		"name":       "Testing In Progress",
 		"sort_order": 10,
 		"color":      "#ff9900",
 	})
@@ -727,7 +747,7 @@ func TestCreateStatus_AsAdmin(t *testing.T) {
 
 	var st map[string]any
 	decodeJSON(t, resp, &st)
-	require.Equal(t, "In Progress", st["name"])
+	require.Equal(t, "Testing In Progress", st["name"])
 }
 
 func TestDeleteStatus_Custom_AsAdmin(t *testing.T) {
@@ -735,7 +755,7 @@ func TestDeleteStatus_Custom_AsAdmin(t *testing.T) {
 	defer cleanup()
 
 	createResp := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/statuses", map[string]any{
-		"name":       "Pending",
+		"name":       "Testing Pending",
 		"sort_order": 11,
 		"color":      "#aabbcc",
 	})
@@ -871,6 +891,9 @@ func newBareHarness(t *testing.T) (*harness, func()) {
 	authSt := authstore.New(q)
 	cfStore := customfieldstore.New(q)
 	tagSt := tagstore.New(q)
+	regStore := registrationstore.New(q)
+	pluginStore := pluginstore.New(q)
+	canStore := cannedstore.New(q)
 
 	userSvc := user.NewService(uStore)
 	categorySvc := category.NewService(cStore)
@@ -878,6 +901,8 @@ func newBareHarness(t *testing.T) (*harness, func()) {
 	adminSvc := admin.NewService(aStore)
 	tagSvc := tag.NewService(tagSt)
 	customFieldSvc := customfield.NewService(cfStore)
+	registrationSvc := registration.NewService(regStore, userSvc, mockMailer{}, "")
+	cannedSvc := canned.NewService(canStore)
 	dispatcher := notify.NewMulti()
 	ticketSvc := ticket.NewService(tStore, tStore, dispatcher, auStore, nil)
 	require.NoError(t, ticketSvc.LoadSystemStatuses(ctx))
@@ -911,11 +936,13 @@ func newBareHarness(t *testing.T) (*harness, func()) {
 		adminSvc,
 		customFieldSvc,
 		sla.NewService(slastore.New(q)),
-		plugin.NewRegistry(),
+		plugin.NewRegistry(ctx),
+		pluginStore,
 		apiKeyLookup,
 		authSt,
 		authSt,
-		nil, // registration service not needed in integration tests
+		registrationSvc,
+		cannedSvc,
 	)
 
 	h := &harness{srv: srv}
@@ -1090,6 +1117,113 @@ func TestLocalLogin_MFARequired_RoleNotEnforced_Passes(t *testing.T) {
 	require.False(t, body["mfa_enrollment_needed"].(bool))
 }
 
+// ── Admin: canned responses ───────────────────────────────────────────────────
+
+func TestCannedResponses_CRUD_AsAdmin(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// Create
+	createResp := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/canned-responses", map[string]any{
+		"name":    "Password Reset",
+		"content": "Please reset your password at https://example.com/reset.",
+	})
+	require.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+	var created map[string]any
+	decodeJSON(t, createResp, &created)
+	require.Equal(t, "Password Reset", created["name"])
+	require.NotEmpty(t, created["id"])
+
+	id := created["id"].(string)
+
+	// Update
+	updateResp := h.doAsAdmin(t, http.MethodPatch, "/api/v1/admin/canned-responses/"+id, map[string]any{
+		"name":    "Password Reset (Updated)",
+		"content": "Updated content.",
+	})
+	require.Equal(t, http.StatusOK, updateResp.StatusCode)
+
+	var updated map[string]any
+	decodeJSON(t, updateResp, &updated)
+	require.Equal(t, "Password Reset (Updated)", updated["name"])
+
+	// Delete
+	deleteResp := h.doAsAdmin(t, http.MethodDelete, "/api/v1/admin/canned-responses/"+id, nil)
+	require.Equal(t, http.StatusNoContent, deleteResp.StatusCode)
+}
+
+func TestCannedResponses_DuplicateName_AsAdmin(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	body := map[string]any{
+		"name":    "Duplicate Template",
+		"content": "Some content.",
+	}
+
+	first := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/canned-responses", body)
+	require.Equal(t, http.StatusCreated, first.StatusCode)
+
+	second := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/canned-responses", body)
+	require.Equal(t, http.StatusConflict, second.StatusCode)
+}
+
+func TestListCannedResponses_AsStaff(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	resp := h.do(t, http.MethodGet, "/api/v1/canned-responses", nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var list []map[string]any
+	decodeJSON(t, resp, &list)
+	require.NotNil(t, list) // empty slice is fine, but must not be null
+}
+
+func TestListCannedResponses_PopulatedAsStaff(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// Admin creates a template.
+	createResp := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/canned-responses", map[string]any{
+		"name":    "Welcome Message",
+		"content": "Thank you for contacting support.",
+	})
+	require.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+	// Staff can list and see it.
+	listResp := h.do(t, http.MethodGet, "/api/v1/canned-responses", nil)
+	require.Equal(t, http.StatusOK, listResp.StatusCode)
+
+	var list []map[string]any
+	decodeJSON(t, listResp, &list)
+	require.Len(t, list, 1)
+	require.Equal(t, "Welcome Message", list[0]["name"])
+}
+
+func TestCannedResponses_StaffCannotMutate(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// Staff cannot create.
+	resp := h.do(t, http.MethodPost, "/api/v1/admin/canned-responses", map[string]any{
+		"name":    "Unauthorized",
+		"content": "Should not be created.",
+	})
+	require.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	// Staff cannot update or delete a non-existent (or any) resource.
+	fakeID := uuid.New().String()
+	require.Equal(t, http.StatusForbidden,
+		h.do(t, http.MethodPatch, "/api/v1/admin/canned-responses/"+fakeID, map[string]any{
+			"name": "x", "content": "y",
+		}).StatusCode)
+
+	require.Equal(t, http.StatusForbidden,
+		h.do(t, http.MethodDelete, "/api/v1/admin/canned-responses/"+fakeID, nil).StatusCode)
+}
+
 func TestLocalLogin_MFAEnrolled_DemandsVerification(t *testing.T) {
 	h, cleanup := newHarness(t)
 	defer cleanup()
@@ -1109,4 +1243,74 @@ func TestLocalLogin_MFAEnrolled_DemandsVerification(t *testing.T) {
 	decodeJSON(t, resp, &body)
 	require.True(t, body["mfa_needed"].(bool))
 	require.False(t, body["mfa_enrollment_needed"].(bool))
+}
+
+// ── SLA Integration ───────────────────────────────────────────────────────────
+
+func TestTicketSLA_Integration(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// 1. Enable SLA tracking
+	require.NoError(t, h.adminSvc.SetBool(ctx, admin.KeySLAEnabled, true))
+
+	// 2. Create an SLA policy for high priority
+	policyResp := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/sla/policies", map[string]any{
+		"name":                  "Urgent SLA",
+		"priority":              "high",
+		"response_target_min":   60,
+		"resolution_target_min": 180,
+	})
+	require.Equal(t, http.StatusCreated, policyResp.StatusCode)
+
+	var policy map[string]any
+	decodeJSON(t, policyResp, &policy)
+	require.NotEmpty(t, policy["id"])
+
+	// 3. Create a ticket with High priority
+	catID := h.catID.String()
+
+	ticketResp := h.do(t, http.MethodPost, "/api/v1/tickets", map[string]any{
+		"subject":     "SLA Test Ticket",
+		"description": "testing sla integration",
+		"category_id": catID,
+		"priority":    "high",
+	})
+	require.Equal(t, http.StatusCreated, ticketResp.StatusCode)
+
+	var tk map[string]any
+	decodeJSON(t, ticketResp, &tk)
+	require.NotEmpty(t, tk["id"])
+	ticketID := tk["id"].(string)
+
+	// Verify creation response includes SLA
+	require.NotEmpty(t, tk["sla"])
+	slaObj := tk["sla"].(map[string]any)
+	require.Equal(t, "green", slaObj["status"])
+	require.NotEmpty(t, slaObj["response_deadline"])
+
+	// 4. Retrieve ticket and verify SLA info
+	getResp := h.do(t, http.MethodGet, "/api/v1/tickets/"+ticketID, nil)
+	require.Equal(t, http.StatusOK, getResp.StatusCode)
+	var gotTicket map[string]any
+	decodeJSON(t, getResp, &gotTicket)
+	require.NotEmpty(t, gotTicket["sla"])
+	require.Equal(t, "green", gotTicket["sla"].(map[string]any)["status"])
+
+	// 5. List tickets and verify SLA is included
+	listResp := h.doAsAdmin(t, http.MethodGet, "/api/v1/tickets?scope=all", nil)
+	require.Equal(t, http.StatusOK, listResp.StatusCode)
+	var list []map[string]any
+	decodeJSON(t, listResp, &list)
+	
+	found := false
+	for _, item := range list {
+		if item["id"] == ticketID {
+			found = true
+			require.NotEmpty(t, item["sla"])
+			require.Equal(t, "green", item["sla"].(map[string]any)["status"])
+		}
+	}
+	require.True(t, found, "ticket must be found in list")
 }

@@ -20,6 +20,8 @@ import (
 //go:embed templates/*.tmpl
 var templateFS embed.FS
 
+var smtpSendMail = smtp.SendMail
+
 // EmailDispatcher sends email notifications on ticket events.
 // It is a no-op when SMTP is not configured.
 type EmailDispatcher struct {
@@ -167,5 +169,5 @@ func (d *EmailDispatcher) send(to, subject string, body []byte) error {
 	if d.cfg.SMTPUser != "" {
 		auth = smtp.PlainAuth("", d.cfg.SMTPUser, d.cfg.SMTPPassword, d.cfg.SMTPHost)
 	}
-	return smtp.SendMail(addr, auth, fromAddr.Address, []string{toAddr.Address}, msg.Bytes())
+	return smtpSendMail(addr, auth, fromAddr.Address, []string{toAddr.Address}, msg.Bytes())
 }

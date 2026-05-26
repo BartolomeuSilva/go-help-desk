@@ -172,6 +172,12 @@ func (s *Server) adminRouter() *chi.Mux {
 		r.Delete("/{id}", s.handleUninstallPlugin)
 	})
 
+	r.Route("/canned-responses", func(r chi.Router) {
+		r.Post("/", s.handleCreateCannedResponse)
+		r.Patch("/{id}", s.handleUpdateCannedResponse)
+		r.Delete("/{id}", s.handleDeleteCannedResponse)
+	})
+
 	r.Route("/api-keys", func(r chi.Router) {
 		r.Get("/", s.handleListAPIKeys)
 		r.Post("/", s.handleCreateAPIKey)

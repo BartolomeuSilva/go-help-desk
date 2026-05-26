@@ -167,3 +167,106 @@ func TestSLAService_EvaluateBreaches(t *testing.T) {
 	require.NotNil(t, rec.ResponseBreachedAt, "response should be breached")
 	require.NotNil(t, rec.ResolutionBreachedAt, "resolution should be breached")
 }
+
+func TestSLAService_GetSLASummary(t *testing.T) {
+	store := newFakeSLAStore()
+	policyID := uuid.New()
+	ticketID := uuid.New()
+	pendingStatusID := uuid.New()
+	otherStatusID := uuid.New()
+
+	policy := sla.Policy{
+		ID:                  policyID,
+		ResponseTargetMin:   60,  // 1 hour
+		ResolutionTargetMin: 240, // 4 hours
+	}
+	store.policies[policyID] = policy
+	store.records[ticketID] = sla.Record{
+		TicketID: ticketID,
+		PolicyID: policyID,
+	}
+
+	createdAt := time.Now().Add(-2 * time.Hour) // created 2h ago
+	tk := ticket.Ticket{
+		ID:        ticketID,
+		CreatedAt: createdAt,
+		StatusID:  otherStatusID,
+	}
+
+	svc := sla.NewService(store)
+
+	t.Run("without pending duration - breached (red)", func(t *testing.T) {
+		// Response target is 1 hour, ticket is 2 hours old -> breached
+		summary, err := svc.GetSLASummary(context.Background(), tk, time.Now(), nil, pendingStatusID)
+		require.NoError(t, err)
+		require.NotNil(t, summary)
+		require.Equal(t, "red", summary.Status)
+		require.Equal(t, createdAt.Add(60*time.Minute).Unix(), summary.ResponseDeadline.Unix())
+	})
+
+	t.Run("with pending duration - extending deadline to green", func(t *testing.T) {
+		// Ticket was in Pending for 1.5 hours:
+		// Created (t=0): entered otherStatusID
+		// t=15m: moved to Pending
+		// t=1h45m (1.5h later): moved to otherStatusID
+		history := []ticket.StatusHistoryEntry{
+			{
+				ID:           uuid.New(),
+				TicketID:     ticketID,
+				ToStatusID:   otherStatusID,
+				CreatedAt:    createdAt,
+			},
+			{
+				ID:           uuid.New(),
+				TicketID:     ticketID,
+				ToStatusID:   pendingStatusID,
+				CreatedAt:    createdAt.Add(15 * time.Minute),
+			},
+			{
+				ID:           uuid.New(),
+				TicketID:     ticketID,
+				ToStatusID:   otherStatusID,
+				CreatedAt:    createdAt.Add(105 * time.Minute), // 1h45m
+			},
+		}
+
+		// Adjusted response deadline = createdAt + 60m + 90m (pending) = createdAt + 150m (2.5h)
+		// Current time is 2h after creation, so we are at 120m -> within green zone (120m / 150m = 80%, remaining 30m is 50% of original 60m target)
+		summary, err := svc.GetSLASummary(context.Background(), tk, createdAt.Add(120*time.Minute), history, pendingStatusID)
+		require.NoError(t, err)
+		require.NotNil(t, summary)
+		require.Equal(t, "green", summary.Status)
+		require.Equal(t, createdAt.Add(150*time.Minute).Unix(), summary.ResponseDeadline.Unix())
+	})
+
+	t.Run("with pending duration - amber status", func(t *testing.T) {
+		// Target = 60m. Amber threshold (20% remaining) = 12m before deadline.
+		// Adjusted response deadline = createdAt + 150m (2.5h)
+		// We test at t=2h20m (140m), which leaves 10m remaining (<= 12m) -> should be amber
+		history := []ticket.StatusHistoryEntry{
+			{
+				ID:           uuid.New(),
+				TicketID:     ticketID,
+				ToStatusID:   otherStatusID,
+				CreatedAt:    createdAt,
+			},
+			{
+				ID:           uuid.New(),
+				TicketID:     ticketID,
+				ToStatusID:   pendingStatusID,
+				CreatedAt:    createdAt.Add(15 * time.Minute),
+			},
+			{
+				ID:           uuid.New(),
+				TicketID:     ticketID,
+				ToStatusID:   otherStatusID,
+				CreatedAt:    createdAt.Add(105 * time.Minute),
+			},
+		}
+
+		summary, err := svc.GetSLASummary(context.Background(), tk, createdAt.Add(140*time.Minute), history, pendingStatusID)
+		require.NoError(t, err)
+		require.NotNil(t, summary)
+		require.Equal(t, "amber", summary.Status)
+	})
+}

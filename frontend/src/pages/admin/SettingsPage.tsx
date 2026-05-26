@@ -39,7 +39,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h2>
-      <div className="divide-y rounded-lg border bg-white">{children}</div>
+      <div className="divide-y rounded-lg border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] dark:divide-[#2a2a2a]">{children}</div>
     </div>
   )
 }
@@ -739,9 +739,9 @@ function SLAPoliciesSection() {
       </div>
       <div className="px-5 py-4 space-y-3">
         {showTable ? (
-          <div className="overflow-x-auto rounded border bg-white">
+          <div className="overflow-x-auto rounded border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a]">
             <table className="w-full text-sm">
-              <thead className="border-b bg-gray-50">
+              <thead className="border-b border-gray-200 dark:border-[#2a2a2a] bg-gray-50 dark:bg-[#0a0a0a]">
                 <tr className="text-left text-xs font-medium text-gray-500">
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Priority</th>

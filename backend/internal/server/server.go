@@ -19,6 +19,7 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/database/authstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/auth"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/canned"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/category"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/customfield"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/group"
@@ -74,6 +75,8 @@ type Server struct {
 	customFields *customfield.Service
 	slaPolicies  *sla.Service
 	plugins      plugin.Registry
+	pluginStore  plugin.Store
+	canned       *canned.Service
 
 	apiKeyLookup     authmw.APIKeyAuthFunc
 	oauthClientStore OAuthClientLookup
@@ -97,10 +100,12 @@ func New(
 	customFields *customfield.Service,
 	slaPolicies *sla.Service,
 	plugins plugin.Registry,
+	pluginStore plugin.Store,
 	apiKeyLookup authmw.APIKeyAuthFunc,
 	oauthClients OAuthClientLookup,
 	authStore AuthStoreIface,
 	registrationSvc *registration.Service,
+	canned *canned.Service,
 ) *Server {
 	s := &Server{
 		cfg:              cfg,
@@ -115,9 +120,11 @@ func New(
 		customFields:     customFields,
 		slaPolicies:      slaPolicies,
 		plugins:          plugins,
+		pluginStore:      pluginStore,
 		apiKeyLookup:     apiKeyLookup,
 		oauthClientStore: oauthClients,
 		authStore:        authStore,
+		canned:           canned,
 	}
 	s.router = s.buildRouter()
 	return s
@@ -195,6 +202,7 @@ func (s *Server) buildRouter() *chi.Mux {
 		r.Get("/categories/{id}/types/{typeId}/items", s.handleListPublicItems)
 		// Statuses are needed by all authenticated users for display (ticket list, detail, dashboard).
 		r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff, user.RoleUser)).Get("/statuses", s.handleListStatuses)
+		r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff)).Get("/canned-responses", s.handleListCannedResponses)
 		r.Mount("/admin", s.adminRouter())
 		r.Mount("/me", s.meRouter())
 	})
@@ -251,10 +259,11 @@ func (s *Server) handleListPublicItems(w http.ResponseWriter, r *http.Request) {
 // handleGetSiteConfig returns public-facing branding info and the app version.
 // No authentication required — used by the SPA shell before login.
 func (s *Server) handleGetSiteConfig(w http.ResponseWriter, r *http.Request) {
-	JSON(w, http.StatusOK, map[string]string{
-		"name":     s.adminSvc.SiteName(r.Context()),
-		"logo_url": s.adminSvc.SiteLogoURL(r.Context()),
-		"version":  version.Version,
+	JSON(w, http.StatusOK, map[string]any{
+		"name":        s.adminSvc.SiteName(r.Context()),
+		"logo_url":    s.adminSvc.SiteLogoURL(r.Context()),
+		"version":     version.Version,
+		"sla_enabled": s.adminSvc.SLAEnabled(r.Context()),
 	})
 }
 

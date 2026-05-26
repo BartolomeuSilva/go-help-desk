@@ -1,14 +1,8 @@
 import { api } from './client'
-import type { User, AdminUser, Group, Category, TicketType, TicketItem, Status, APIKey, WebhookConfig, Tag, FieldDef, Assignment, ScopeType, SLAPolicy } from './types'
+import type { User, AdminUser, Group, Category, TicketType, TicketItem, Status, APIKey, WebhookConfig, Tag, FieldDef, Assignment, ScopeType, SLAPolicy, Plugin, SiteConfig } from './types'
 import type { Role } from './types'
 
 // ── Site config (public) ──────────────────────────────────────────────────────
-
-export interface SiteConfig {
-  name: string
-  logo_url: string
-  version: string
-}
 
 export async function getSiteConfig(): Promise<SiteConfig> {
   const res = await api.get<SiteConfig>('/site')
@@ -483,3 +477,28 @@ export async function updateSLAPolicy(
 export async function deleteSLAPolicy(id: string): Promise<void> {
   await api.delete(`/admin/sla/policies/${id}`)
 }
+
+// ── Plugins ──────────────────────────────────────────────────────────────────
+
+export async function listPlugins(): Promise<Plugin[]> {
+  const res = await api.get<Plugin[]>('/admin/plugins')
+  return res.data
+}
+
+export async function installPlugin(file: File): Promise<Plugin> {
+  const form = new FormData()
+  form.append('plugin', file)
+  const res = await api.post<Plugin>('/admin/plugins', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data
+}
+
+export async function updatePlugin(id: string, patch: { enabled: boolean }): Promise<void> {
+  await api.patch(`/admin/plugins/${id}`, patch)
+}
+
+export async function uninstallPlugin(id: string): Promise<void> {
+  await api.delete(`/admin/plugins/${id}`)
+}
+

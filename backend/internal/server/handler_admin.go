@@ -1,17 +1,27 @@
 package server
 
 import (
+	"archive/zip"
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
+	"io"
+	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/authstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/database/pluginstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/auth"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/category"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/group"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/notification"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/plugin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
 	authmw "github.com/publiciallc/go-help-desk/backend/internal/middleware"
@@ -994,7 +1004,130 @@ func (s *Server) handleListPlugins(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleInstallPlugin(w http.ResponseWriter, r *http.Request) {
-	Error(w, http.StatusNotImplemented, "not_implemented", "WASM plugin upload not yet implemented")
+	if err := r.ParseMultipartForm(30 << 20); err != nil {
+		Error(w, http.StatusBadRequest, "bad_request", "failed to parse multipart form")
+		return
+	}
+
+	file, _, err := r.FormFile("plugin")
+	if err != nil {
+		file, _, err = r.FormFile("file")
+		if err != nil {
+			Error(w, http.StatusBadRequest, "bad_request", "plugin or file parameter is required")
+			return
+		}
+	}
+	defer file.Close()
+
+	zipBytes, err := io.ReadAll(file)
+	if err != nil {
+		Error(w, http.StatusBadRequest, "bad_request", "failed to read uploaded file")
+		return
+	}
+
+	reader, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "bad_request", "invalid zip archive: "+err.Error())
+		return
+	}
+
+	var manifestBytes []byte
+	var wasmBytes []byte
+	for _, f := range reader.File {
+		if f.Name == "manifest.json" {
+			rc, err := f.Open()
+			if err == nil {
+				manifestBytes, _ = io.ReadAll(rc)
+				rc.Close()
+			}
+		} else if f.Name == "plugin.wasm" {
+			rc, err := f.Open()
+			if err == nil {
+				wasmBytes, _ = io.ReadAll(rc)
+				rc.Close()
+			}
+		}
+	}
+
+	if len(manifestBytes) == 0 {
+		Error(w, http.StatusBadRequest, "invalid_plugin", "manifest.json not found in zip archive")
+		return
+	}
+	if len(wasmBytes) == 0 {
+		Error(w, http.StatusBadRequest, "invalid_plugin", "plugin.wasm not found in zip archive")
+		return
+	}
+
+	var manifestData struct {
+		ID          string   `json:"id"`
+		Name        string   `json:"name"`
+		Version     string   `json:"version"`
+		Description string   `json:"description"`
+		Author      string   `json:"author"`
+		Hooks       []string `json:"hooks"`
+	}
+	if err := json.Unmarshal(manifestBytes, &manifestData); err != nil {
+		Error(w, http.StatusBadRequest, "invalid_manifest", "failed to parse manifest.json: "+err.Error())
+		return
+	}
+
+	if manifestData.ID == "" || manifestData.Name == "" || manifestData.Version == "" {
+		Error(w, http.StatusBadRequest, "invalid_manifest", "id, name, and version are required in manifest.json")
+		return
+	}
+
+	pluginDir := s.cfg.AttachmentDir + "/../plugins"
+	absPluginDir, err := filepath.Abs(pluginDir)
+	if err != nil {
+		absPluginDir = "/data/plugins"
+	}
+	if err := os.MkdirAll(absPluginDir, 0755); err != nil {
+		slog.Error("failed to create plugins directory", "error", err)
+		Error(w, http.StatusInternalServerError, "internal_error", "failed to initialize plugins directory")
+		return
+	}
+
+	wasmPath := filepath.Join(absPluginDir, manifestData.ID+".wasm")
+	if err := os.WriteFile(wasmPath, wasmBytes, 0644); err != nil {
+		slog.Error("failed to write wasm file to disk", "error", err)
+		Error(w, http.StatusInternalServerError, "internal_error", "failed to save plugin binary")
+		return
+	}
+
+	hooks := make([]notification.EventType, len(manifestData.Hooks))
+	for i, h := range manifestData.Hooks {
+		hooks[i] = notification.EventType(h)
+	}
+
+	p := plugin.Plugin{
+		Manifest: plugin.Manifest{
+			ID:          manifestData.ID,
+			Name:        manifestData.Name,
+			Version:     manifestData.Version,
+			Description: manifestData.Description,
+			Author:      manifestData.Author,
+			Hooks:       hooks,
+			Runtime:     plugin.RuntimeWASM,
+		},
+		Enabled:     true,
+		WASMPath:    wasmPath,
+		InstalledAt: time.Now(),
+	}
+
+	if err := s.pluginStore.Create(r.Context(), p); err != nil {
+		os.Remove(wasmPath)
+		handleError(w, err)
+		return
+	}
+
+	if err := s.plugins.LoadWASM(r.Context(), p); err != nil {
+		_ = s.pluginStore.Delete(r.Context(), p.Manifest.ID)
+		os.Remove(wasmPath)
+		Error(w, http.StatusBadRequest, "load_error", "failed to compile wasm module: "+err.Error())
+		return
+	}
+
+	JSON(w, http.StatusCreated, p)
 }
 
 func (s *Server) handleUpdatePlugin(w http.ResponseWriter, r *http.Request) {
@@ -1006,21 +1139,71 @@ func (s *Server) handleUpdatePlugin(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
 		return
 	}
-	var err error
-	if body.Enabled {
-		err = s.plugins.Enable(id)
-	} else {
-		err = s.plugins.Disable(id)
-	}
+
+	p, err := s.pluginStore.GetByID(r.Context(), id)
 	if err != nil {
+		if errors.Is(err, pluginstore.ErrNotFound) {
+			// For native plugins that are not persisted, just toggle in registry
+			var rerr error
+			if body.Enabled {
+				rerr = s.plugins.Enable(id)
+			} else {
+				rerr = s.plugins.Disable(id)
+			}
+			if rerr != nil {
+				handleError(w, rerr)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		handleError(w, err)
+		return
+	}
+
+	p.Enabled = body.Enabled
+	if err := s.pluginStore.Update(r.Context(), p); err != nil {
+		handleError(w, err)
+		return
+	}
+
+	var rerr error
+	if body.Enabled {
+		rerr = s.plugins.Enable(id)
+	} else {
+		rerr = s.plugins.Disable(id)
+	}
+	if rerr != nil {
+		handleError(w, rerr)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleUninstallPlugin(w http.ResponseWriter, r *http.Request) {
-	Error(w, http.StatusNotImplemented, "not_implemented", "plugin uninstall not yet implemented")
+	id := chi.URLParam(r, "id")
+	p, err := s.pluginStore.GetByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, pluginstore.ErrNotFound) {
+			Error(w, http.StatusNotFound, "not_found", "plugin not found")
+			return
+		}
+		handleError(w, err)
+		return
+	}
+
+	if err := s.pluginStore.Delete(r.Context(), id); err != nil {
+		handleError(w, err)
+		return
+	}
+
+	_ = s.plugins.Unload(id)
+
+	if p.WASMPath != "" {
+		_ = os.Remove(p.WASMPath)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ── API Keys ─────────────────────────────────────────────────────────────────

@@ -380,7 +380,7 @@ func TestTicketStore_ScopedListsAndCounts(t *testing.T) {
 	})
 
 	t.Run("SearchUnassigned filters and excludes assigned", func(t *testing.T) {
-		got, err := ts.SearchUnassigned(ctx, "assigned", 100, 0)
+		got, err := ts.SearchUnassigned(ctx, "assigned to", 100, 0)
 		require.NoError(t, err)
 		require.Len(t, got, 0)
 	})

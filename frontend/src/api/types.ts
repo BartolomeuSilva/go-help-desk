@@ -96,6 +96,7 @@ export interface Ticket {
   closed_at?: string
   created_at: string
   updated_at: string
+  sla?: SLASummary
 }
 
 export interface Attachment {
@@ -144,6 +145,13 @@ export interface APIKey {
   last_used_at?: string
   expires_at?: string
   created_at: string
+}
+
+export interface SiteConfig {
+  name: string
+  logo_url: string
+  version: string
+  sla_enabled: boolean
 }
 
 export interface WebhookConfig {
@@ -209,3 +217,44 @@ export interface SLAPolicy {
   response_target_min: number
   resolution_target_min: number
 }
+
+// ── Plugins ──────────────────────────────────────────────────────────────────
+
+export type PluginRuntime = 'native' | 'wasm'
+
+export interface PluginManifest {
+  id: string
+  name: string
+  version: string
+  description: string
+  author: string
+  hooks: string[]
+  runtime: PluginRuntime
+}
+
+export interface Plugin {
+  manifest: PluginManifest
+  enabled: boolean
+  wasm_path?: string
+  installed_at: string
+}
+
+export interface CannedResponse {
+  id: string
+  name: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SLASummary {
+  status: 'green' | 'amber' | 'red'
+  response_deadline?: string
+  resolution_deadline?: string
+  response_breached_at?: string
+  resolution_breached_at?: string
+  first_response_at?: string
+  resolved_at?: string
+}
+
+

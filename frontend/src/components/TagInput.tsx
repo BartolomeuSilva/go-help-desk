@@ -116,16 +116,16 @@ export function TagInput({ ticketId, readonly = false }: TagInputProps) {
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
             placeholder="Add tag…"
-            className="h-8 w-full rounded-md border border-gray-200 bg-white px-3 text-xs text-gray-800 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="h-8 w-full rounded-md border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] px-3 text-xs text-gray-800 dark:text-white placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
 
           {/* Dropdown */}
           {open && filtered.length > 0 && (
-            <ul className="absolute z-10 mt-1 w-full rounded-md border bg-white py-1 shadow-lg text-xs">
+            <ul className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] py-1 shadow-lg text-xs text-gray-700 dark:text-[#cccccc]">
               {filtered.map((s) => (
                 <li
                   key={s.id}
-                  className="cursor-pointer px-3 py-1.5 hover:bg-blue-50 text-gray-700"
+                  className="cursor-pointer px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-[#2a2a2a] hover:text-blue-800 dark:hover:text-[#faff69]"
                   onMouseDown={(e) => {
                     e.preventDefault()
                     submit(s.name)
@@ -139,7 +139,7 @@ export function TagInput({ ticketId, readonly = false }: TagInputProps) {
 
           {/* "Press Enter to create" hint */}
           {open && input.trim() && filtered.length === 0 && (
-            <div className="absolute z-10 mt-1 w-full rounded-md border bg-white px-3 py-2 shadow-lg text-xs text-gray-500">
+            <div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] px-3 py-2 shadow-lg text-xs text-gray-500 dark:text-gray-400">
               Press Enter to create &ldquo;{input.trim().toLowerCase()}&rdquo;
             </div>
           )}

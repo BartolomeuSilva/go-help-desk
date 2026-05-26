@@ -27,10 +27,13 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/database/slastore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/tagstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/ticketstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/database/pluginstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/database/cannedstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/userstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/dbgen"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/auth"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/canned"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/category"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/customfield"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/group"
@@ -98,6 +101,8 @@ func run() error {
 	authStore := authstore.New(q)
 	cfStore := customfieldstore.New(q)
 	regStore := registrationstore.New(q)
+	pluginStore := pluginstore.New(q)
+	canStore := cannedstore.New(q)
 
 	// ── Domain services ───────────────────────────────────────────────────────
 	tagStore := tagstore.New(q)
@@ -108,18 +113,31 @@ func run() error {
 	tagSvc := tag.NewService(tagStore)
 	adminSvc := admin.NewService(aStore)
 	customFieldSvc := customfield.NewService(cfStore)
+	cannedSvc := canned.NewService(canStore)
 
 	// slaPolicySvc is always created so the admin blade can manage policies
 	// regardless of whether SLA enforcement is active.
 	slaPolicySvc := sla.NewService(slStore)
 
-	// slaSvc is passed to the ticket service for enforcement; nil when disabled
-	// via the SLA_ENABLED env var (preserves existing behaviour).
-	// Declared as the interface type so the zero value is a true nil interface,
-	// not a (*sla.Service)(nil) wrapped in an interface (which would pass != nil checks).
-	var slaSvc ticket.SLAService
-	if cfg.SLAEnabled {
-		slaSvc = sla.NewService(slStore)
+	// slaSvc is passed to the ticket service for enforcement; it uses a dynamic check
+	// for whether SLA is enabled based on admin settings or startup configuration.
+	slaSvc := sla.NewService(slStore).WithEnabledFunc(func(ctx context.Context) bool {
+		return adminSvc.SLAEnabled(ctx)
+	})
+
+	// ── Plugin registry ───────────────────────────────────────────────────────
+	pluginRegistry := plugin.NewRegistry(ctx)
+	installedPlugins, err := pluginStore.List(ctx)
+	if err != nil {
+		return fmt.Errorf("loading installed plugins: %w", err)
+	}
+	for _, p := range installedPlugins {
+		if p.Manifest.Runtime == plugin.RuntimeWASM {
+			slog.Info("loading WASM plugin", "id", p.Manifest.ID, "path", p.WASMPath)
+			if err := pluginRegistry.LoadWASM(ctx, p); err != nil {
+				slog.Error("failed to load WASM plugin on startup", "id", p.Manifest.ID, "error", err)
+			}
+		}
 	}
 
 	// ── Notifications ─────────────────────────────────────────────────────────
@@ -128,13 +146,10 @@ func run() error {
 		return fmt.Errorf("initialising email dispatcher: %w", err)
 	}
 	webhookDisp := notify.NewWebhookDispatcher(authStore)
-	dispatcher := notify.NewMulti(emailDisp, webhookDisp)
+	dispatcher := notify.NewMulti(emailDisp, webhookDisp, pluginRegistry)
 
 	// ── Registration service ──────────────────────────────────────────────────
 	registrationSvc := registration.NewService(regStore, userSvc, emailDisp, cfg.BaseURL)
-
-	// ── Plugin registry ───────────────────────────────────────────────────────
-	pluginRegistry := plugin.NewRegistry()
 
 	// ── Ticket service ────────────────────────────────────────────────────────
 	ticketSvc := ticket.NewService(tStore, tStore, dispatcher, auStore, slaSvc)
@@ -177,10 +192,12 @@ func run() error {
 		customFieldSvc,
 		slaPolicySvc,
 		pluginRegistry,
+		pluginStore,
 		apiKeyLookup,
 		authStore,
 		authStore,
 		registrationSvc,
+		cannedSvc,
 	)
 
 	srv.InitSAML(ctx)

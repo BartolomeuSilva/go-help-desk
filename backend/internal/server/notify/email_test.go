@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"net/smtp"
 	"strings"
 	"testing"
 
@@ -9,6 +10,13 @@ import (
 )
 
 func TestSendRejectsHeaderInjection(t *testing.T) {
+	// Intercept and mock smtp.SendMail to prevent dialing a real server during tests
+	oldSendMail := smtpSendMail
+	defer func() { smtpSendMail = oldSendMail }()
+	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+		return nil
+	}
+
 	cases := []struct {
 		name      string
 		to        string
