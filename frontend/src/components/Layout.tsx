@@ -84,11 +84,11 @@ export function Layout({ children }: LayoutProps) {
         {/* Sidebar */}
         <aside className="flex w-60 flex-col border-r border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#0a0a0a]">
           {/* Branding */}
-          <div className="flex h-14 items-center border-b border-gray-200 dark:border-[#2a2a2a] px-4">
+          <div className="flex h-14 items-center justify-center border-b border-gray-200 dark:border-[#2a2a2a] px-4">
             {logoURL ? (
-              <img src={logoURL} alt={siteName} className="h-8 max-w-[160px] object-contain" />
+              <img src={logoURL} alt={siteName} className="max-h-10 w-full max-w-[200px] object-contain" />
             ) : (
-              <span className="text-lg font-semibold text-gray-900 dark:text-white">{siteName}</span>
+              <span className="text-lg font-semibold text-gray-900 dark:text-white truncate">{siteName}</span>
             )}
           </div>
 
