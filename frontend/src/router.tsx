@@ -26,6 +26,7 @@ import { KBPage } from '@/pages/kb/KBPage'
 import { KBArticleDetailPage } from '@/pages/kb/KBArticleDetailPage'
 import { KBAdminPage } from '@/pages/admin/KBAdminPage'
 import { KBArticleEditorPage } from '@/pages/admin/KBArticleEditorPage'
+import { HelpPage } from '@/pages/HelpPage'
 
 async function requireAuth() {
   const { user, setUser } = useAuthStore.getState()
@@ -92,6 +93,13 @@ const ticketDetailRoute = createRoute({
   path: '/tickets/$id',
   beforeLoad: requireAuth,
   component: TicketDetailPage,
+})
+
+const helpRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/help',
+  beforeLoad: requireAuth,
+  component: HelpPage,
 })
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
@@ -247,6 +255,7 @@ export const router = createRouter({
     ticketsRoute,
     newTicketRoute,
     ticketDetailRoute,
+    helpRoute,
     kbRoute,
     kbArticleDetailRoute,
     adminKBRoute,
