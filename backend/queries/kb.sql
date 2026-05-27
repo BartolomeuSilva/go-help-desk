@@ -57,3 +57,15 @@ WHERE id = $1;
 UPDATE kb_articles
 SET views = views + 1
 WHERE id = $1;
+
+-- name: SearchKBArticlesAll :many
+SELECT * FROM kb_articles
+WHERE tsv @@ websearch_to_tsquery('simple', $1)
+ORDER BY created_at DESC;
+
+-- name: SearchKBArticlesPublic :many
+SELECT a.* FROM kb_articles a
+JOIN kb_categories c ON a.category_id = c.id
+WHERE c.is_public = true AND a.status = 'published'
+  AND a.tsv @@ websearch_to_tsquery('simple', $1)
+ORDER BY a.created_at DESC;

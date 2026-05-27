@@ -6,9 +6,9 @@ INSERT INTO tickets (
     id, tracking_number, subject, description,
     category_id, type_id, item_id, priority, status_id,
     assignee_user_id, assignee_group_id, reporter_user_id, guest_email,
-    guest_name, guest_phone,
+    guest_name, guest_phone, ticket_type,
     created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18);
 
 -- name: GetTicketByID :one
 SELECT * FROM tickets WHERE id = $1;
@@ -20,7 +20,7 @@ SELECT * FROM tickets WHERE tracking_number = $1;
 UPDATE tickets
 SET subject = $2, description = $3, type_id = $4, item_id = $5,
     priority = $6, status_id = $7, assignee_user_id = $8, assignee_group_id = $9,
-    resolution_notes = $10, resolved_at = $11, closed_at = $12, updated_at = $13
+    resolution_notes = $10, resolved_at = $11, closed_at = $12, ticket_type = $13, updated_at = $14
 WHERE id = $1;
 
 -- name: UpdateTicketCTI :exec
@@ -34,7 +34,7 @@ SELECT * FROM tickets WHERE reporter_user_id = $1 ORDER BY created_at DESC LIMIT
 -- name: SearchTicketsByReporter :many
 SELECT * FROM tickets
 WHERE reporter_user_id = $1
-  AND (tracking_number ILIKE $4 OR subject ILIKE $4 OR description ILIKE $4)
+  AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3;
 
 -- name: ListTicketsByAssigneeUser :many
@@ -43,7 +43,7 @@ SELECT * FROM tickets WHERE assignee_user_id = $1 ORDER BY created_at DESC LIMIT
 -- name: SearchTicketsByAssigneeUser :many
 SELECT * FROM tickets
 WHERE assignee_user_id = $1
-  AND (tracking_number ILIKE $4 OR subject ILIKE $4 OR description ILIKE $4)
+  AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3;
 
 -- name: ListTicketsByAssigneeGroup :many
@@ -52,7 +52,7 @@ SELECT * FROM tickets WHERE assignee_group_id = $1 ORDER BY created_at DESC LIMI
 -- name: SearchTicketsByAssigneeGroup :many
 SELECT * FROM tickets
 WHERE assignee_group_id = $1
-  AND (tracking_number ILIKE $4 OR subject ILIKE $4 OR description ILIKE $4)
+  AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3;
 
 -- name: ListTicketsByStatus :many
@@ -63,7 +63,7 @@ SELECT * FROM tickets ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 
 -- name: SearchAllTickets :many
 SELECT * FROM tickets
-WHERE (tracking_number ILIKE $3 OR subject ILIKE $3 OR description ILIKE $3)
+WHERE (tracking_number ILIKE $3 OR tsv @@ websearch_to_tsquery('simple', $3))
 ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 
 -- name: ListUnassignedTickets :many
@@ -74,7 +74,7 @@ ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 -- name: SearchUnassignedTickets :many
 SELECT * FROM tickets
 WHERE assignee_user_id IS NULL AND assignee_group_id IS NULL
-  AND (tracking_number ILIKE $3 OR subject ILIKE $3 OR description ILIKE $3)
+  AND (tracking_number ILIKE $3 OR tsv @@ websearch_to_tsquery('simple', $3))
 ORDER BY created_at DESC LIMIT $1 OFFSET $2;
 
 -- name: ListResolvedTicketsBefore :many

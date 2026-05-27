@@ -8,6 +8,7 @@ export interface CreateTicketInput {
   type_id?: string
   item_id?: string
   priority?: string
+  ticket_type?: string
   guest_email?: string
   guest_name?: string
   guest_phone?: string
@@ -44,6 +45,7 @@ export async function updateTicket(
     category_id?: string
     type_id?: string | null
     item_id?: string | null
+    ticket_type?: string
   }
 ): Promise<Ticket> {
   const res = await api.patch<Ticket>(`/tickets/${id}`, patch)
@@ -184,4 +186,15 @@ export async function putTicketCustomFields(
   values: Record<string, string>
 ): Promise<void> {
   await api.put(`/tickets/${ticketId}/custom-fields`, values)
+}
+
+// ── ITSM ──────────────────────────────────────────────────────────────────────
+
+export async function getITSMDefault(params: {
+  category_id: string
+  type_id?: string
+  item_id?: string
+}): Promise<string | null> {
+  const res = await api.get<{ ticket_type: string | null }>('/itsm/default', { params })
+  return res.data.ticket_type
 }

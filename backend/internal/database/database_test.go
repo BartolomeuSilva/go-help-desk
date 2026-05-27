@@ -14,6 +14,7 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/database/slastore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/ticketstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/userstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/dbgen"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/audit"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/auth"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/category"
@@ -302,9 +303,19 @@ func TestTicketStore_NotFound(t *testing.T) {
 func TestTicketStore_ScopedListsAndCounts(t *testing.T) {
 	db, closeDB := testutil.NewDB(t)
 	defer closeDB()
-	q, rollback := testutil.TxQueries(t, db)
-	defer rollback()
 
+	tx, err := db.SQL.BeginTx(context.Background(), nil)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback() }()
+
+	// Clean tables inside the transaction for full isolation
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM ticket_replies")
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM ticket_links")
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM attachments")
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM tickets")
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM users")
+
+	q := dbgen.New(tx)
 	ctx := context.Background()
 	us := userstore.New(q)
 	cs := categorystore.New(q)

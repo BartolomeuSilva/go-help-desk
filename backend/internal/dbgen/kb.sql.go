@@ -15,7 +15,7 @@ import (
 const createKBArticle = `-- name: CreateKBArticle :one
 INSERT INTO kb_articles (category_id, title, content, status)
 VALUES ($1, $2, $3, $4)
-RETURNING id, category_id, title, content, status, views, created_at, updated_at
+RETURNING id, category_id, title, content, status, views, created_at, updated_at, tsv
 `
 
 type CreateKBArticleParams struct {
@@ -42,6 +42,7 @@ func (q *Queries) CreateKBArticle(ctx context.Context, arg CreateKBArticleParams
 		&i.Views,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Tsv,
 	)
 	return i, err
 }
@@ -93,7 +94,7 @@ func (q *Queries) DeleteKBCategory(ctx context.Context, id uuid.UUID) error {
 }
 
 const getKBArticle = `-- name: GetKBArticle :one
-SELECT id, category_id, title, content, status, views, created_at, updated_at FROM kb_articles
+SELECT id, category_id, title, content, status, views, created_at, updated_at, tsv FROM kb_articles
 WHERE id = $1
 `
 
@@ -109,6 +110,7 @@ func (q *Queries) GetKBArticle(ctx context.Context, id uuid.UUID) (KbArticle, er
 		&i.Views,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Tsv,
 	)
 	return i, err
 }
@@ -163,7 +165,7 @@ func (q *Queries) IncrementKBArticleViews(ctx context.Context, id uuid.UUID) err
 }
 
 const listKBArticles = `-- name: ListKBArticles :many
-SELECT id, category_id, title, content, status, views, created_at, updated_at FROM kb_articles
+SELECT id, category_id, title, content, status, views, created_at, updated_at, tsv FROM kb_articles
 ORDER BY created_at DESC
 `
 
@@ -185,6 +187,7 @@ func (q *Queries) ListKBArticles(ctx context.Context) ([]KbArticle, error) {
 			&i.Views,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Tsv,
 		); err != nil {
 			return nil, err
 		}
@@ -200,7 +203,7 @@ func (q *Queries) ListKBArticles(ctx context.Context) ([]KbArticle, error) {
 }
 
 const listKBArticlesByCategory = `-- name: ListKBArticlesByCategory :many
-SELECT id, category_id, title, content, status, views, created_at, updated_at FROM kb_articles
+SELECT id, category_id, title, content, status, views, created_at, updated_at, tsv FROM kb_articles
 WHERE category_id = $1
 ORDER BY created_at DESC
 `
@@ -223,6 +226,7 @@ func (q *Queries) ListKBArticlesByCategory(ctx context.Context, categoryID uuid.
 			&i.Views,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Tsv,
 		); err != nil {
 			return nil, err
 		}
@@ -272,11 +276,91 @@ func (q *Queries) ListKBCategories(ctx context.Context) ([]KbCategory, error) {
 	return items, nil
 }
 
+const searchKBArticlesAll = `-- name: SearchKBArticlesAll :many
+SELECT id, category_id, title, content, status, views, created_at, updated_at, tsv FROM kb_articles
+WHERE tsv @@ websearch_to_tsquery('simple', $1)
+ORDER BY created_at DESC
+`
+
+func (q *Queries) SearchKBArticlesAll(ctx context.Context, websearchToTsquery string) ([]KbArticle, error) {
+	rows, err := q.db.QueryContext(ctx, searchKBArticlesAll, websearchToTsquery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []KbArticle
+	for rows.Next() {
+		var i KbArticle
+		if err := rows.Scan(
+			&i.ID,
+			&i.CategoryID,
+			&i.Title,
+			&i.Content,
+			&i.Status,
+			&i.Views,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Tsv,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchKBArticlesPublic = `-- name: SearchKBArticlesPublic :many
+SELECT a.id, a.category_id, a.title, a.content, a.status, a.views, a.created_at, a.updated_at, a.tsv FROM kb_articles a
+JOIN kb_categories c ON a.category_id = c.id
+WHERE c.is_public = true AND a.status = 'published'
+  AND a.tsv @@ websearch_to_tsquery('simple', $1)
+ORDER BY a.created_at DESC
+`
+
+func (q *Queries) SearchKBArticlesPublic(ctx context.Context, websearchToTsquery string) ([]KbArticle, error) {
+	rows, err := q.db.QueryContext(ctx, searchKBArticlesPublic, websearchToTsquery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []KbArticle
+	for rows.Next() {
+		var i KbArticle
+		if err := rows.Scan(
+			&i.ID,
+			&i.CategoryID,
+			&i.Title,
+			&i.Content,
+			&i.Status,
+			&i.Views,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Tsv,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateKBArticle = `-- name: UpdateKBArticle :one
 UPDATE kb_articles
 SET category_id = $2, title = $3, content = $4, status = $5, updated_at = now()
 WHERE id = $1
-RETURNING id, category_id, title, content, status, views, created_at, updated_at
+RETURNING id, category_id, title, content, status, views, created_at, updated_at, tsv
 `
 
 type UpdateKBArticleParams struct {
@@ -305,6 +389,7 @@ func (q *Queries) UpdateKBArticle(ctx context.Context, arg UpdateKBArticleParams
 		&i.Views,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Tsv,
 	)
 	return i, err
 }

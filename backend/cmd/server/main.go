@@ -111,6 +111,9 @@ func run() error {
 	tagStore := tagstore.New(q)
 
 	userSvc := user.NewService(uStore)
+	if err := userSvc.WarmupCache(ctx); err != nil {
+		return fmt.Errorf("warming up user roles cache: %w", err)
+	}
 	categorySvc := category.NewService(cStore)
 	groupSvc := group.NewService(gStore)
 	tagSvc := tag.NewService(tagStore)
@@ -203,6 +206,7 @@ func run() error {
 		registrationSvc,
 		cannedSvc,
 		kbSvc,
+		q, // itsmStore — *dbgen.Queries satisfies server.ITSMStore
 	)
 
 	srv.InitSAML(ctx)

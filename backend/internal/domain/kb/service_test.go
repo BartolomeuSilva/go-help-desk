@@ -2,6 +2,7 @@ package kb
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -141,6 +142,26 @@ func (m *mockStore) IncrementArticleViews(ctx context.Context, id uuid.UUID) err
 	return nil
 }
 
+func (m *mockStore) SearchArticles(ctx context.Context, query string, isStaffOrAdmin bool) ([]Article, error) {
+	query = strings.ToLower(query)
+	out := make([]Article, 0)
+	for _, art := range m.articles {
+		if !isStaffOrAdmin {
+			cat, found := m.categories[art.CategoryID]
+			if !found || !cat.IsPublic {
+				continue
+			}
+			if art.Status != StatusPublished {
+				continue
+			}
+		}
+		if strings.Contains(strings.ToLower(art.Title), query) || strings.Contains(strings.ToLower(art.Content), query) {
+			out = append(out, art)
+		}
+	}
+	return out, nil
+}
+
 func TestService_Categories(t *testing.T) {
 	ctx := context.Background()
 	store := newMockStore()
@@ -238,4 +259,38 @@ func TestService_Articles(t *testing.T) {
 	listStaff, err := svc.ListArticles(ctx, true)
 	require.NoError(t, err)
 	assert.Len(t, listStaff, 3) // All articles
+}
+
+func TestService_SearchArticles(t *testing.T) {
+	ctx := context.Background()
+	store := newMockStore()
+	svc := NewService(store)
+
+	// Setup Category
+	cat, err := svc.CreateCategory(ctx, "General", "Desc", true)
+	require.NoError(t, err)
+
+	privateCat, err := svc.CreateCategory(ctx, "Private", "Staff only", false)
+	require.NoError(t, err)
+
+	// Create Articles
+	_, err = svc.CreateArticle(ctx, cat.ID, "Reset Password Info", "Here is how to reset your password", StatusPublished)
+	require.NoError(t, err)
+
+	_, err = svc.CreateArticle(ctx, cat.ID, "Draft Art", "Working on password stuff", StatusDraft)
+	require.NoError(t, err)
+
+	_, err = svc.CreateArticle(ctx, privateCat.ID, "Private Server Password", "192...", StatusPublished)
+	require.NoError(t, err)
+
+	// Search - Public Access
+	resPub, err := svc.SearchArticles(ctx, "password", false)
+	require.NoError(t, err)
+	assert.Len(t, resPub, 1)
+	assert.Equal(t, "Reset Password Info", resPub[0].Title)
+
+	// Search - Staff Access
+	resStaff, err := svc.SearchArticles(ctx, "password", true)
+	require.NoError(t, err)
+	assert.Len(t, resStaff, 3)
 }

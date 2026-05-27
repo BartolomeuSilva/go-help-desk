@@ -28,6 +28,7 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/database/tagstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/ticketstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/userstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/dbgen"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/auth"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/canned"
@@ -189,6 +190,7 @@ func newHarness(t *testing.T) (*harness, func()) {
 		registrationSvc,
 		cannedSvc,
 		kbSvc,
+		q,
 	)
 
 	h := &harness{
@@ -883,7 +885,20 @@ func TestLogout(t *testing.T) {
 func newBareHarness(t *testing.T) (*harness, func()) {
 	t.Helper()
 	db, closeDB := testutil.NewDB(t)
-	q, rollback := testutil.TxQueries(t, db)
+
+	tx, err := db.SQL.BeginTx(context.Background(), nil)
+	require.NoError(t, err)
+
+	// Clean tables inside the transaction for full isolation during setup tests
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM ticket_replies")
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM ticket_links")
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM attachments")
+	_, _ = tx.ExecContext(context.Background(), "DELETE FROM tickets")
+	_, err = tx.ExecContext(context.Background(), "DELETE FROM users")
+	require.NoError(t, err)
+
+	q := dbgen.New(tx)
+	rollback := func() { _ = tx.Rollback() }
 
 	ctx := context.Background()
 
@@ -951,6 +966,7 @@ func newBareHarness(t *testing.T) (*harness, func()) {
 		registrationSvc,
 		cannedSvc,
 		kbSvc,
+		q,
 	)
 
 	h := &harness{srv: srv}

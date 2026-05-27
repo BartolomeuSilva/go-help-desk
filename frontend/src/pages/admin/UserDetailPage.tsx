@@ -16,8 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { ArrowLeftIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-react'
 import type { Role } from '@/api/types'
-
-const ROLES: Role[] = ['admin', 'staff', 'user']
+import { listRoles } from '@/api/roles'
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -72,6 +71,20 @@ export function UserDetailPage() {
     queryKey: ['admin', 'groups'],
     queryFn: listGroups,
   })
+
+  const { data: roles = [] } = useQuery({
+    queryKey: ['admin', 'roles'],
+    queryFn: listRoles,
+  })
+
+  // Get all unique role names, starting with system roles, then adding custom roles
+  const roleOptions = Array.from(new Set([
+    'admin',
+    'staff',
+    'user',
+    ...roles.map((r) => r.name),
+    role,
+  ]))
 
   useEffect(() => {
     if (user) {
@@ -202,7 +215,7 @@ export function UserDetailPage() {
                 onChange={(e) => setRole(e.target.value as Role)}
                 disabled={user.disabled}
               >
-                {ROLES.map((r) => (
+                {roleOptions.map((r) => (
                   <option key={r} value={r} className="capitalize">{r}</option>
                 ))}
               </Select>

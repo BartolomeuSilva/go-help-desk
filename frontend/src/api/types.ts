@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'staff' | 'user'
+export type Role = 'admin' | 'staff' | 'user' | string
 export type Priority = 'critical' | 'high' | 'medium' | 'low'
 export type LinkType = 'related_to' | 'parent_of' | 'child_of' | 'caused_by' | 'duplicate_of'
 
@@ -94,6 +94,7 @@ export interface Ticket {
   resolution_notes?: string
   resolved_at?: string
   closed_at?: string
+  ticket_type?: string
   created_at: string
   updated_at: string
   sla?: SLASummary
@@ -152,6 +153,7 @@ export interface SiteConfig {
   logo_url: string
   version: string
   sla_enabled: boolean
+  itsm_enabled: boolean
 }
 
 export interface WebhookConfig {

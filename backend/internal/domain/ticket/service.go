@@ -104,6 +104,7 @@ type CreateInput struct {
 	TypeID      *uuid.UUID
 	ItemID      *uuid.UUID
 	Priority    Priority
+	TicketType  *TicketType // ITSM v4: optional, only used when ITSMEnabled
 
 	// Exactly one of ReporterUserID or GuestEmail must be set.
 	ReporterUserID *uuid.UUID
@@ -142,6 +143,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Ticket, error) {
 		GuestEmail:     in.GuestEmail,
 		GuestName:      in.GuestName,
 		GuestPhone:     in.GuestPhone,
+		TicketType:     in.TicketType,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -461,6 +463,23 @@ func (s *Service) UpdateCTI(ctx context.Context, id, categoryID uuid.UUID, typeI
 		return Ticket{}, fmt.Errorf("updating ticket CTI: %w", err)
 	}
 	return s.store.GetByID(ctx, id)
+}
+
+// SetTicketType sets or clears the ITSM ticket type on a ticket.
+// Only staff and admin may call this; enforcement is at the handler layer.
+func (s *Service) SetTicketType(ctx context.Context, id uuid.UUID, tt *TicketType, actor Actor) (Ticket, error) {
+	t, err := s.store.GetByID(ctx, id)
+	if err != nil {
+		return Ticket{}, err
+	}
+	before := ticketMap(t)
+	t.TicketType = tt
+	t.UpdatedAt = time.Now()
+	if err := s.store.Update(ctx, t); err != nil {
+		return Ticket{}, fmt.Errorf("setting ticket type: %w", err)
+	}
+	s.writeAudit(ctx, actor.UserID, "ticket", t.ID, "ticket_type_set", before, ticketMap(t))
+	return t, nil
 }
 
 // GetByTrackingNumber returns the ticket with the given tracking number.

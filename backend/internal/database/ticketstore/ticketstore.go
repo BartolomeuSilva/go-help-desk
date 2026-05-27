@@ -41,6 +41,7 @@ func (s *Store) Create(ctx context.Context, t ticket.Ticket) error {
 		GuestEmail:      database.NullString(t.GuestEmail),
 		GuestName:       t.GuestName,
 		GuestPhone:      t.GuestPhone,
+		TicketType:      nullTicketType(t.TicketType),
 		CreatedAt:       t.CreatedAt,
 		UpdatedAt:       t.UpdatedAt,
 	})
@@ -86,6 +87,7 @@ func (s *Store) Update(ctx context.Context, t ticket.Ticket) error {
 		ResolutionNotes: database.NullString(t.ResolutionNotes),
 		ResolvedAt:      database.NullTime(t.ResolvedAt),
 		ClosedAt:        database.NullTime(t.ClosedAt),
+		TicketType:      nullTicketType(t.TicketType),
 		UpdatedAt:       time.Now(),
 	})
 }
@@ -492,6 +494,7 @@ func fromRow(r dbgen.Ticket) ticket.Ticket {
 		ResolutionNotes: database.StringPtr(r.ResolutionNotes),
 		ResolvedAt:      database.TimePtr(r.ResolvedAt),
 		ClosedAt:        database.TimePtr(r.ClosedAt),
+		TicketType:      ticketTypePtr(r.TicketType),
 		CreatedAt:       r.CreatedAt,
 		UpdatedAt:       r.UpdatedAt,
 	}
@@ -503,6 +506,23 @@ func fromRows(rows []dbgen.Ticket) []ticket.Ticket {
 		out[i] = fromRow(r)
 	}
 	return out
+}
+
+// nullTicketType converts a *ticket.TicketType into a nullable SQL string.
+func nullTicketType(tt *ticket.TicketType) sql.NullString {
+	if tt == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: string(*tt), Valid: true}
+}
+
+// ticketTypePtr converts a nullable SQL string into a *ticket.TicketType.
+func ticketTypePtr(n sql.NullString) *ticket.TicketType {
+	if !n.Valid {
+		return nil
+	}
+	v := ticket.TicketType(n.String)
+	return &v
 }
 
 func statusFromRow(r dbgen.Status) ticket.Status {

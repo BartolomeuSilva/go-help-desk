@@ -502,3 +502,34 @@ export async function uninstallPlugin(id: string): Promise<void> {
   await api.delete(`/admin/plugins/${id}`)
 }
 
+// ── ITSM Defaults ─────────────────────────────────────────────────────────────
+
+export interface ITSMDefaultEntry {
+  category_id: string
+  type_id?: string
+  item_id?: string
+  ticket_type: string
+}
+
+export async function listITSMDefaults(): Promise<ITSMDefaultEntry[]> {
+  const res = await api.get<ITSMDefaultEntry[]>('/admin/itsm/defaults')
+  return res.data
+}
+
+export async function setITSMDefault(input: {
+  category_id: string
+  type_id?: string
+  item_id?: string
+  ticket_type: string
+}): Promise<void> {
+  await api.put('/admin/itsm/defaults', input)
+}
+
+export async function deleteITSMDefault(input: {
+  category_id: string
+  type_id?: string
+  item_id?: string
+}): Promise<void> {
+  await api.delete('/admin/itsm/defaults', { data: input })
+}
+

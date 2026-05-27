@@ -126,6 +126,12 @@ func (s *Service) SLAEnabled(ctx context.Context) bool {
 	return v
 }
 
+// ITSMEnabled returns whether ITSM mode (ticket types) is active.
+func (s *Service) ITSMEnabled(ctx context.Context) bool {
+	v, _ := s.GetBool(ctx, KeyITSMEnabled)
+	return v
+}
+
 // MFAEnabled returns whether MFA is available.
 func (s *Service) MFAEnabled(ctx context.Context) bool {
 	v, _ := s.GetBool(ctx, KeyMFAEnabled)

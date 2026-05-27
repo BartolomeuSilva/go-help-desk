@@ -1,10 +1,13 @@
 package server
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
 	authmw "github.com/publiciallc/go-help-desk/backend/internal/middleware"
 )
+
 
 func (s *Server) authRouter() *chi.Mux {
 	r := chi.NewRouter()
@@ -65,10 +68,26 @@ func (s *Server) ticketRouter() *chi.Mux {
 
 func (s *Server) adminRouter() *chi.Mux {
 	r := chi.NewRouter()
-	r.Use(authmw.RequireRole(user.RoleAdmin))
+	// Allow any authenticated staff/admin actor to enter the adminRouter.
+	// Individual routes will restrict access using specific permissions.
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			actor := authmw.GetActor(r)
+			if actor == nil {
+				Error(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+				return
+			}
+			if actor.Role != user.RoleUser {
+				next.ServeHTTP(w, r)
+				return
+			}
+			Error(w, http.StatusForbidden, "forbidden", "insufficient permissions")
+		})
+	})
 	r.Use(authmw.RequireMFA)
 
 	r.Route("/users", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermUsersManage))
 		r.Get("/", s.handleListUsers)
 		r.Post("/", s.handleCreateUser)
 		r.Get("/{id}", s.handleGetUser)
@@ -77,7 +96,17 @@ func (s *Server) adminRouter() *chi.Mux {
 		r.Post("/{id}/password", s.handleAdminResetPassword)
 	})
 
+	r.Route("/roles", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermUsersManage))
+		r.Get("/", s.handleListRoles)
+		r.Post("/", s.handleCreateRole)
+		r.Get("/{name}", s.handleGetRole)
+		r.Patch("/{name}", s.handleUpdateRole)
+		r.Delete("/{name}", s.handleDeleteRole)
+	})
+
 	r.Route("/groups", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermUsersManage))
 		r.Get("/", s.handleListGroups)
 		r.Post("/", s.handleCreateGroup)
 		r.Get("/{id}", s.handleGetGroup)
@@ -92,6 +121,7 @@ func (s *Server) adminRouter() *chi.Mux {
 	})
 
 	r.Route("/categories", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListCategories)
 		r.Post("/", s.handleCreateCategory)
 		r.Get("/{id}", s.handleGetCategory)
@@ -134,12 +164,14 @@ func (s *Server) adminRouter() *chi.Mux {
 	})
 
 	r.Route("/custom-fields", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListFieldDefs)
 		r.Post("/", s.handleCreateFieldDef)
 		r.Patch("/{id}", s.handleUpdateFieldDef)
 	})
 
 	r.Route("/sla/policies", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListSLAPolicies)
 		r.Post("/", s.handleCreateSLAPolicy)
 		r.Patch("/{id}", s.handleUpdateSLAPolicy)
@@ -147,6 +179,7 @@ func (s *Server) adminRouter() *chi.Mux {
 	})
 
 	r.Route("/statuses", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListStatuses)
 		r.Post("/", s.handleCreateStatus)
 		r.Patch("/{id}", s.handleUpdateStatus)
@@ -154,6 +187,7 @@ func (s *Server) adminRouter() *chi.Mux {
 	})
 
 	r.Route("/settings", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleGetSettings)
 		r.Patch("/", s.handleUpdateSettings)
 		r.Post("/logo", s.handleUploadLogo)
@@ -161,11 +195,13 @@ func (s *Server) adminRouter() *chi.Mux {
 	})
 
 	r.Route("/saml", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleGetSAMLConfig)
 		r.Put("/", s.handleSaveSAMLConfig)
 	})
 
 	r.Route("/plugins", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListPlugins)
 		r.Post("/", s.handleInstallPlugin)
 		r.Patch("/{id}", s.handleUpdatePlugin)
@@ -173,36 +209,42 @@ func (s *Server) adminRouter() *chi.Mux {
 	})
 
 	r.Route("/canned-responses", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermCannedManage))
 		r.Post("/", s.handleCreateCannedResponse)
 		r.Patch("/{id}", s.handleUpdateCannedResponse)
 		r.Delete("/{id}", s.handleDeleteCannedResponse)
 	})
 
 	r.Route("/kb/categories", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermKBManage))
 		r.Post("/", s.handleCreateKBCategory)
 		r.Patch("/{id}", s.handleUpdateKBCategory)
 		r.Delete("/{id}", s.handleDeleteKBCategory)
 	})
 
 	r.Route("/kb/articles", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermKBManage))
 		r.Post("/", s.handleCreateKBArticle)
 		r.Patch("/{id}", s.handleUpdateKBArticle)
 		r.Delete("/{id}", s.handleDeleteKBArticle)
 	})
 
 	r.Route("/api-keys", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListAPIKeys)
 		r.Post("/", s.handleCreateAPIKey)
 		r.Delete("/{id}", s.handleDeleteAPIKey)
 	})
 
 	r.Route("/oauth-clients", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListOAuthClients)
 		r.Post("/", s.handleCreateOAuthClient)
 		r.Delete("/{id}", s.handleDeleteOAuthClient)
 	})
 
 	r.Route("/webhooks", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListWebhooks)
 		r.Post("/", s.handleCreateWebhook)
 		r.Patch("/{id}", s.handleUpdateWebhook)
@@ -214,6 +256,13 @@ func (s *Server) adminRouter() *chi.Mux {
 		r.Post("/", s.handleAdminCreateTag)
 		r.Delete("/{id}", s.handleAdminDeleteTag)
 		r.Post("/{id}/restore", s.handleAdminRestoreTag)
+	})
+
+	r.Route("/itsm/defaults", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
+		r.Get("/", s.handleListITSMDefaults)
+		r.Put("/", s.handleSetITSMDefault)
+		r.Delete("/", s.handleDeleteITSMDefault)
 	})
 
 	return r

@@ -13,7 +13,7 @@ import { UserDetailPage } from '@/pages/admin/UserDetailPage'
 import { GroupsPage } from '@/pages/admin/GroupsPage'
 import { CategoriesPage } from '@/pages/admin/CategoriesPage'
 import { StatusesPage } from '@/pages/admin/StatusesPage'
-import { RolesPage } from '@/pages/admin/RolesPage'
+import { RoleAdminPage } from '@/pages/admin/RoleAdminPage'
 import { SettingsPage } from '@/pages/admin/SettingsPage'
 import { TagsPage } from '@/pages/admin/TagsPage'
 import { CustomFieldsPage } from '@/pages/admin/CustomFieldsPage'
@@ -120,7 +120,7 @@ const adminRolesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/roles',
   beforeLoad: requireAdmin,
-  component: RolesPage,
+  component: RoleAdminPage,
 })
 
 const adminCategoriesRoute = createRoute({

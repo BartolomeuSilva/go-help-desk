@@ -172,3 +172,23 @@ func (s *Store) DeleteArticle(ctx context.Context, id uuid.UUID) error {
 func (s *Store) IncrementArticleViews(ctx context.Context, id uuid.UUID) error {
 	return s.q.IncrementKBArticleViews(ctx, id)
 }
+
+func (s *Store) SearchArticles(ctx context.Context, query string, isStaffOrAdmin bool) ([]kb.Article, error) {
+	var (
+		rows []dbgen.KbArticle
+		err  error
+	)
+	if isStaffOrAdmin {
+		rows, err = s.q.SearchKBArticlesAll(ctx, query)
+	} else {
+		rows, err = s.q.SearchKBArticlesPublic(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("searching kb articles: %w", err)
+	}
+	out := make([]kb.Article, len(rows))
+	for i, r := range rows {
+		out[i] = toArticle(r)
+	}
+	return out, nil
+}

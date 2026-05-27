@@ -37,6 +37,7 @@ type Querier interface {
 	CreateOAuthClient(ctx context.Context, arg CreateOAuthClientParams) error
 	CreatePlugin(ctx context.Context, arg CreatePluginParams) error
 	CreateReply(ctx context.Context, arg CreateReplyParams) error
+	CreateRole(ctx context.Context, arg CreateRoleParams) error
 	CreateSLAPolicy(ctx context.Context, arg CreateSLAPolicyParams) error
 	CreateSLARecord(ctx context.Context, arg CreateSLARecordParams) error
 	CreateStatus(ctx context.Context, arg CreateStatusParams) error
@@ -53,6 +54,7 @@ type Querier interface {
 	DeleteCategory(ctx context.Context, id uuid.UUID) error
 	DeleteCustomFieldAssignment(ctx context.Context, id uuid.UUID) error
 	DeleteCustomFieldValue(ctx context.Context, arg DeleteCustomFieldValueParams) error
+	DeleteDefaultTicketType(ctx context.Context, arg DeleteDefaultTicketTypeParams) error
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	DeleteItem(ctx context.Context, id uuid.UUID) error
 	DeleteKBArticle(ctx context.Context, id uuid.UUID) error
@@ -60,6 +62,7 @@ type Querier interface {
 	DeleteOAuthClient(ctx context.Context, id uuid.UUID) error
 	DeletePendingRegistration(ctx context.Context, id uuid.UUID) error
 	DeletePlugin(ctx context.Context, id string) error
+	DeleteRole(ctx context.Context, name string) error
 	DeleteSLAPolicy(ctx context.Context, id uuid.UUID) error
 	DeleteStatus(ctx context.Context, id uuid.UUID) error
 	DeleteTicketLink(ctx context.Context, arg DeleteTicketLinkParams) error
@@ -76,6 +79,9 @@ type Querier interface {
 	GetCategory(ctx context.Context, id uuid.UUID) (Category, error)
 	GetCustomFieldAssignment(ctx context.Context, id uuid.UUID) (CustomFieldAssignment, error)
 	GetCustomFieldDef(ctx context.Context, id uuid.UUID) (CustomFieldDef, error)
+	// Hierarchical lookup: item → type → category → no row.
+	// Uses sentinel UUID '00000000-...' for missing type_id / item_id.
+	GetDefaultTicketType(ctx context.Context, arg GetDefaultTicketTypeParams) (string, error)
 	GetGroup(ctx context.Context, id uuid.UUID) (Group, error)
 	GetItem(ctx context.Context, id uuid.UUID) (Item, error)
 	GetKBArticle(ctx context.Context, id uuid.UUID) (KbArticle, error)
@@ -84,6 +90,7 @@ type Querier interface {
 	GetOAuthClientByClientID(ctx context.Context, clientID string) (OauthClient, error)
 	GetPendingRegistrationByToken(ctx context.Context, token uuid.UUID) (PendingRegistration, error)
 	GetPlugin(ctx context.Context, id string) (Plugin, error)
+	GetRole(ctx context.Context, name string) (Role, error)
 	GetSLAPolicy(ctx context.Context, id uuid.UUID) (SlaPolicy, error)
 	GetSLARecord(ctx context.Context, ticketID uuid.UUID) (SlaRecord, error)
 	GetSetting(ctx context.Context, key string) (json.RawMessage, error)
@@ -110,6 +117,7 @@ type Querier interface {
 	ListCategories(ctx context.Context, dollar_1 bool) ([]Category, error)
 	ListCustomFieldDefs(ctx context.Context) ([]CustomFieldDef, error)
 	ListCustomFieldValuesForTicket(ctx context.Context, ticketID uuid.UUID) ([]ListCustomFieldValuesForTicketRow, error)
+	ListDefaultTicketTypes(ctx context.Context) ([]ListDefaultTicketTypesRow, error)
 	ListEnabledWebhookConfigs(ctx context.Context) ([]WebhookConfig, error)
 	ListGroupMembers(ctx context.Context, groupID uuid.UUID) ([]uuid.UUID, error)
 	ListGroupScopes(ctx context.Context, groupID uuid.UUID) ([]GroupScope, error)
@@ -126,6 +134,7 @@ type Querier interface {
 	ListPlugins(ctx context.Context) ([]Plugin, error)
 	ListReplies(ctx context.Context, ticketID uuid.UUID) ([]TicketReply, error)
 	ListResolvedTicketsBefore(ctx context.Context, arg ListResolvedTicketsBeforeParams) ([]Ticket, error)
+	ListRoles(ctx context.Context) ([]Role, error)
 	ListSLAPolicies(ctx context.Context) ([]SlaPolicy, error)
 	ListSettings(ctx context.Context) ([]Setting, error)
 	ListStatuses(ctx context.Context) ([]Status, error)
@@ -148,6 +157,8 @@ type Querier interface {
 	RestoreUser(ctx context.Context, id uuid.UUID) error
 	SearchActiveTags(ctx context.Context, name string) ([]Tag, error)
 	SearchAllTickets(ctx context.Context, arg SearchAllTicketsParams) ([]Ticket, error)
+	SearchKBArticlesAll(ctx context.Context, websearchToTsquery string) ([]KbArticle, error)
+	SearchKBArticlesPublic(ctx context.Context, websearchToTsquery string) ([]KbArticle, error)
 	SearchTicketsByAssigneeGroup(ctx context.Context, arg SearchTicketsByAssigneeGroupParams) ([]Ticket, error)
 	SearchTicketsByAssigneeUser(ctx context.Context, arg SearchTicketsByAssigneeUserParams) ([]Ticket, error)
 	SearchTicketsByReporter(ctx context.Context, arg SearchTicketsByReporterParams) ([]Ticket, error)
@@ -165,6 +176,7 @@ type Querier interface {
 	UpdateKBArticle(ctx context.Context, arg UpdateKBArticleParams) (KbArticle, error)
 	UpdateKBCategory(ctx context.Context, arg UpdateKBCategoryParams) (KbCategory, error)
 	UpdatePlugin(ctx context.Context, arg UpdatePluginParams) error
+	UpdateRole(ctx context.Context, arg UpdateRoleParams) error
 	UpdateSLAPolicy(ctx context.Context, arg UpdateSLAPolicyParams) error
 	UpdateSLARecord(ctx context.Context, arg UpdateSLARecordParams) error
 	UpdateStatus(ctx context.Context, arg UpdateStatusParams) error
@@ -175,6 +187,7 @@ type Querier interface {
 	UpdateWebhookConfig(ctx context.Context, arg UpdateWebhookConfigParams) error
 	// ── Values ────────────────────────────────────────────────────────────────────
 	UpsertCustomFieldValue(ctx context.Context, arg UpsertCustomFieldValueParams) error
+	UpsertDefaultTicketType(ctx context.Context, arg UpsertDefaultTicketTypeParams) error
 	UpsertPendingRegistration(ctx context.Context, arg UpsertPendingRegistrationParams) (PendingRegistration, error)
 }
 

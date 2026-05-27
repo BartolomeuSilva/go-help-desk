@@ -60,6 +60,13 @@ type Category struct {
 	Active    bool      `json:"active"`
 }
 
+type CtiDefaultTicketType struct {
+	CategoryID uuid.UUID `json:"category_id"`
+	TypeID     uuid.UUID `json:"type_id"`
+	ItemID     uuid.UUID `json:"item_id"`
+	TicketType string    `json:"ticket_type"`
+}
+
 type CustomFieldAssignment struct {
 	ID            uuid.UUID `json:"id"`
 	FieldDefID    uuid.UUID `json:"field_def_id"`
@@ -106,14 +113,15 @@ type Item struct {
 }
 
 type KbArticle struct {
-	ID         uuid.UUID `json:"id"`
-	CategoryID uuid.UUID `json:"category_id"`
-	Title      string    `json:"title"`
-	Content    string    `json:"content"`
-	Status     string    `json:"status"`
-	Views      int32     `json:"views"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID         uuid.UUID   `json:"id"`
+	CategoryID uuid.UUID   `json:"category_id"`
+	Title      string      `json:"title"`
+	Content    string      `json:"content"`
+	Status     string      `json:"status"`
+	Views      int32       `json:"views"`
+	CreatedAt  time.Time   `json:"created_at"`
+	UpdatedAt  time.Time   `json:"updated_at"`
+	Tsv        interface{} `json:"tsv"`
 }
 
 type KbCategory struct {
@@ -155,6 +163,15 @@ type Plugin struct {
 	Enabled     bool      `json:"enabled"`
 	WasmPath    string    `json:"wasm_path"`
 	InstalledAt time.Time `json:"installed_at"`
+}
+
+type Role struct {
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Permissions []string  `json:"permissions"`
+	IsSystem    bool      `json:"is_system"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type Setting struct {
@@ -217,6 +234,8 @@ type Ticket struct {
 	UpdatedAt       time.Time      `json:"updated_at"`
 	GuestName       string         `json:"guest_name"`
 	GuestPhone      string         `json:"guest_phone"`
+	Tsv             interface{}    `json:"tsv"`
+	TicketType      sql.NullString `json:"ticket_type"`
 }
 
 type TicketCustomFieldValue struct {

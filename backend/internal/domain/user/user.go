@@ -48,10 +48,8 @@ func (u User) Validate() error {
 	if strings.TrimSpace(u.DisplayName) == "" {
 		return errors.New("display name is required")
 	}
-	switch u.Role {
-	case RoleAdmin, RoleStaff, RoleUser:
-	default:
-		return errors.New("invalid role")
+	if strings.TrimSpace(string(u.Role)) == "" {
+		return errors.New("role is required")
 	}
 	return nil
 }

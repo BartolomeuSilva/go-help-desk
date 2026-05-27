@@ -13,8 +13,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PlusIcon } from 'lucide-react'
 import type { Role } from '@/api/types'
-
-const ROLES: Role[] = ['admin', 'staff', 'user']
+import { listRoles } from '@/api/roles'
 
 function roleBadge(role: Role) {
   if (role === 'admin') return 'destructive'
@@ -36,6 +35,18 @@ export function UsersPage() {
     queryKey: ['admin', 'users'],
     queryFn: () => listUsers(),
   })
+
+  const { data: roles = [] } = useQuery({
+    queryKey: ['admin', 'roles'],
+    queryFn: listRoles,
+  })
+
+  const roleOptions = Array.from(new Set([
+    'admin',
+    'staff',
+    'user',
+    ...roles.map((r) => r.name),
+  ]))
 
   const createMutation = useMutation({
     mutationFn: () => createUser({ email, display_name: displayName, role, password }),
@@ -83,7 +94,7 @@ export function UsersPage() {
                 <div className="space-y-1">
                   <Label>Role</Label>
                   <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-                    {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
                   </Select>
                 </div>
                 <div className="space-y-1">

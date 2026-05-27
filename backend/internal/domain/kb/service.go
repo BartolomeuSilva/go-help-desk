@@ -232,3 +232,11 @@ func (s *service) DeleteArticle(ctx context.Context, id uuid.UUID) error {
 	}
 	return s.store.DeleteArticle(ctx, id)
 }
+
+func (s *service) SearchArticles(ctx context.Context, query string, isStaffOrAdmin bool) ([]Article, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return []Article{}, nil
+	}
+	return s.store.SearchArticles(ctx, query, isStaffOrAdmin)
+}

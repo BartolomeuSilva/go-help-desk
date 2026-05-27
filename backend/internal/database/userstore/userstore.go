@@ -166,3 +166,71 @@ func wrapNotFound(err error, kind, id string) error {
 	}
 	return fmt.Errorf("getting %s %s: %w", kind, id, err)
 }
+
+func fromRoleRow(r dbgen.Role) user.RoleDetails {
+	perms := make([]user.Permission, len(r.Permissions))
+	for i, p := range r.Permissions {
+		perms[i] = user.Permission(p)
+	}
+	return user.RoleDetails{
+		Name:        r.Name,
+		Description: r.Description,
+		Permissions: perms,
+		IsSystem:    r.IsSystem,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
+	}
+}
+
+func (s *Store) CreateRole(ctx context.Context, r user.RoleDetails) error {
+	perms := make([]string, len(r.Permissions))
+	for i, p := range r.Permissions {
+		perms[i] = string(p)
+	}
+	return s.q.CreateRole(ctx, dbgen.CreateRoleParams{
+		Name:        r.Name,
+		Description: r.Description,
+		Permissions: perms,
+		IsSystem:    r.IsSystem,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
+	})
+}
+
+func (s *Store) GetRole(ctx context.Context, name string) (user.RoleDetails, error) {
+	row, err := s.q.GetRole(ctx, name)
+	if err != nil {
+		return user.RoleDetails{}, wrapNotFound(err, "role", name)
+	}
+	return fromRoleRow(row), nil
+}
+
+func (s *Store) UpdateRole(ctx context.Context, r user.RoleDetails) error {
+	perms := make([]string, len(r.Permissions))
+	for i, p := range r.Permissions {
+		perms[i] = string(p)
+	}
+	return s.q.UpdateRole(ctx, dbgen.UpdateRoleParams{
+		Name:        r.Name,
+		Description: r.Description,
+		Permissions: perms,
+		UpdatedAt:   time.Now(),
+	})
+}
+
+func (s *Store) DeleteRole(ctx context.Context, name string) error {
+	return s.q.DeleteRole(ctx, name)
+}
+
+func (s *Store) ListRoles(ctx context.Context) ([]user.RoleDetails, error) {
+	rows, err := s.q.ListRoles(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing roles: %w", err)
+	}
+	out := make([]user.RoleDetails, len(rows))
+	for i, r := range rows {
+		out[i] = fromRoleRow(r)
+	}
+	return out, nil
+}
+

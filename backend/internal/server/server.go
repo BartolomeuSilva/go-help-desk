@@ -30,6 +30,7 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/tag"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
+	"github.com/publiciallc/go-help-desk/backend/internal/dbgen"
 	authmw "github.com/publiciallc/go-help-desk/backend/internal/middleware"
 	"github.com/publiciallc/go-help-desk/backend/internal/version"
 )
@@ -60,6 +61,15 @@ type AuthStoreIface interface {
 	ListEnabledWebhooks(ctx context.Context) ([]authstore.WebhookConfig, error)
 }
 
+// ITSMStore is the minimal interface needed to serve ITSM endpoints.
+// It is satisfied by *dbgen.Queries.
+type ITSMStore interface {
+	GetDefaultTicketType(ctx context.Context, arg dbgen.GetDefaultTicketTypeParams) (string, error)
+	ListDefaultTicketTypes(ctx context.Context) ([]dbgen.ListDefaultTicketTypesRow, error)
+	UpsertDefaultTicketType(ctx context.Context, arg dbgen.UpsertDefaultTicketTypeParams) error
+	DeleteDefaultTicketType(ctx context.Context, arg dbgen.DeleteDefaultTicketTypeParams) error
+}
+
 // Server is the top-level HTTP handler.
 type Server struct {
 	cfg      *config.Config
@@ -79,6 +89,7 @@ type Server struct {
 	pluginStore  plugin.Store
 	canned       *canned.Service
 	kb           kb.Service
+	db           ITSMStore
 
 	apiKeyLookup     authmw.APIKeyAuthFunc
 	oauthClientStore OAuthClientLookup
@@ -109,6 +120,7 @@ func New(
 	registrationSvc *registration.Service,
 	canned *canned.Service,
 	kbService kb.Service,
+	itsmStore ITSMStore,
 ) *Server {
 	s := &Server{
 		cfg:              cfg,
@@ -129,6 +141,7 @@ func New(
 		authStore:        authStore,
 		canned:           canned,
 		kb:               kbService,
+		db:               itsmStore,
 	}
 	s.router = s.buildRouter()
 	return s
@@ -211,9 +224,13 @@ func (s *Server) buildRouter() *chi.Mux {
 		// Knowledge Base public/staff routes (visibility handled dynamically in service)
 		r.Route("/kb", func(r chi.Router) {
 			r.Get("/categories", s.handleListKBCategories)
+			r.Get("/search", s.handleSearchKBArticles)
 			r.Get("/articles/{id}", s.handleGetKBArticle)
 			r.Get("/categories/{id}/articles", s.handleListKBArticlesByCategory)
 		})
+
+		// ITSM: public lookup of default ticket_type for a CTI combination.
+		r.Get("/itsm/default", s.handleGetITSMDefault)
 
 		r.Mount("/admin", s.adminRouter())
 		r.Mount("/me", s.meRouter())
@@ -272,10 +289,11 @@ func (s *Server) handleListPublicItems(w http.ResponseWriter, r *http.Request) {
 // No authentication required — used by the SPA shell before login.
 func (s *Server) handleGetSiteConfig(w http.ResponseWriter, r *http.Request) {
 	JSON(w, http.StatusOK, map[string]any{
-		"name":        s.adminSvc.SiteName(r.Context()),
-		"logo_url":    s.adminSvc.SiteLogoURL(r.Context()),
-		"version":     version.Version,
-		"sla_enabled": s.adminSvc.SLAEnabled(r.Context()),
+		"name":         s.adminSvc.SiteName(r.Context()),
+		"logo_url":     s.adminSvc.SiteLogoURL(r.Context()),
+		"version":      version.Version,
+		"sla_enabled":  s.adminSvc.SLAEnabled(r.Context()),
+		"itsm_enabled": s.adminSvc.ITSMEnabled(r.Context()),
 	})
 }
 
@@ -324,6 +342,36 @@ func (s *Server) samlHTTP() *samlsp.Middleware {
 	s.samlMu.RLock()
 	defer s.samlMu.RUnlock()
 	return s.samlHandler
+}
+
+// hasPermission checks if the request's actor has the given permission.
+func (s *Server) hasPermission(r *http.Request, perm user.Permission) bool {
+	actor := authmw.GetActor(r)
+	if actor == nil {
+		return false
+	}
+	// Admin has all permissions
+	if actor.Role == user.RoleAdmin {
+		return true
+	}
+	has, err := s.users.HasPermission(r.Context(), actor.Role, perm)
+	if err != nil {
+		return false
+	}
+	return has
+}
+
+// RequirePermissionMiddleware rejects requests that lack the specified permission.
+func (s *Server) RequirePermissionMiddleware(perm user.Permission) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !s.hasPermission(r, perm) {
+				Error(w, http.StatusForbidden, "forbidden", "insufficient permissions")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // Prevent unused import errors.

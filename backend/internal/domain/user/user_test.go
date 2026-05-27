@@ -26,7 +26,8 @@ func TestUser_Validate(t *testing.T) {
 		{name: "whitespace email", mutate: func(u *user.User) { u.Email = "   " }, wantErr: true},
 		{name: "empty display name", mutate: func(u *user.User) { u.DisplayName = "" }, wantErr: true},
 		{name: "whitespace display name", mutate: func(u *user.User) { u.DisplayName = "   " }, wantErr: true},
-		{name: "invalid role", mutate: func(u *user.User) { u.Role = "superuser" }, wantErr: true},
+		{name: "empty role", mutate: func(u *user.User) { u.Role = "" }, wantErr: true},
+		{name: "custom role", mutate: func(u *user.User) { u.Role = "superuser" }, wantErr: false},
 		{name: "admin role", mutate: func(u *user.User) { u.Role = user.RoleAdmin }, wantErr: false},
 		{name: "staff role", mutate: func(u *user.User) { u.Role = user.RoleStaff }, wantErr: false},
 	}

@@ -60,6 +60,7 @@ type Store interface {
 	UpdateArticle(ctx context.Context, id uuid.UUID, categoryID uuid.UUID, title, content, status string) (Article, error)
 	DeleteArticle(ctx context.Context, id uuid.UUID) error
 	IncrementArticleViews(ctx context.Context, id uuid.UUID) error
+	SearchArticles(ctx context.Context, query string, isStaffOrAdmin bool) ([]Article, error)
 }
 
 // Service defines KB business logic operations
@@ -76,4 +77,5 @@ type Service interface {
 	ListArticlesByCategory(ctx context.Context, categoryID uuid.UUID, isStaffOrAdmin bool) ([]Article, error)
 	UpdateArticle(ctx context.Context, id uuid.UUID, categoryID uuid.UUID, title, content, status string) (Article, error)
 	DeleteArticle(ctx context.Context, id uuid.UUID) error
+	SearchArticles(ctx context.Context, query string, isStaffOrAdmin bool) ([]Article, error)
 }

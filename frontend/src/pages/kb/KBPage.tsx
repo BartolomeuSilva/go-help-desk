@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { listKBCategories, listKBArticlesByCategory } from '@/api/kb'
+import { listKBCategories, listKBArticlesByCategory, searchKBArticles } from '@/api/kb'
 import { Layout } from '@/components/Layout'
 import { useAuthStore } from '@/store/auth'
 import { Input } from '@/components/ui/input'
@@ -40,16 +40,14 @@ export function KBPage() {
     enabled: categories.length > 0,
   })
 
-  const allArticles = Object.values(articlesMap).flat()
-
-  // Filter categories and articles based on search
-  const filteredArticles = allArticles.filter(
-    (art) =>
-      art.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      art.content.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
   const hasSearch = searchQuery.trim().length > 0
+
+  // 3. Search articles using FTS on backend
+  const { data: searchResults = [], isLoading: searching } = useQuery({
+    queryKey: ['kb', 'search', searchQuery, isStaffOrAdmin],
+    queryFn: () => searchKBArticles(searchQuery.trim()),
+    enabled: hasSearch,
+  })
 
   return (
     <Layout>
@@ -91,7 +89,7 @@ export function KBPage() {
           />
         </div>
 
-        {loadingCats || (loadingArticles && categories.length > 0) ? (
+        {loadingCats || (loadingArticles && categories.length > 0 && !hasSearch) || (hasSearch && searching) ? (
           <div className="flex justify-center py-12">
             <Spinner />
           </div>
@@ -101,10 +99,10 @@ export function KBPage() {
             {hasSearch ? (
               <div className="space-y-4">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Resultados da busca ({filteredArticles.length})
+                  Resultados da busca ({searchResults.length})
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {filteredArticles.map((art) => {
+                  {searchResults.map((art) => {
                     const catName = categories.find((c) => c.id === art.category_id)?.name ?? 'Categoria'
                     return (
                       <Link
@@ -135,7 +133,7 @@ export function KBPage() {
                       </Link>
                     )
                   })}
-                  {filteredArticles.length === 0 && (
+                  {searchResults.length === 0 && (
                     <div className="col-span-2 py-12 text-center text-gray-400">
                       Nenhum artigo encontrado para "{searchQuery}".
                     </div>

@@ -17,7 +17,7 @@ func (s *Server) isStaffOrAdmin(r *http.Request) bool {
 	if actor == nil {
 		return false
 	}
-	return actor.Role == user.RoleAdmin || actor.Role == user.RoleStaff
+	return actor.Role != user.RoleUser
 }
 
 // GET /api/v1/kb/categories
@@ -249,4 +249,16 @@ func (s *Server) handleDeleteKBArticle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// GET /api/v1/kb/search?q={query}
+func (s *Server) handleSearchKBArticles(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	isStaffOrAdmin := s.isStaffOrAdmin(r)
+	articles, err := s.kb.SearchArticles(r.Context(), q, isStaffOrAdmin)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	JSON(w, http.StatusOK, articles)
 }

@@ -19,6 +19,7 @@ import {
   createCategoryAssignment, createTypeAssignment, createItemAssignment,
   updateCategoryAssignment, updateTypeAssignment, updateItemAssignment,
   deleteCategoryAssignment, deleteTypeAssignment, deleteItemAssignment,
+  getSettings, listITSMDefaults, setITSMDefault, deleteITSMDefault,
 } from '@/api/admin'
 import { extractError } from '@/api/client'
 import { Layout } from '@/components/Layout'
@@ -31,6 +32,48 @@ import {
   GripVerticalIcon, PencilIcon, CheckIcon, XIcon, UsersRoundIcon, SlidersIcon,
 } from 'lucide-react'
 import type { Category, TicketType, TicketItem, Group, Assignment } from '@/api/types'
+
+// ── ITSM Helpers ──────────────────────────────────────────────────────────────
+
+const ITSM_TICKET_TYPES = [
+  { value: 'incident', label: 'Incident' },
+  { value: 'service_request', label: 'Service Request' },
+  { value: 'problem', label: 'Problem' },
+  { value: 'change_request', label: 'Change Request' },
+]
+
+function ITSMDefaultSelector({
+  currentValue,
+  onSave,
+  onDelete,
+}: {
+  currentValue?: string
+  onSave: (v: string) => void
+  onDelete: () => void
+}) {
+  return (
+    <select
+      value={currentValue || ''}
+      onChange={(e) => {
+        const val = e.target.value
+        if (val) {
+          onSave(val)
+        } else {
+          onDelete()
+        }
+      }}
+      className="ml-auto mr-4 rounded border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <option value="">No default type</option>
+      {ITSM_TICKET_TYPES.map((t) => (
+        <option key={t.value} value={t.value}>
+          {t.label}
+        </option>
+      ))}
+    </select>
+  )
+}
 
 // ── Inline name editor ────────────────────────────────────────────────────────
 
@@ -404,10 +447,18 @@ function SortableItemRow({
   item,
   categoryId,
   typeId,
+  itsmEnabled,
+  itsmMap,
+  onSaveITSM,
+  onDeleteITSM,
 }: {
   item: TicketItem
   categoryId: string
   typeId: string
+  itsmEnabled: boolean
+  itsmMap: Map<string, string>
+  onSaveITSM: (input: { category_id: string; type_id?: string; item_id?: string; ticket_type: string }) => void
+  onDeleteITSM: (input: { category_id: string; type_id?: string; item_id?: string }) => void
 }) {
   const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
@@ -453,6 +504,13 @@ function SortableItemRow({
           onSave={(name) => renameMutation.mutateAsync(name)}
           className="text-sm text-gray-700"
         />
+        {itsmEnabled && (
+          <ITSMDefaultSelector
+            currentValue={itsmMap.get(`${categoryId}:${typeId}:${item.id}`)}
+            onSave={(v) => onSaveITSM({ category_id: categoryId, type_id: typeId, item_id: item.id, ticket_type: v })}
+            onDelete={() => onDeleteITSM({ category_id: categoryId, type_id: typeId, item_id: item.id })}
+          />
+        )}
         <button
           onClick={() => setConfirmOpen(true)}
           disabled={deleteMutation.isPending}
@@ -485,9 +543,17 @@ function SortableItemRow({
 function SortableTypeRow({
   type,
   categoryId,
+  itsmEnabled,
+  itsmMap,
+  onSaveITSM,
+  onDeleteITSM,
 }: {
   type: TicketType
   categoryId: string
+  itsmEnabled: boolean
+  itsmMap: Map<string, string>
+  onSaveITSM: (input: { category_id: string; type_id?: string; item_id?: string; ticket_type: string }) => void
+  onDeleteITSM: (input: { category_id: string; type_id?: string; item_id?: string }) => void
 }) {
   const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
@@ -566,6 +632,13 @@ function SortableTypeRow({
           onSave={(name) => renameMutation.mutateAsync(name)}
           className="text-sm font-medium text-gray-800"
         />
+        {itsmEnabled && (
+          <ITSMDefaultSelector
+            currentValue={itsmMap.get(`${categoryId}:${type.id}:00000000-0000-0000-0000-000000000000`)}
+            onSave={(v) => onSaveITSM({ category_id: categoryId, type_id: type.id, ticket_type: v })}
+            onDelete={() => onDeleteITSM({ category_id: categoryId, type_id: type.id })}
+          />
+        )}
         <button
           onClick={() => setConfirmOpen(true)}
           disabled={deleteMutation.isPending}
@@ -597,7 +670,16 @@ function SortableTypeRow({
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleItemDragEnd}>
                   <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
                     {items.map((item) => (
-                      <SortableItemRow key={item.id} item={item} categoryId={categoryId} typeId={type.id} />
+                      <SortableItemRow
+                        key={item.id}
+                        item={item}
+                        categoryId={categoryId}
+                        typeId={type.id}
+                        itsmEnabled={itsmEnabled}
+                        itsmMap={itsmMap}
+                        onSaveITSM={onSaveITSM}
+                        onDeleteITSM={onDeleteITSM}
+                      />
                     ))}
                   </SortableContext>
                 </DndContext>
@@ -636,7 +718,19 @@ function SortableTypeRow({
 
 // ── Sortable category row ─────────────────────────────────────────────────────
 
-function SortableCategoryRow({ cat }: { cat: Category }) {
+function SortableCategoryRow({
+  cat,
+  itsmEnabled,
+  itsmMap,
+  onSaveITSM,
+  onDeleteITSM,
+}: {
+  cat: Category
+  itsmEnabled: boolean
+  itsmMap: Map<string, string>
+  onSaveITSM: (input: { category_id: string; type_id?: string; item_id?: string; ticket_type: string }) => void
+  onDeleteITSM: (input: { category_id: string; type_id?: string; item_id?: string }) => void
+}) {
   const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
   const [addingType, setAddingType] = useState(false)
@@ -715,6 +809,13 @@ function SortableCategoryRow({ cat }: { cat: Category }) {
         {!cat.active && (
           <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-700">inactive</span>
         )}
+        {itsmEnabled && (
+          <ITSMDefaultSelector
+            currentValue={itsmMap.get(`${cat.id}:00000000-0000-0000-0000-000000000000:00000000-0000-0000-0000-000000000000`)}
+            onSave={(v) => onSaveITSM({ category_id: cat.id, ticket_type: v })}
+            onDelete={() => onDeleteITSM({ category_id: cat.id })}
+          />
+        )}
         <button
           onClick={() => setConfirmOpen(true)}
           disabled={deleteMutation.isPending}
@@ -746,7 +847,15 @@ function SortableCategoryRow({ cat }: { cat: Category }) {
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTypeDragEnd}>
                   <SortableContext items={types.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                     {types.map((type) => (
-                      <SortableTypeRow key={type.id} type={type} categoryId={cat.id} />
+                      <SortableTypeRow
+                        key={type.id}
+                        type={type}
+                        categoryId={cat.id}
+                        itsmEnabled={itsmEnabled}
+                        itsmMap={itsmMap}
+                        onSaveITSM={onSaveITSM}
+                        onDeleteITSM={onDeleteITSM}
+                      />
                     ))}
                   </SortableContext>
                 </DndContext>
@@ -790,6 +899,34 @@ export function CategoriesPage() {
   const [addingCategory, setAddingCategory] = useState(false)
   const [catName, setCatName] = useState('')
   const [formError, setFormError] = useState('')
+
+  const { data: settings } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: getSettings,
+  })
+  const itsmEnabled = Boolean(settings?.itsm_enabled)
+
+  const { data: itsmDefaults = [] } = useQuery({
+    queryKey: ['admin', 'itsm-defaults'],
+    queryFn: listITSMDefaults,
+    enabled: itsmEnabled,
+  })
+
+  const setItsmMutation = useMutation({
+    mutationFn: setITSMDefault,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'itsm-defaults'] }),
+  })
+
+  const deleteItsmMutation = useMutation({
+    mutationFn: deleteITSMDefault,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'itsm-defaults'] }),
+  })
+
+  const itsmMap = new Map<string, string>()
+  for (const d of itsmDefaults) {
+    const key = `${d.category_id}:${d.type_id || '00000000-0000-0000-0000-000000000000'}:${d.item_id || '00000000-0000-0000-0000-000000000000'}`
+    itsmMap.set(key, d.ticket_type)
+  }
 
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ['admin', 'categories'],
@@ -876,7 +1013,14 @@ export function CategoriesPage() {
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
               <SortableContext items={sorted.map((c) => c.id)} strategy={verticalListSortingStrategy}>
                 {sorted.map((cat) => (
-                  <SortableCategoryRow key={cat.id} cat={cat} />
+                  <SortableCategoryRow
+                    key={cat.id}
+                    cat={cat}
+                    itsmEnabled={itsmEnabled}
+                    itsmMap={itsmMap}
+                    onSaveITSM={(input) => setItsmMutation.mutate(input)}
+                    onDeleteITSM={(input) => deleteItsmMutation.mutate(input)}
+                  />
                 ))}
               </SortableContext>
             </DndContext>

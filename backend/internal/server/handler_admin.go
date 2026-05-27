@@ -792,7 +792,7 @@ func (s *Server) handleListStatuses(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case a == nil || a.Role == user.RoleAdmin:
 			count, cerr = s.tickets.CountByStatus(ctx, statuses[i].ID)
-		case a.Role == user.RoleStaff:
+		case a.Role != user.RoleUser:
 			count, cerr = s.tickets.CountByStatusForAssignee(ctx, statuses[i].ID, a.UserID, groupIDs)
 		default:
 			count, cerr = s.tickets.CountByStatusForReporter(ctx, statuses[i].ID, a.UserID)

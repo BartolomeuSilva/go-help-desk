@@ -850,6 +850,17 @@ function FeaturesPanel({
         </div>
       </Section>
 
+      <Section title="ITSM (IT Service Management)">
+        <div>
+          <SettingRow
+            label="ITSM mode (Ticket types)"
+            description="Enable ITSM classification for tickets. When enabled, tickets can be classified as Incidents, Service Requests, Problems, or Change Requests. You can also assign default ticket types to CTI configurations."
+          >
+            <Toggle checked={bool('itsm_enabled')} onChange={(v) => setBool('itsm_enabled', v)} />
+          </SettingRow>
+        </div>
+      </Section>
+
       <SaveBar onSave={onSave} isPending={isPending} error={error} saved={saved} />
     </div>
   )

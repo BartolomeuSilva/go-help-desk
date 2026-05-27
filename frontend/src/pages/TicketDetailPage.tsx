@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -20,7 +20,7 @@ import {
 } from '@/api/tickets'
 import { TagInput } from '@/components/TagInput'
 import { AttachmentUpload, type UploadState } from '@/components/AttachmentUpload'
-import { listStatuses, listUsers } from '@/api/admin'
+import { listStatuses, listUsers, getSiteConfig } from '@/api/admin'
 import { listCannedResponses } from '@/api/canned'
 import { extractError } from '@/api/client'
 import { useAuthStore } from '@/store/auth'
@@ -40,6 +40,13 @@ function priorityVariant(p: string) {
   if (p === 'critical') return 'destructive'
   if (p === 'high') return 'warning'
   if (p === 'medium') return 'default'
+  return 'secondary'
+}
+
+function ticketTypeVariant(tt: string) {
+  if (tt === 'incident') return 'destructive'
+  if (tt === 'problem') return 'warning'
+  if (tt === 'service_request') return 'default'
   return 'secondary'
 }
 
@@ -325,6 +332,34 @@ export function TicketDetailPage() {
   const { data: ticket, isLoading, error } = useQuery({
     queryKey: ['ticket', id],
     queryFn: () => getTicket(id),
+  })
+
+  const { data: siteConfig } = useQuery({
+    queryKey: ['site-config'],
+    queryFn: getSiteConfig,
+  })
+  const itsmEnabled = Boolean(siteConfig?.itsm_enabled)
+
+  const [detailsEdit, setDetailsEdit] = useState(false)
+  const [editTicketType, setEditTicketType] = useState('')
+  const [detailsError, setDetailsError] = useState('')
+
+  useEffect(() => {
+    if (ticket) {
+      setEditTicketType(ticket.ticket_type ?? '')
+    }
+  }, [ticket])
+
+  const detailsMutation = useMutation({
+    mutationFn: () => updateTicket(id, {
+      ticket_type: editTicketType || undefined,
+    }),
+    onSuccess: () => {
+      setDetailsEdit(false)
+      setDetailsError('')
+      qc.invalidateQueries({ queryKey: ['ticket', id] })
+    },
+    onError: (err) => setDetailsError(extractError(err)),
   })
 
   const { data: replies = [] } = useQuery({
@@ -979,24 +1014,83 @@ export function TicketDetailPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                  Details
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    Details
+                  </CardTitle>
+                  {isStaffOrAdmin && itsmEnabled && !detailsEdit && (
+                    <button className="text-xs text-blue-600 dark:text-[#faff69] hover:underline" onClick={() => setDetailsEdit(true)}>
+                      Edit
+                    </button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">Priority</span>
-                  <Badge variant={priorityVariant(ticket.priority) as never}>{ticket.priority}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">Created</span>
-                  <span className="text-right text-xs dark:text-gray-300">{formatDate(ticket.created_at)}</span>
-                </div>
-                {ticket.resolved_at && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Resolved</span>
-                    <span className="text-right text-xs dark:text-gray-300">{formatDate(ticket.resolved_at)}</span>
+                {detailsEdit ? (
+                  <div className="space-y-2">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs text-gray-500 dark:text-gray-400">Ticket Type</Label>
+                      <Select
+                        className="h-7 text-xs w-full"
+                        value={editTicketType}
+                        onChange={(e) => setEditTicketType(e.target.value)}
+                      >
+                        <option value="">— select —</option>
+                        <option value="incident">Incident</option>
+                        <option value="service_request">Service Request</option>
+                        <option value="problem">Problem</option>
+                        <option value="change_request">Change Request</option>
+                      </Select>
+                    </div>
+                    {detailsError && <p className="text-xs text-red-600">{detailsError}</p>}
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => detailsMutation.mutate()}
+                        disabled={detailsMutation.isPending || !editTicketType}
+                      >
+                        {detailsMutation.isPending ? 'Saving…' : 'Save'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => { setDetailsEdit(false); setEditTicketType(ticket.ticket_type ?? ''); setDetailsError('') }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    {itsmEnabled && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-500 dark:text-gray-400">Ticket Type</span>
+                        {ticket.ticket_type ? (
+                          <Badge variant={ticketTypeVariant(ticket.ticket_type) as never}>
+                            {ticket.ticket_type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                          </Badge>
+                        ) : (
+                          <span className="text-right text-xs text-gray-400 dark:text-gray-600">—</span>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-gray-400">Priority</span>
+                      <Badge variant={priorityVariant(ticket.priority) as never}>{ticket.priority}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 dark:text-gray-400">Created</span>
+                      <span className="text-right text-xs dark:text-gray-300">{formatDate(ticket.created_at)}</span>
+                    </div>
+                    {ticket.resolved_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 dark:text-gray-400">Resolved</span>
+                        <span className="text-right text-xs dark:text-gray-300">{formatDate(ticket.resolved_at)}</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>

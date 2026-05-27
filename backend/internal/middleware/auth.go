@@ -165,11 +165,23 @@ func RequireRole(roles ...user.Role) func(http.Handler) http.Handler {
 				http.Error(w, `{"error":{"code":"unauthorized","message":"authentication required"}}`, http.StatusUnauthorized)
 				return
 			}
-			if _, ok := allowed[a.Role]; !ok {
-				http.Error(w, `{"error":{"code":"forbidden","message":"insufficient permissions"}}`, http.StatusForbidden)
+			if _, ok := allowed[a.Role]; ok {
+				next.ServeHTTP(w, r)
 				return
 			}
-			next.ServeHTTP(w, r)
+			// Custom roles (not user.RoleUser) are allowed on any endpoints that accept staff or user roles.
+			if a.Role != user.RoleUser {
+				if _, ok := allowed[user.RoleStaff]; ok {
+					next.ServeHTTP(w, r)
+					return
+				}
+				if _, ok := allowed[user.RoleUser]; ok {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			http.Error(w, `{"error":{"code":"forbidden","message":"insufficient permissions"}}`, http.StatusForbidden)
+			return
 		})
 	}
 }

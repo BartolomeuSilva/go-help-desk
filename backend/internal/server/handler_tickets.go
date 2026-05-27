@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/publiciallc/go-help-desk/backend/internal/dbgen"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/sla"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
@@ -250,6 +251,7 @@ func (s *Server) handleCreateTicket(w http.ResponseWriter, r *http.Request) {
 		TypeID      *uuid.UUID `json:"type_id"`
 		ItemID      *uuid.UUID `json:"item_id"`
 		Priority    string     `json:"priority"`
+		TicketType  string     `json:"ticket_type"` // ITSM v4; optional
 		// Guest-only fields
 		GuestEmail string `json:"guest_email"`
 		GuestName  string `json:"guest_name"`
@@ -275,7 +277,7 @@ func (s *Server) handleCreateTicket(w http.ResponseWriter, r *http.Request) {
 	//   - Guest: category only, no type or item; name + email required
 	//   - User (authenticated non-staff): category + type only, no item
 	//   - Staff/Admin: full CTI, no restrictions
-	isStaffOrAdmin := !isGuest && (a.Role == user.RoleAdmin || a.Role == user.RoleStaff)
+	isStaffOrAdmin := !isGuest && (a.Role != user.RoleUser)
 
 	if isGuest {
 		body.TypeID = nil
@@ -303,6 +305,38 @@ func (s *Server) handleCreateTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Priority == "" {
 		in.Priority = ticket.PriorityMedium
+	}
+	// ITSM v4: accept ticket_type when feature is enabled and value is valid.
+	if s.adminSvc.ITSMEnabled(r.Context()) {
+		if body.TicketType != "" {
+			tt := ticket.TicketType(body.TicketType)
+			if ticket.ValidTicketTypes[tt] {
+				in.TicketType = &tt
+			}
+		} else {
+			// Autoinfer default ticket type hierarchically from CTI mapping.
+			typeID := sentinelUUID
+			if body.TypeID != nil {
+				typeID = *body.TypeID
+			}
+			itemID := sentinelUUID
+			if body.ItemID != nil {
+				itemID = *body.ItemID
+			}
+			lookups := []dbgen.GetDefaultTicketTypeParams{
+				{CategoryID: body.CategoryID, TypeID: typeID, ItemID: itemID},
+				{CategoryID: body.CategoryID, TypeID: typeID, ItemID: sentinelUUID},
+				{CategoryID: body.CategoryID, TypeID: sentinelUUID, ItemID: sentinelUUID},
+			}
+			for _, params := range lookups {
+				ttStr, err := s.db.GetDefaultTicketType(r.Context(), params)
+				if err == nil && ttStr != "" {
+					tt := ticket.TicketType(ttStr)
+					in.TicketType = &tt
+					break
+				}
+			}
+		}
 	}
 
 	if !isGuest {
@@ -380,6 +414,7 @@ func (s *Server) handleUpdateTicket(w http.ResponseWriter, r *http.Request) {
 		CategoryID      *uuid.UUID `json:"category_id"`
 		TypeID          *uuid.UUID `json:"type_id"`
 		ItemID          *uuid.UUID `json:"item_id"`
+		TicketType      *string    `json:"ticket_type"` // ITSM v4; staff/admin only
 	}
 	if err := DecodeJSON(r, &body); err != nil {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
@@ -406,6 +441,22 @@ func (s *Server) handleUpdateTicket(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, err := s.tickets.UpdateCTI(r.Context(), id, *body.CategoryID, body.TypeID, body.ItemID); err != nil {
+			handleError(w, err)
+			return
+		}
+	}
+	// ITSM v4: update ticket_type (staff/admin only, feature must be enabled).
+	if body.TicketType != nil && s.adminSvc.ITSMEnabled(r.Context()) {
+		if a.Role == user.RoleUser {
+			Error(w, http.StatusForbidden, "forbidden", "only staff can set the ticket type")
+			return
+		}
+		tt := ticket.TicketType(*body.TicketType)
+		if !ticket.ValidTicketTypes[tt] {
+			Error(w, http.StatusBadRequest, "bad_request", "invalid ticket_type")
+			return
+		}
+		if _, err := s.tickets.SetTicketType(r.Context(), id, &tt, actor); err != nil {
 			handleError(w, err)
 			return
 		}

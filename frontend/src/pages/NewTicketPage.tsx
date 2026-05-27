@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -7,8 +7,9 @@ import {
   listPublicTypes,
   resolveFieldsForCTI,
   uploadAttachment,
+  getITSMDefault,
 } from '@/api/tickets'
-import { listCategories, listTypes, listItems } from '@/api/admin'
+import { listCategories, listTypes, listItems, getSiteConfig } from '@/api/admin'
 import { extractError } from '@/api/client'
 import { useAuthStore } from '@/store/auth'
 import { Layout } from '@/components/Layout'
@@ -89,12 +90,19 @@ export function NewTicketPage() {
   const [typeId, setTypeId] = useState('')
   const [itemId, setItemId] = useState('')
   const [priority, setPriority] = useState<'medium' | 'critical' | 'high' | 'low'>('medium')
+  const [ticketType, setTicketType] = useState('')
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({})
   const [files, setFiles] = useState<File[]>([])
   const [uploadStates, setUploadStates] = useState<Record<string, UploadState> | undefined>()
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [createdTicketId, setCreatedTicketId] = useState<string | null>(null)
+
+  const { data: siteConfig } = useQuery({
+    queryKey: ['site-config'],
+    queryFn: getSiteConfig,
+  })
+  const itsmEnabled = Boolean(siteConfig?.itsm_enabled)
 
   // Staff/admin use the admin endpoints (all categories/types/items, active or inactive).
   // Regular users use the public endpoints (active only, no items).
@@ -129,6 +137,26 @@ export function NewTicketPage() {
   })
   const visibleFields = ctiFields.filter((f) => f.visible_on_new)
 
+  // Fetch default ticket type when CTI changes
+  const { data: defaultTicketType } = useQuery({
+    queryKey: ['itsm-default', categoryId, typeId, itemId],
+    queryFn: () => getITSMDefault({
+      category_id: categoryId,
+      type_id: typeId || undefined,
+      item_id: itemId || undefined,
+    }),
+    enabled: itsmEnabled && !!categoryId,
+  })
+
+  // Update ticketType state when defaultTicketType is fetched
+  useEffect(() => {
+    if (defaultTicketType) {
+      setTicketType(defaultTicketType)
+    } else {
+      setTicketType('')
+    }
+  }, [defaultTicketType])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -152,6 +180,7 @@ export function NewTicketPage() {
         type_id: typeId || undefined,
         item_id: isStaffOrAdmin ? (itemId || undefined) : undefined,
         priority: isStaffOrAdmin ? priority : undefined,
+        ticket_type: (isStaffOrAdmin && itsmEnabled) ? (ticketType || undefined) : undefined,
         custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
       })
 
@@ -290,18 +319,38 @@ export function NewTicketPage() {
               </div>
 
               {isStaffOrAdmin && (
-                <div className="space-y-1 max-w-xs">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select
-                    id="priority"
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as typeof priority)}
-                    disabled={isUploading}
-                  >
-                    {PRIORITIES.map((p) => (
-                      <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-                    ))}
-                  </Select>
+                <div className="flex gap-4">
+                  <div className="space-y-1 w-full max-w-xs">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select
+                      id="priority"
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value as typeof priority)}
+                      disabled={isUploading}
+                    >
+                      {PRIORITIES.map((p) => (
+                        <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                      ))}
+                    </Select>
+                  </div>
+
+                  {itsmEnabled && (
+                    <div className="space-y-1 w-full max-w-xs">
+                      <Label htmlFor="ticketType">Ticket Type</Label>
+                      <Select
+                        id="ticketType"
+                        value={ticketType}
+                        onChange={(e) => setTicketType(e.target.value)}
+                        disabled={isUploading}
+                      >
+                        <option value="">Select type…</option>
+                        <option value="incident">Incident</option>
+                        <option value="service_request">Service Request</option>
+                        <option value="problem">Problem</option>
+                        <option value="change_request">Change Request</option>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               )}
 

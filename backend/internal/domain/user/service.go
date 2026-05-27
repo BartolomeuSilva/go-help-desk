@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,10 +15,19 @@ import (
 // Service orchestrates user-related business operations.
 type Service struct {
 	store Store
+
+	// Cache for role permissions
+	mu    sync.RWMutex
+	roles map[Role][]Permission
 }
 
 // NewService returns a Service backed by the given Store.
-func NewService(store Store) *Service { return &Service{store: store} }
+func NewService(store Store) *Service {
+	return &Service{
+		store: store,
+		roles: make(map[Role][]Permission),
+	}
+}
 
 // CreateUserInput is the data needed to create a new user.
 type CreateUserInput struct {
@@ -263,3 +273,137 @@ func (s *Service) AdminSetPassword(ctx context.Context, id uuid.UUID, plain stri
 	}
 	return s.store.AdminSetPassword(ctx, id, string(hash))
 }
+
+// WarmupCache pre-loads all roles and their permissions into memory.
+func (s *Service) WarmupCache(ctx context.Context) error {
+	list, err := s.store.ListRoles(ctx)
+	if err != nil {
+		return fmt.Errorf("warming up roles cache: %w", err)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, r := range list {
+		s.roles[Role(r.Name)] = r.Permissions
+	}
+	return nil
+}
+
+func (s *Service) getPermissions(ctx context.Context, role Role) ([]Permission, error) {
+	s.mu.RLock()
+	perms, ok := s.roles[role]
+	s.mu.RUnlock()
+	if ok {
+		return perms, nil
+	}
+
+	// Cache miss: load from DB
+	r, err := s.store.GetRole(ctx, string(role))
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	s.roles[role] = r.Permissions
+	s.mu.Unlock()
+
+	return r.Permissions, nil
+}
+
+// HasPermission checks if the given role has the specified permission.
+func (s *Service) HasPermission(ctx context.Context, role Role, perm Permission) (bool, error) {
+	perms, err := s.getPermissions(ctx, role)
+	if err != nil {
+		return false, err
+	}
+	for _, p := range perms {
+		if p == perm {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *Service) CreateRole(ctx context.Context, name, description string, permissions []Permission) (RoleDetails, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return RoleDetails{}, fmt.Errorf("role name is required")
+	}
+	// Check if already exists
+	_, err := s.store.GetRole(ctx, name)
+	if err == nil {
+		return RoleDetails{}, fmt.Errorf("role %q already exists", name)
+	}
+
+	r := RoleDetails{
+		Name:        name,
+		Description: strings.TrimSpace(description),
+		Permissions: permissions,
+		IsSystem:    false,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	if err := s.store.CreateRole(ctx, r); err != nil {
+		return RoleDetails{}, err
+	}
+
+	s.mu.Lock()
+	s.roles[Role(r.Name)] = r.Permissions
+	s.mu.Unlock()
+
+	return r, nil
+}
+
+func (s *Service) GetRole(ctx context.Context, name string) (RoleDetails, error) {
+	return s.store.GetRole(ctx, name)
+}
+
+func (s *Service) UpdateRole(ctx context.Context, name, description string, permissions []Permission) (RoleDetails, error) {
+	name = strings.TrimSpace(name)
+	r, err := s.store.GetRole(ctx, name)
+	if err != nil {
+		return RoleDetails{}, err
+	}
+	if r.IsSystem {
+		return RoleDetails{}, fmt.Errorf("cannot update system roles")
+	}
+
+	r.Description = strings.TrimSpace(description)
+	r.Permissions = permissions
+	r.UpdatedAt = time.Now()
+
+	if err := s.store.UpdateRole(ctx, r); err != nil {
+		return RoleDetails{}, err
+	}
+
+	s.mu.Lock()
+	s.roles[Role(r.Name)] = r.Permissions
+	s.mu.Unlock()
+
+	return r, nil
+}
+
+func (s *Service) DeleteRole(ctx context.Context, name string) error {
+	name = strings.TrimSpace(name)
+	r, err := s.store.GetRole(ctx, name)
+	if err != nil {
+		return err
+	}
+	if r.IsSystem {
+		return fmt.Errorf("cannot delete system roles")
+	}
+
+	if err := s.store.DeleteRole(ctx, name); err != nil {
+		return err
+	}
+
+	s.mu.Lock()
+	delete(s.roles, Role(name))
+	s.mu.Unlock()
+
+	return nil
+}
+
+func (s *Service) ListRoles(ctx context.Context) ([]RoleDetails, error) {
+	return s.store.ListRoles(ctx)
+}
+

@@ -19,6 +19,25 @@ const (
 	PriorityLow      Priority = "low"
 )
 
+// TicketType classifies tickets using ITSM categories (v4 feature).
+// The zero value means the feature is disabled or the type is unset.
+type TicketType string
+
+const (
+	TicketTypeIncident       TicketType = "incident"
+	TicketTypeServiceRequest TicketType = "service_request"
+	TicketTypeProblem        TicketType = "problem"
+	TicketTypeChangeRequest  TicketType = "change_request"
+)
+
+// ValidTicketTypes is the complete set of allowed TicketType values.
+var ValidTicketTypes = map[TicketType]bool{
+	TicketTypeIncident:       true,
+	TicketTypeServiceRequest: true,
+	TicketTypeProblem:        true,
+	TicketTypeChangeRequest:  true,
+}
+
 // StatusKind distinguishes the three system statuses from admin-defined ones.
 // Resolved and Closed have hardcoded lifecycle semantics; New is the starting
 // point. Everything else is Custom.
@@ -107,6 +126,7 @@ type Ticket struct {
 	ResolutionNotes *string        `json:"resolution_notes,omitempty"`
 	ResolvedAt      *time.Time     `json:"resolved_at,omitempty"`
 	ClosedAt        *time.Time     `json:"closed_at,omitempty"`
+	TicketType      *TicketType    `json:"ticket_type,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 }

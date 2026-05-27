@@ -11,6 +11,7 @@ const (
 	KeySAMLKeyPEM             = "saml_key_pem"
 	KeyGuestSubmissionEnabled = "guest_submission_enabled"
 	KeySLAEnabled             = "sla_enabled"
+	KeyITSMEnabled            = "itsm_enabled"
 	KeyMFAEnabled             = "mfa_enabled"
 	KeyMFAEnforcedRoles       = "mfa_enforced_roles"
 	KeyReopenWindowDays       = "reopen_window_days"

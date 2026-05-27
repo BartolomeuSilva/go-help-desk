@@ -71,3 +71,8 @@ export async function updateKBArticle(
 export async function deleteKBArticle(id: string): Promise<void> {
   await api.delete(`/admin/kb/articles/${id}`)
 }
+
+export async function searchKBArticles(query: string): Promise<KBArticle[]> {
+  const res = await api.get<KBArticle[]>('/kb/search', { params: { q: query } })
+  return res.data
+}

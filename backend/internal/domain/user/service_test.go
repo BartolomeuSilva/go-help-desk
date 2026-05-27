@@ -17,14 +17,43 @@ type fakeUserStore struct {
 	byID    map[uuid.UUID]user.User
 	byEmail map[string]user.User
 	bySAML  map[string]user.User
+	roles   map[string]user.RoleDetails
 }
 
 func newFakeUserStore() *fakeUserStore {
-	return &fakeUserStore{
+	f := &fakeUserStore{
 		byID:    make(map[uuid.UUID]user.User),
 		byEmail: make(map[string]user.User),
 		bySAML:  make(map[string]user.User),
+		roles:   make(map[string]user.RoleDetails),
 	}
+	// Seed default system roles
+	f.roles["admin"] = user.RoleDetails{
+		Name:        "admin",
+		Description: "Admin",
+		Permissions: []user.Permission{
+			user.PermTicketsCreate, user.PermTicketsRead, user.PermTicketsUpdate, user.PermTicketsReply,
+			user.PermTicketsDelete, user.PermKBManage, user.PermCannedManage, user.PermTagsManage,
+			user.PermUsersManage, user.PermSettingsManage,
+		},
+		IsSystem: true,
+	}
+	f.roles["staff"] = user.RoleDetails{
+		Name:        "staff",
+		Description: "Staff",
+		Permissions: []user.Permission{
+			user.PermTicketsCreate, user.PermTicketsRead, user.PermTicketsUpdate, user.PermTicketsReply,
+			user.PermKBManage, user.PermCannedManage,
+		},
+		IsSystem: true,
+	}
+	f.roles["user"] = user.RoleDetails{
+		Name:        "user",
+		Description: "User",
+		Permissions: []user.Permission{user.PermTicketsCreate},
+		IsSystem:    true,
+	}
+	return f
 }
 
 func (f *fakeUserStore) Create(_ context.Context, u user.User) error {
@@ -165,6 +194,43 @@ func (f *fakeUserStore) AdminSetPassword(_ context.Context, id uuid.UUID, hash s
 	return nil
 }
 
+func (f *fakeUserStore) CreateRole(_ context.Context, r user.RoleDetails) error {
+	f.roles[r.Name] = r
+	return nil
+}
+
+func (f *fakeUserStore) GetRole(_ context.Context, name string) (user.RoleDetails, error) {
+	r, ok := f.roles[name]
+	if !ok {
+		return user.RoleDetails{}, errors.New("not found")
+	}
+	return r, nil
+}
+
+func (f *fakeUserStore) UpdateRole(_ context.Context, r user.RoleDetails) error {
+	if existing, ok := f.roles[r.Name]; ok && existing.IsSystem {
+		return errors.New("cannot update system role")
+	}
+	f.roles[r.Name] = r
+	return nil
+}
+
+func (f *fakeUserStore) DeleteRole(_ context.Context, name string) error {
+	if existing, ok := f.roles[name]; ok && existing.IsSystem {
+		return errors.New("cannot delete system role")
+	}
+	delete(f.roles, name)
+	return nil
+}
+
+func (f *fakeUserStore) ListRoles(_ context.Context) ([]user.RoleDetails, error) {
+	out := make([]user.RoleDetails, 0, len(f.roles))
+	for _, r := range f.roles {
+		out = append(out, r)
+	}
+	return out, nil
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 func TestUserService_Create_Valid(t *testing.T) {
@@ -292,3 +358,47 @@ func TestUserService_ConfirmMFAEnrollment(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, got.MFAEnabled)
 }
+
+func TestUserService_RolesAndPermissions(t *testing.T) {
+	fake := newFakeUserStore()
+	svc := user.NewService(fake)
+
+	// Test default roles
+	has, err := svc.HasPermission(context.Background(), user.RoleAdmin, user.PermSettingsManage)
+	require.NoError(t, err)
+	require.True(t, has)
+
+	has, err = svc.HasPermission(context.Background(), user.RoleStaff, user.PermSettingsManage)
+	require.NoError(t, err)
+	require.False(t, has)
+
+	// Create custom role
+	customPerms := []user.Permission{user.PermTicketsRead, user.PermTicketsReply}
+	role, err := svc.CreateRole(context.Background(), "agent-level-1", "Level 1 Agent", customPerms)
+	require.NoError(t, err)
+	require.Equal(t, "agent-level-1", role.Name)
+
+	// Test cache hit / lazy load
+	has, err = svc.HasPermission(context.Background(), user.Role("agent-level-1"), user.PermTicketsReply)
+	require.NoError(t, err)
+	require.True(t, has)
+
+	has, err = svc.HasPermission(context.Background(), user.Role("agent-level-1"), user.PermSettingsManage)
+	require.NoError(t, err)
+	require.False(t, has)
+
+	// Update custom role
+	updatedPerms := []user.Permission{user.PermTicketsRead, user.PermTicketsReply, user.PermCannedManage}
+	_, err = svc.UpdateRole(context.Background(), "agent-level-1", "Level 1 Agent Updated", updatedPerms)
+	require.NoError(t, err)
+
+	has, err = svc.HasPermission(context.Background(), user.Role("agent-level-1"), user.PermCannedManage)
+	require.NoError(t, err)
+	require.True(t, has)
+
+	// Delete custom role
+	require.NoError(t, svc.DeleteRole(context.Background(), "agent-level-1"))
+	_, err = svc.GetRole(context.Background(), "agent-level-1")
+	require.Error(t, err)
+}
+
