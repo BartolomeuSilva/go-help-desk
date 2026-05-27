@@ -32,6 +32,8 @@ type Querier interface {
 	CreateCustomFieldDef(ctx context.Context, arg CreateCustomFieldDefParams) (CustomFieldDef, error)
 	CreateGroup(ctx context.Context, arg CreateGroupParams) error
 	CreateItem(ctx context.Context, arg CreateItemParams) error
+	CreateKBArticle(ctx context.Context, arg CreateKBArticleParams) (KbArticle, error)
+	CreateKBCategory(ctx context.Context, arg CreateKBCategoryParams) (KbCategory, error)
 	CreateOAuthClient(ctx context.Context, arg CreateOAuthClientParams) error
 	CreatePlugin(ctx context.Context, arg CreatePluginParams) error
 	CreateReply(ctx context.Context, arg CreateReplyParams) error
@@ -53,6 +55,8 @@ type Querier interface {
 	DeleteCustomFieldValue(ctx context.Context, arg DeleteCustomFieldValueParams) error
 	DeleteGroup(ctx context.Context, id uuid.UUID) error
 	DeleteItem(ctx context.Context, id uuid.UUID) error
+	DeleteKBArticle(ctx context.Context, id uuid.UUID) error
+	DeleteKBCategory(ctx context.Context, id uuid.UUID) error
 	DeleteOAuthClient(ctx context.Context, id uuid.UUID) error
 	DeletePendingRegistration(ctx context.Context, id uuid.UUID) error
 	DeletePlugin(ctx context.Context, id string) error
@@ -74,6 +78,9 @@ type Querier interface {
 	GetCustomFieldDef(ctx context.Context, id uuid.UUID) (CustomFieldDef, error)
 	GetGroup(ctx context.Context, id uuid.UUID) (Group, error)
 	GetItem(ctx context.Context, id uuid.UUID) (Item, error)
+	GetKBArticle(ctx context.Context, id uuid.UUID) (KbArticle, error)
+	GetKBCategory(ctx context.Context, id uuid.UUID) (KbCategory, error)
+	GetKBCategoryByName(ctx context.Context, name string) (KbCategory, error)
 	GetOAuthClientByClientID(ctx context.Context, clientID string) (OauthClient, error)
 	GetPendingRegistrationByToken(ctx context.Context, token uuid.UUID) (PendingRegistration, error)
 	GetPlugin(ctx context.Context, id string) (Plugin, error)
@@ -91,6 +98,7 @@ type Querier interface {
 	GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserBySAMLSubject(ctx context.Context, samlSubject string) (User, error)
 	GetWebhookConfig(ctx context.Context, id uuid.UUID) (WebhookConfig, error)
+	IncrementKBArticleViews(ctx context.Context, id uuid.UUID) error
 	ListAPIKeysByUser(ctx context.Context, userID uuid.UUID) ([]ApiKey, error)
 	ListActiveTags(ctx context.Context) ([]Tag, error)
 	ListAllTags(ctx context.Context) ([]Tag, error)
@@ -111,6 +119,9 @@ type Querier interface {
 	ListGroupsForUser(ctx context.Context, userID uuid.UUID) ([]Group, error)
 	ListGroupsInScope(ctx context.Context, arg ListGroupsInScopeParams) ([]Group, error)
 	ListItems(ctx context.Context, arg ListItemsParams) ([]Item, error)
+	ListKBArticles(ctx context.Context) ([]KbArticle, error)
+	ListKBArticlesByCategory(ctx context.Context, categoryID uuid.UUID) ([]KbArticle, error)
+	ListKBCategories(ctx context.Context) ([]KbCategory, error)
 	ListOAuthClients(ctx context.Context) ([]OauthClient, error)
 	ListPlugins(ctx context.Context) ([]Plugin, error)
 	ListReplies(ctx context.Context, ticketID uuid.UUID) ([]TicketReply, error)
@@ -151,6 +162,8 @@ type Querier interface {
 	UpdateCustomFieldDef(ctx context.Context, arg UpdateCustomFieldDefParams) error
 	UpdateGroup(ctx context.Context, arg UpdateGroupParams) error
 	UpdateItem(ctx context.Context, arg UpdateItemParams) error
+	UpdateKBArticle(ctx context.Context, arg UpdateKBArticleParams) (KbArticle, error)
+	UpdateKBCategory(ctx context.Context, arg UpdateKBCategoryParams) (KbCategory, error)
 	UpdatePlugin(ctx context.Context, arg UpdatePluginParams) error
 	UpdateSLAPolicy(ctx context.Context, arg UpdateSLAPolicyParams) error
 	UpdateSLARecord(ctx context.Context, arg UpdateSLARecordParams) error

@@ -5,7 +5,7 @@ import { useAuthStore } from '@/store/auth'
 import { logout } from '@/api/auth'
 import { getSiteConfig } from '@/api/admin'
 import { Button } from '@/components/ui/button'
-import { TicketIcon, UsersIcon, SettingsIcon, LogOutIcon, HomeIcon, FolderIcon, CircleDotIcon, ShieldIcon, UsersRoundIcon, TagIcon, SlidersIcon, PuzzleIcon, MessageSquare, Sun, Moon } from 'lucide-react'
+import { TicketIcon, UsersIcon, SettingsIcon, LogOutIcon, HomeIcon, FolderIcon, CircleDotIcon, ShieldIcon, UsersRoundIcon, TagIcon, SlidersIcon, PuzzleIcon, MessageSquare, Sun, Moon, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NavItemProps {
@@ -95,6 +95,7 @@ export function Layout({ children }: LayoutProps) {
           <nav className="flex-1 space-y-1 overflow-y-auto p-3">
             <NavItem to="/dashboard" icon={<HomeIcon className="h-4 w-4" />} label="Dashboard" />
             <NavItem to="/tickets" icon={<TicketIcon className="h-4 w-4" />} label="Tickets" />
+            <NavItem to="/kb" icon={<BookOpen className="h-4 w-4" />} label="Knowledge Base" />
             {user?.role === 'admin' && (
               <>
                 <div className="px-3 pt-4 pb-1">
@@ -113,6 +114,7 @@ export function Layout({ children }: LayoutProps) {
                 <NavItem to="/admin/custom-fields" icon={<SlidersIcon className="h-4 w-4" />} label="Custom Fields" />
                 <NavItem to="/admin/plugins" icon={<PuzzleIcon className="h-4 w-4" />} label="Plugins" />
                 <NavItem to="/admin/canned-responses" icon={<MessageSquare className="h-4 w-4" />} label="Canned Responses" />
+                <NavItem to="/admin/kb" icon={<BookOpen className="h-4 w-4" />} label="Knowledge Base" />
                 <NavItem to="/admin/settings" icon={<SettingsIcon className="h-4 w-4" />} label="Settings" />
               </>
             )}

@@ -257,4 +257,27 @@ export interface SLASummary {
   resolved_at?: string
 }
 
+// ── Knowledge Base ────────────────────────────────────────────────────────────
+
+export interface KBCategory {
+  id: string
+  name: string
+  description: string
+  is_public: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface KBArticle {
+  id: string
+  category_id: string
+  title: string
+  content: string
+  status: 'published' | 'draft'
+  views: number
+  created_at: string
+  updated_at: string
+}
+
+
 

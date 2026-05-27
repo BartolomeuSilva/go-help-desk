@@ -178,6 +178,18 @@ func (s *Server) adminRouter() *chi.Mux {
 		r.Delete("/{id}", s.handleDeleteCannedResponse)
 	})
 
+	r.Route("/kb/categories", func(r chi.Router) {
+		r.Post("/", s.handleCreateKBCategory)
+		r.Patch("/{id}", s.handleUpdateKBCategory)
+		r.Delete("/{id}", s.handleDeleteKBCategory)
+	})
+
+	r.Route("/kb/articles", func(r chi.Router) {
+		r.Post("/", s.handleCreateKBArticle)
+		r.Patch("/{id}", s.handleUpdateKBArticle)
+		r.Delete("/{id}", s.handleDeleteKBArticle)
+	})
+
 	r.Route("/api-keys", func(r chi.Router) {
 		r.Get("/", s.handleListAPIKeys)
 		r.Post("/", s.handleCreateAPIKey)

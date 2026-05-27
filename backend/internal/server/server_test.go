@@ -23,6 +23,7 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/database/pluginstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/registrationstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/cannedstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/database/kbstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/sla"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/tagstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/ticketstore"
@@ -30,6 +31,7 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/auth"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/canned"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/kb"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/category"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/customfield"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/group"
@@ -83,6 +85,7 @@ func newHarness(t *testing.T) (*harness, func()) {
 	regStore := registrationstore.New(q)
 	pluginStore := pluginstore.New(q)
 	canStore := cannedstore.New(q)
+	kbStore := kbstore.New(q)
 
 	// Services
 	userSvc := user.NewService(uStore)
@@ -93,6 +96,7 @@ func newHarness(t *testing.T) (*harness, func()) {
 	customFieldSvc := customfield.NewService(cfStore)
 	registrationSvc := registration.NewService(regStore, userSvc, mockMailer{}, "")
 	cannedSvc := canned.NewService(canStore)
+	kbSvc := kb.NewService(kbStore)
 	dispatcher := notify.NewMulti() // no-op in tests
 	slaSvc := sla.NewService(slastore.New(q)).WithEnabledFunc(func(ctx context.Context) bool {
 		return adminSvc.SLAEnabled(ctx)
@@ -184,6 +188,7 @@ func newHarness(t *testing.T) (*harness, func()) {
 		authSt,
 		registrationSvc,
 		cannedSvc,
+		kbSvc,
 	)
 
 	h := &harness{
@@ -894,6 +899,7 @@ func newBareHarness(t *testing.T) (*harness, func()) {
 	regStore := registrationstore.New(q)
 	pluginStore := pluginstore.New(q)
 	canStore := cannedstore.New(q)
+	kbStore := kbstore.New(q)
 
 	userSvc := user.NewService(uStore)
 	categorySvc := category.NewService(cStore)
@@ -903,6 +909,7 @@ func newBareHarness(t *testing.T) (*harness, func()) {
 	customFieldSvc := customfield.NewService(cfStore)
 	registrationSvc := registration.NewService(regStore, userSvc, mockMailer{}, "")
 	cannedSvc := canned.NewService(canStore)
+	kbSvc := kb.NewService(kbStore)
 	dispatcher := notify.NewMulti()
 	ticketSvc := ticket.NewService(tStore, tStore, dispatcher, auStore, nil)
 	require.NoError(t, ticketSvc.LoadSystemStatuses(ctx))
@@ -943,6 +950,7 @@ func newBareHarness(t *testing.T) (*harness, func()) {
 		authSt,
 		registrationSvc,
 		cannedSvc,
+		kbSvc,
 	)
 
 	h := &harness{srv: srv}

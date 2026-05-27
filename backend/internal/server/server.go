@@ -23,6 +23,7 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/category"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/customfield"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/group"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/kb"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/plugin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/registration"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/sla"
@@ -77,6 +78,7 @@ type Server struct {
 	plugins      plugin.Registry
 	pluginStore  plugin.Store
 	canned       *canned.Service
+	kb           kb.Service
 
 	apiKeyLookup     authmw.APIKeyAuthFunc
 	oauthClientStore OAuthClientLookup
@@ -106,6 +108,7 @@ func New(
 	authStore AuthStoreIface,
 	registrationSvc *registration.Service,
 	canned *canned.Service,
+	kbService kb.Service,
 ) *Server {
 	s := &Server{
 		cfg:              cfg,
@@ -125,6 +128,7 @@ func New(
 		oauthClientStore: oauthClients,
 		authStore:        authStore,
 		canned:           canned,
+		kb:               kbService,
 	}
 	s.router = s.buildRouter()
 	return s
@@ -203,6 +207,14 @@ func (s *Server) buildRouter() *chi.Mux {
 		// Statuses are needed by all authenticated users for display (ticket list, detail, dashboard).
 		r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff, user.RoleUser)).Get("/statuses", s.handleListStatuses)
 		r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff)).Get("/canned-responses", s.handleListCannedResponses)
+
+		// Knowledge Base public/staff routes (visibility handled dynamically in service)
+		r.Route("/kb", func(r chi.Router) {
+			r.Get("/categories", s.handleListKBCategories)
+			r.Get("/articles/{id}", s.handleGetKBArticle)
+			r.Get("/categories/{id}/articles", s.handleListKBArticlesByCategory)
+		})
+
 		r.Mount("/admin", s.adminRouter())
 		r.Mount("/me", s.meRouter())
 	})

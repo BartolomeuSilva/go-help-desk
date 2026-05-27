@@ -29,11 +29,13 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/database/ticketstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/pluginstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/cannedstore"
+	"github.com/publiciallc/go-help-desk/backend/internal/database/kbstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/database/userstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/dbgen"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/auth"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/canned"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/kb"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/category"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/customfield"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/group"
@@ -103,6 +105,7 @@ func run() error {
 	regStore := registrationstore.New(q)
 	pluginStore := pluginstore.New(q)
 	canStore := cannedstore.New(q)
+	kbStore := kbstore.New(q)
 
 	// ── Domain services ───────────────────────────────────────────────────────
 	tagStore := tagstore.New(q)
@@ -114,6 +117,7 @@ func run() error {
 	adminSvc := admin.NewService(aStore)
 	customFieldSvc := customfield.NewService(cfStore)
 	cannedSvc := canned.NewService(canStore)
+	kbSvc := kb.NewService(kbStore)
 
 	// slaPolicySvc is always created so the admin blade can manage policies
 	// regardless of whether SLA enforcement is active.
@@ -198,6 +202,7 @@ func run() error {
 		authStore,
 		registrationSvc,
 		cannedSvc,
+		kbSvc,
 	)
 
 	srv.InitSAML(ctx)

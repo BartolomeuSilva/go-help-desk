@@ -22,6 +22,10 @@ import { GuestTicketPage } from '@/pages/GuestTicketPage'
 import { SignupPage } from '@/pages/SignupPage'
 import { VerifyEmailPage } from '@/pages/VerifyEmailPage'
 import { CannedResponsesPage } from '@/pages/admin/CannedResponsesPage'
+import { KBPage } from '@/pages/kb/KBPage'
+import { KBArticleDetailPage } from '@/pages/kb/KBArticleDetailPage'
+import { KBAdminPage } from '@/pages/admin/KBAdminPage'
+import { KBArticleEditorPage } from '@/pages/admin/KBArticleEditorPage'
 
 async function requireAuth() {
   const { user, setUser } = useAuthStore.getState()
@@ -168,6 +172,39 @@ const adminCannedResponsesRoute = createRoute({
   component: CannedResponsesPage,
 })
 
+const kbRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/kb',
+  component: KBPage,
+})
+
+const kbArticleDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/kb/articles/$id',
+  component: KBArticleDetailPage,
+})
+
+const adminKBRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/kb',
+  beforeLoad: requireAdmin,
+  component: KBAdminPage,
+})
+
+const adminKBArticleNewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/kb/articles/new',
+  beforeLoad: requireAdmin,
+  component: KBArticleEditorPage,
+})
+
+const adminKBArticleEditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/kb/articles/$id',
+  beforeLoad: requireAdmin,
+  component: KBArticleEditorPage,
+})
+
 // ── Guest ─────────────────────────────────────────────────────────────────────
 const submitRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -210,6 +247,11 @@ export const router = createRouter({
     ticketsRoute,
     newTicketRoute,
     ticketDetailRoute,
+    kbRoute,
+    kbArticleDetailRoute,
+    adminKBRoute,
+    adminKBArticleNewRoute,
+    adminKBArticleEditRoute,
     adminUsersRoute,
     adminUserDetailRoute,
     adminGroupsRoute,

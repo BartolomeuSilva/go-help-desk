@@ -105,6 +105,26 @@ type Item struct {
 	Active    bool      `json:"active"`
 }
 
+type KbArticle struct {
+	ID         uuid.UUID `json:"id"`
+	CategoryID uuid.UUID `json:"category_id"`
+	Title      string    `json:"title"`
+	Content    string    `json:"content"`
+	Status     string    `json:"status"`
+	Views      int32     `json:"views"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+type KbCategory struct {
+	ID          uuid.UUID      `json:"id"`
+	Name        string         `json:"name"`
+	Description sql.NullString `json:"description"`
+	IsPublic    bool           `json:"is_public"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+}
+
 type OauthClient struct {
 	ID           uuid.UUID `json:"id"`
 	ClientID     string    `json:"client_id"`
