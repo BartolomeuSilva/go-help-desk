@@ -5,8 +5,11 @@ package server
 import (
 	"context"
 	"encoding/gob"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -288,9 +291,25 @@ func (s *Server) handleListPublicItems(w http.ResponseWriter, r *http.Request) {
 // handleGetSiteConfig returns public-facing branding info and the app version.
 // No authentication required — used by the SPA shell before login.
 func (s *Server) handleGetSiteConfig(w http.ResponseWriter, r *http.Request) {
+	logoURL := s.adminSvc.SiteLogoURL(r.Context())
+	if logoURL != "" {
+		logoDir := filepath.Join(s.cfg.AttachmentDir, "site")
+		var mtime int64
+		for _, ext := range []string{"png", "svg"} {
+			path := filepath.Join(logoDir, "logo."+ext)
+			if info, err := os.Stat(path); err == nil {
+				mtime = info.ModTime().Unix()
+				break
+			}
+		}
+		if mtime > 0 {
+			logoURL = fmt.Sprintf("%s?v=%d", logoURL, mtime)
+		}
+	}
+
 	JSON(w, http.StatusOK, map[string]any{
 		"name":         s.adminSvc.SiteName(r.Context()),
-		"logo_url":     s.adminSvc.SiteLogoURL(r.Context()),
+		"logo_url":     logoURL,
 		"version":      version.Version,
 		"sla_enabled":  s.adminSvc.SLAEnabled(r.Context()),
 		"itsm_enabled": s.adminSvc.ITSMEnabled(r.Context()),
