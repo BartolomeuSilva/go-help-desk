@@ -132,7 +132,7 @@ type Querier interface {
 	ListKBCategories(ctx context.Context) ([]KbCategory, error)
 	ListOAuthClients(ctx context.Context) ([]OauthClient, error)
 	ListPlugins(ctx context.Context) ([]Plugin, error)
-	ListReplies(ctx context.Context, ticketID uuid.UUID) ([]TicketReply, error)
+	ListReplies(ctx context.Context, ticketID uuid.UUID) ([]ListRepliesRow, error)
 	ListResolvedTicketsBefore(ctx context.Context, arg ListResolvedTicketsBeforeParams) ([]Ticket, error)
 	ListRoles(ctx context.Context) ([]Role, error)
 	ListSLAPolicies(ctx context.Context) ([]SlaPolicy, error)

@@ -139,6 +139,7 @@ type Reply struct {
 	ID             uuid.UUID  `json:"id"`
 	TicketID       uuid.UUID  `json:"ticket_id"`
 	AuthorID       *uuid.UUID `json:"author_id,omitempty"`
+	AuthorName     *string    `json:"author_name,omitempty"`
 	GuestToken     *string    `json:"-"`
 	Body           string     `json:"body"`
 	Internal       bool       `json:"internal"`

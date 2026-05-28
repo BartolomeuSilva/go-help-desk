@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -603,19 +603,66 @@ export function TicketDetailPage() {
               {timeline.map((item) => {
                 if (item.kind === 'reply') {
                   const r = item.data
+                  const isSupport = r.author_id && r.author_id !== ticket.reporter_user_id
+
+                  // Resolve author display name: prefer server-supplied author_name,
+                  // fall back to allUsers lookup (staff/admin), then truncated ID
+                  const authorUser = allUsers.find((u) => u.id === r.author_id)
+                  const authorLabel = r.author_name
+                    ?? authorUser?.display_name
+                    ?? (r.author_id ? r.author_id.slice(0, 8) + '…' : 'Customer')
+
+                  // Card style: left accent border + subtle background per author type
+                  let cardClass: string
+                  let accentClass: string
+                  let badgeEl: React.ReactNode
+
+                  let textClass: string
+
+                  if (r.internal) {
+                    cardClass = 'border border-yellow-200 bg-yellow-50 dark:border-yellow-900/40 dark:bg-yellow-950/20'
+                    accentClass = 'border-l-4 border-l-yellow-400 dark:border-l-yellow-500'
+                    textClass = 'text-yellow-900 dark:text-yellow-100'
+                    badgeEl = (
+                      <span className="rounded bg-yellow-100 dark:bg-yellow-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
+                        Internal
+                      </span>
+                    )
+                  } else if (isSupport) {
+                    cardClass = 'border border-[#e6e85e] bg-[#faff69] dark:border-[#b8ba00]/40 dark:bg-[#faff69]/10'
+                    accentClass = 'border-l-4 border-l-[#b8ba00] dark:border-l-[#faff69]'
+                    textClass = 'text-[#ffffff]'
+                    badgeEl = (
+                      <span className="rounded bg-black dark:bg-black px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase tracking-wide">
+                        Support
+                      </span>
+                    )
+                  } else {
+                    cardClass = 'border border-emerald-100 bg-emerald-50/40 dark:border-emerald-900/30 dark:bg-emerald-950/10'
+                    accentClass = 'border-l-4 border-l-emerald-400 dark:border-l-emerald-500'
+                    textClass = 'text-[#ffffff]'
+                    badgeEl = (
+                      <span className="rounded bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+                        Customer
+                      </span>
+                    )
+                  }
+
                   return (
                     <div
                       key={r.id}
-                      className={`rounded-lg border p-4 text-sm ${r.internal ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-900/40 dark:bg-yellow-950/20' : 'bg-white dark:bg-[#121212]'} dark:border-[#2a2a2a]`}
+                      className={`rounded-lg p-4 text-sm ${cardClass} ${accentClass}`}
                     >
-                      <div className="mb-1 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <span>{r.author_id ?? 'Customer'}</span>
-                        <span className="flex items-center gap-2">
-                          {r.internal && <span className="text-yellow-600 dark:text-yellow-500 font-medium">Internal note</span>}
+                      <div className={`mb-1.5 flex items-center justify-between text-xs ${textClass} opacity-80`}>
+                        <span className="flex items-center gap-1.5">
+                          <span className={`font-semibold truncate max-w-[180px] ${textClass}`}>{authorLabel}</span>
+                          {badgeEl}
+                        </span>
+                        <span className="flex items-center gap-2 tabular-nums">
                           {formatDate(r.created_at)}
                         </span>
                       </div>
-                      <p className="whitespace-pre-wrap">{r.body}</p>
+                      <p className={`whitespace-pre-wrap ${textClass}`}>{r.body}</p>
                     </div>
                   )
                 }
@@ -766,7 +813,7 @@ export function TicketDetailPage() {
             {isStaffOrAdmin && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
                     Assignee
                   </CardTitle>
                 </CardHeader>
@@ -786,13 +833,13 @@ export function TicketDetailPage() {
             {ticket.sla && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
                     SLA Status
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Status</span>
+                    <span className="text-white/70 dark:text-white/70">Status</span>
                     <span
                       className={
                         'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ' +
@@ -878,7 +925,7 @@ export function TicketDetailPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
                   Tags
                 </CardTitle>
               </CardHeader>
@@ -890,7 +937,7 @@ export function TicketDetailPage() {
             {attachments.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
                     Attachments
                   </CardTitle>
                 </CardHeader>
@@ -913,7 +960,7 @@ export function TicketDetailPage() {
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
                     Classification
                   </CardTitle>
                   {isStaffOrAdmin && !ctiEdit && (
@@ -992,19 +1039,19 @@ export function TicketDetailPage() {
                 ) : (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">Category</span>
-                      <span className="text-right text-xs font-medium dark:text-white">{categoryName ?? '—'}</span>
+                      <span className="text-white/70 dark:text-white/70">Category</span>
+                      <span className="text-right text-xs font-medium text-white">{categoryName ?? '—'}</span>
                     </div>
                     {ticket.type_id && (
                       <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Type</span>
-                        <span className="text-right text-xs dark:text-gray-300">{typeName ?? '—'}</span>
+                        <span className="text-white/70 dark:text-white/70">Type</span>
+                        <span className="text-right text-xs text-white">{typeName ?? '—'}</span>
                       </div>
                     )}
                     {ticket.item_id && (
                       <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Item</span>
-                        <span className="text-right text-xs dark:text-gray-300">{itemName ?? '—'}</span>
+                        <span className="text-white/70 dark:text-white/70">Item</span>
+                        <span className="text-right text-xs text-white">{itemName ?? '—'}</span>
                       </div>
                     )}
                   </>
@@ -1015,7 +1062,7 @@ export function TicketDetailPage() {
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
                     Details
                   </CardTitle>
                   {isStaffOrAdmin && itsmEnabled && !detailsEdit && (
@@ -1066,28 +1113,28 @@ export function TicketDetailPage() {
                   <>
                     {itsmEnabled && (
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-500 dark:text-gray-400">Ticket Type</span>
+                        <span className="text-white/70 dark:text-white/70">Ticket Type</span>
                         {ticket.ticket_type ? (
                           <Badge variant={ticketTypeVariant(ticket.ticket_type) as never}>
                             {ticket.ticket_type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                           </Badge>
                         ) : (
-                          <span className="text-right text-xs text-gray-400 dark:text-gray-600">—</span>
+                          <span className="text-right text-xs text-white">—</span>
                         )}
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">Priority</span>
+                      <span className="text-white/70 dark:text-white/70">Priority</span>
                       <Badge variant={priorityVariant(ticket.priority) as never}>{ticket.priority}</Badge>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500 dark:text-gray-400">Created</span>
-                      <span className="text-right text-xs dark:text-gray-300">{formatDate(ticket.created_at)}</span>
+                      <span className="text-white/70 dark:text-white/70">Created</span>
+                      <span className="text-right text-xs text-white">{formatDate(ticket.created_at)}</span>
                     </div>
                     {ticket.resolved_at && (
                       <div className="flex justify-between">
-                        <span className="text-gray-500 dark:text-gray-400">Resolved</span>
-                        <span className="text-right text-xs dark:text-gray-300">{formatDate(ticket.resolved_at)}</span>
+                        <span className="text-white/70 dark:text-white/70">Resolved</span>
+                        <span className="text-right text-xs text-white">{formatDate(ticket.resolved_at)}</span>
                       </div>
                     )}
                   </>

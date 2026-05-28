@@ -345,18 +345,35 @@ func (q *Queries) ListAttachments(ctx context.Context, ticketID uuid.UUID) ([]At
 }
 
 const listReplies = `-- name: ListReplies :many
-SELECT id, ticket_id, author_id, guest_token, body, internal, created_at, notify_customer FROM ticket_replies WHERE ticket_id = $1 ORDER BY created_at ASC
+SELECT r.id, r.ticket_id, r.author_id, r.guest_token, r.body, r.internal, r.created_at, r.notify_customer,
+       u.display_name AS author_name
+FROM ticket_replies r
+LEFT JOIN users u ON u.id = r.author_id
+WHERE r.ticket_id = $1
+ORDER BY r.created_at ASC
 `
 
-func (q *Queries) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]TicketReply, error) {
+type ListRepliesRow struct {
+	ID             uuid.UUID      `json:"id"`
+	TicketID       uuid.UUID      `json:"ticket_id"`
+	AuthorID       uuid.NullUUID  `json:"author_id"`
+	GuestToken     sql.NullString `json:"guest_token"`
+	Body           string         `json:"body"`
+	Internal       bool           `json:"internal"`
+	CreatedAt      time.Time      `json:"created_at"`
+	NotifyCustomer bool           `json:"notify_customer"`
+	AuthorName     sql.NullString `json:"author_name"`
+}
+
+func (q *Queries) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]ListRepliesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listReplies, ticketID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []TicketReply
+	var items []ListRepliesRow
 	for rows.Next() {
-		var i TicketReply
+		var i ListRepliesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TicketID,
@@ -366,6 +383,7 @@ func (q *Queries) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]Ticket
 			&i.Internal,
 			&i.CreatedAt,
 			&i.NotifyCustomer,
+			&i.AuthorName,
 		); err != nil {
 			return nil, err
 		}

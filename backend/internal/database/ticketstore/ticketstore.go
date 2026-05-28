@@ -275,6 +275,7 @@ func (s *Store) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]ticket.R
 			ID:             r.ID,
 			TicketID:       r.TicketID,
 			AuthorID:       database.UUIDPtr(r.AuthorID),
+			AuthorName:     database.StringPtr(r.AuthorName),
 			GuestToken:     database.StringPtr(r.GuestToken),
 			Body:           r.Body,
 			Internal:       r.Internal,
