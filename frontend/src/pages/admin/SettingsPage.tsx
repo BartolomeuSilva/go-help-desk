@@ -216,12 +216,13 @@ function SAMLSection() {
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
-type Tab = 'general' | 'branding' | 'auth' | 'features'
+type Tab = 'general' | 'branding' | 'auth' | 'email' | 'features'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'general',  label: 'General' },
   { id: 'branding', label: 'Branding' },
   { id: 'auth',     label: 'Authentication' },
+  { id: 'email',    label: 'Email Settings' },
   { id: 'features', label: 'Features' },
 ]
 
@@ -1009,6 +1010,120 @@ function FeaturesPanel({
   )
 }
 
+function EmailPanel({
+  str, num, setStr, setNum,
+  onSave, isPending, error, saved,
+}: {
+  str: (k: string) => string
+  num: (k: string) => number
+  setStr: (k: string, v: string) => void
+  setNum: (k: string, v: number) => void
+  onSave: () => void
+  isPending: boolean
+  error: string
+  saved: boolean
+}) {
+  const { t } = useT()
+  const provider = str('email_provider') || 'disabled'
+
+  return (
+    <div className="space-y-6">
+      <Section title={t('settings.email.provider')}>
+        <SettingRow
+          label={t('settings.email.provider')}
+          description={t('settings.email.provider_desc')}
+        >
+          <Select
+            className="w-56"
+            value={provider}
+            onChange={(e) => setStr('email_provider', e.target.value)}
+          >
+            <option value="disabled">{t('settings.email.provider_disabled')}</option>
+            <option value="smtp">{t('settings.email.provider_smtp')}</option>
+            <option value="resend">{t('settings.email.provider_resend')}</option>
+          </Select>
+        </SettingRow>
+      </Section>
+
+      {provider === 'smtp' && (
+        <Section title={t('settings.email.smtp_section')}>
+          <SettingRow label={t('settings.email.smtp_host')}>
+            <Input
+              className="w-56 font-mono text-sm"
+              placeholder={t('settings.email.smtp_host_placeholder')}
+              value={str('email_smtp_host')}
+              onChange={(e) => setStr('email_smtp_host', e.target.value)}
+            />
+          </SettingRow>
+
+          <SettingRow label={t('settings.email.smtp_port')}>
+            <Input
+              type="number"
+              className="w-56 font-mono text-sm"
+              placeholder="587"
+              value={num('email_smtp_port') || ''}
+              onChange={(e) => setNum('email_smtp_port', parseInt(e.target.value, 10) || 0)}
+            />
+          </SettingRow>
+
+          <SettingRow label={t('settings.email.smtp_user')}>
+            <Input
+              className="w-56 font-mono text-sm"
+              placeholder={t('settings.email.smtp_user_placeholder')}
+              value={str('email_smtp_user')}
+              onChange={(e) => setStr('email_smtp_user', e.target.value)}
+            />
+          </SettingRow>
+
+          <SettingRow label={t('settings.email.smtp_password')}>
+            <Input
+              type="password"
+              className="w-56 font-mono text-sm"
+              placeholder={t('settings.email.smtp_password_placeholder')}
+              value={str('email_smtp_password')}
+              onChange={(e) => setStr('email_smtp_password', e.target.value)}
+            />
+          </SettingRow>
+
+          <SettingRow label={t('settings.email.smtp_from')}>
+            <Input
+              className="w-56 font-mono text-sm"
+              placeholder={t('settings.email.smtp_from_placeholder')}
+              value={str('email_smtp_from')}
+              onChange={(e) => setStr('email_smtp_from', e.target.value)}
+            />
+          </SettingRow>
+        </Section>
+      )}
+
+      {provider === 'resend' && (
+        <Section title={t('settings.email.resend_section')}>
+          <SettingRow label={t('settings.email.resend_api_key')}>
+            <Input
+              type="password"
+              className="w-56 font-mono text-sm"
+              placeholder={t('settings.email.resend_api_key_placeholder')}
+              value={str('email_resend_api_key')}
+              onChange={(e) => setStr('email_resend_api_key', e.target.value)}
+            />
+          </SettingRow>
+
+          <SettingRow label={t('settings.email.resend_from')}>
+            <Input
+              className="w-56 font-mono text-sm"
+              placeholder={t('settings.email.resend_from_placeholder')}
+              value={str('email_resend_from')}
+              onChange={(e) => setStr('email_resend_from', e.target.value)}
+            />
+          </SettingRow>
+        </Section>
+      )}
+
+      <SaveBar onSave={onSave} isPending={isPending} error={error} saved={saved} />
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -1107,6 +1222,7 @@ export function SettingsPage() {
           {activeTab === 'general'  && <GeneralPanel  {...panelProps} />}
           {activeTab === 'branding' && <BrandingPanel {...panelProps} />}
           {activeTab === 'auth'     && <AuthPanel     {...panelProps} />}
+          {activeTab === 'email'    && <EmailPanel    {...panelProps} />}
           {activeTab === 'features' && <FeaturesPanel {...panelProps} />}
         </div>
       </div>

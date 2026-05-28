@@ -149,7 +149,7 @@ func run() error {
 	}
 
 	// ── Notifications ─────────────────────────────────────────────────────────
-	emailDisp, err := notify.NewEmailDispatcher(cfg)
+	emailDisp, err := notify.NewEmailDispatcher(cfg, adminSvc)
 	if err != nil {
 		return fmt.Errorf("initialising email dispatcher: %w", err)
 	}

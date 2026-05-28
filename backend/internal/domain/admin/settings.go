@@ -22,6 +22,16 @@ const (
 
 	KeyGeminiAPIKey           = "gemini_api_key"
 
+	// Email settings
+	KeyEmailProvider          = "email_provider"
+	KeyEmailSMTPHost          = "email_smtp_host"
+	KeyEmailSMTPPort          = "email_smtp_port"
+	KeyEmailSMTPUser          = "email_smtp_user"
+	KeyEmailSMTPPassword      = "email_smtp_password"
+	KeyEmailSMTPFrom          = "email_smtp_from"
+	KeyEmailResendAPIKey      = "email_resend_api_key"
+	KeyEmailResendFrom        = "email_resend_from"
+
 	// Registration settings.
 	KeyAllowedEmailDomains     = "allowed_email_domains"     // []string — empty = unrestricted for SAML JIT
 	KeySelfSignupEnabled       = "self_signup_enabled"        // bool

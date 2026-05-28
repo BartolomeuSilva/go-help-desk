@@ -1,6 +1,7 @@
 package notify
 
 import (
+	"context"
 	"net/smtp"
 	"strings"
 	"testing"
@@ -68,7 +69,7 @@ func TestSendRejectsHeaderInjection(t *testing.T) {
 				SMTPPort: 25,
 				SMTPFrom: tc.from,
 			}}
-			err := d.send(tc.to, "test subject", []byte("body"))
+			err := d.send(context.Background(), tc.to, "test subject", []byte("body"))
 			if !tc.wantError {
 				if err != nil {
 					t.Fatalf("expected no error for valid addresses, got %v", err)

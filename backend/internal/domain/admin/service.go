@@ -238,3 +238,32 @@ func (s *Service) ListAll(ctx context.Context) (map[string][]byte, error) {
 func (s *Service) SetRaw(ctx context.Context, key string, value []byte) error {
 	return s.store.Set(ctx, key, value)
 }
+
+// EmailProvider returns the configured email provider, defaulting to "disabled".
+func (s *Service) EmailProvider(ctx context.Context) string {
+	v, err := s.GetString(ctx, KeyEmailProvider)
+	if err != nil || v == "" {
+		return "disabled"
+	}
+	return v
+}
+
+// SMTPConfig returns the SMTP settings. Falls back to default port 587 if missing or invalid.
+func (s *Service) SMTPConfig(ctx context.Context) (host string, port int, user, password, from string) {
+	host, _ = s.GetString(ctx, KeyEmailSMTPHost)
+	port, err := s.GetInt(ctx, KeyEmailSMTPPort)
+	if err != nil || port == 0 {
+		port = 587
+	}
+	user, _ = s.GetString(ctx, KeyEmailSMTPUser)
+	password, _ = s.GetString(ctx, KeyEmailSMTPPassword)
+	from, _ = s.GetString(ctx, KeyEmailSMTPFrom)
+	return
+}
+
+// ResendConfig returns the Resend API settings.
+func (s *Service) ResendConfig(ctx context.Context) (apiKey, from string) {
+	apiKey, _ = s.GetString(ctx, KeyEmailResendAPIKey)
+	from, _ = s.GetString(ctx, KeyEmailResendFrom)
+	return
+}
