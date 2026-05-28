@@ -106,7 +106,7 @@ export function LoginPage() {
         </CardHeader>
         <CardContent>
           {step === 'credentials' && (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} method="POST" className="space-y-4">
               <div className="space-y-1">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -145,7 +145,7 @@ export function LoginPage() {
           )}
 
           {step === 'verify' && (
-            <form onSubmit={handleVerify} className="space-y-4">
+            <form onSubmit={handleVerify} method="POST" className="space-y-4">
               <p className="text-sm text-gray-600">Enter the 6-digit code from your authenticator app.</p>
               <div className="space-y-1">
                 <Label htmlFor="mfa">Verification code</Label>
@@ -168,7 +168,7 @@ export function LoginPage() {
           )}
 
           {step === 'enroll' && (
-            <form onSubmit={handleEnroll} className="space-y-4">
+            <form onSubmit={handleEnroll} method="POST" className="space-y-4">
               <p className="text-sm text-gray-600">
                 Your administrator requires two-factor authentication for your role. Scan the QR
                 code with an authenticator app (Google Authenticator, Authy, 1Password), or enter

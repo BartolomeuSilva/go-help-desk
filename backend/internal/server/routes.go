@@ -12,7 +12,7 @@ import (
 func (s *Server) authRouter() *chi.Mux {
 	r := chi.NewRouter()
 
-	r.Post("/local/login", s.handleLocalLogin)
+	r.With(s.loginRateLimiter.Limit).Post("/local/login", s.handleLocalLogin)
 	r.Post("/local/logout", s.handleLogout)
 	r.Post("/local/mfa/verify", s.handleMFAVerify)
 
@@ -42,6 +42,7 @@ func (s *Server) ticketRouter() *chi.Mux {
 	// /tickets/fields must be registered before /{id} to avoid ambiguity
 	r.Get("/fields", s.handleResolveFieldsForCTI)
 	r.Get("/{id}", s.handleGetTicket)
+	r.Get("/{id}/events", s.handleTicketEvents)
 	r.Patch("/{id}", s.handleUpdateTicket)
 	r.Post("/{id}/replies", s.handleAddReply)
 	r.Get("/{id}/replies", s.handleListReplies)

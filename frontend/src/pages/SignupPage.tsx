@@ -58,7 +58,7 @@ export function SignupPage() {
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} method="POST" className="space-y-4">
               <div className="space-y-1">
                 <Label htmlFor="email">Email</Label>
                 <Input

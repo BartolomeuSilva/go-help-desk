@@ -91,6 +91,12 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	actor := authmw.GetActor(r)
+	if actor == nil {
+		Error(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		return
+	}
+
 	var body struct {
 		Email       string `json:"email"`
 		DisplayName string `json:"display_name"`
@@ -101,10 +107,19 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
 		return
 	}
+
+	requestedRole := user.Role(body.Role)
+	if requestedRole == user.RoleAdmin || requestedRole == user.RoleStaff {
+		if actor.Role != user.RoleAdmin {
+			Error(w, http.StatusForbidden, "forbidden", "only administrators can create administrator or staff accounts")
+			return
+		}
+	}
+
 	u, err := s.users.Create(r.Context(), user.CreateUserInput{
 		Email:       body.Email,
 		DisplayName: body.DisplayName,
-		Role:        user.Role(body.Role),
+		Role:        requestedRole,
 		Password:    body.Password,
 	})
 	if err != nil {
@@ -139,6 +154,12 @@ func (s *Server) handleGetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
+	actor := authmw.GetActor(r)
+	if actor == nil {
+		Error(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		return
+	}
+
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid user ID")
@@ -154,6 +175,22 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err := DecodeJSON(r, &body); err != nil {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
 		return
+	}
+
+	targetUser, err := s.users.GetByIDAdmin(r.Context(), id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	isTargetAdminOrStaff := targetUser.Role == user.RoleAdmin || targetUser.Role == user.RoleStaff
+	isNewRoleAdminOrStaff := body.Role != nil && (user.Role(*body.Role) == user.RoleAdmin || user.Role(*body.Role) == user.RoleStaff)
+
+	if isTargetAdminOrStaff || isNewRoleAdminOrStaff {
+		if actor.Role != user.RoleAdmin {
+			Error(w, http.StatusForbidden, "forbidden", "only administrators can manage or elevate administrator and staff accounts")
+			return
+		}
 	}
 
 	// Disable/enable toggle (processed before any profile update).
@@ -181,11 +218,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Profile field updates.
 	if body.DisplayName != nil || body.Email != nil || body.Role != nil {
-		u, err := s.users.GetByIDAdmin(r.Context(), id)
-		if err != nil {
-			handleError(w, err)
-			return
-		}
+		u := targetUser
 		if body.DisplayName != nil {
 			u.DisplayName = *body.DisplayName
 		}

@@ -98,6 +98,9 @@ type Server struct {
 	oauthClientStore OAuthClientLookup
 	authStore        AuthStoreIface
 
+	sseBroker *SSEBroker
+	loginRateLimiter *authmw.LoginRateLimiter
+
 	// samlMu guards samlHandler. The handler is nil when SAML is not configured.
 	samlMu      sync.RWMutex
 	samlHandler *samlsp.Middleware
@@ -145,6 +148,8 @@ func New(
 		canned:           canned,
 		kb:               kbService,
 		db:               itsmStore,
+		sseBroker:        NewSSEBroker(),
+		loginRateLimiter: authmw.NewLoginRateLimiter(5, 15*time.Minute),
 	}
 	s.router = s.buildRouter()
 	return s
@@ -163,6 +168,12 @@ type statusRecorder struct {
 func (sr *statusRecorder) WriteHeader(code int) {
 	sr.status = code
 	sr.ResponseWriter.WriteHeader(code)
+}
+
+func (sr *statusRecorder) Flush() {
+	if flusher, ok := sr.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 // requestLogger logs each request at INFO level once it completes.
@@ -196,6 +207,7 @@ func (s *Server) buildRouter() *chi.Mux {
 	r.Use(chimw.RequestID)
 	r.Use(chimw.Recoverer)
 	r.Use(requestLogger)
+	r.Use(authmw.SecurityHeaders(s.cfg.BaseURL))
 
 	// Auth middleware chain: each layer runs only when no prior actor is set.
 	r.Use(authmw.SessionAuth(s.sessions))
@@ -211,6 +223,7 @@ func (s *Server) buildRouter() *chi.Mux {
 		r.Get("/logo", s.handleServeLogo)
 		r.Get("/setup/status", s.handleSetupStatus)
 		r.Post("/setup", s.handleSetup)
+		r.Get("/tickets/{id}/events-public", s.handleTicketEventsPublic)
 
 		r.Mount("/auth", s.authRouter())
 		r.Mount("/tickets", s.ticketRouter())

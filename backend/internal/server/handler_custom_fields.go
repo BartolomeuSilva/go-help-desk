@@ -257,6 +257,7 @@ func (s *Server) handlePutTicketCustomFields(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
+	s.sseBroker.Broadcast(ticketID, "refresh", "")
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -131,6 +131,7 @@ func (s *Server) handleAddTicketTag(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusInternalServerError, "add_failed", err.Error())
 		return
 	}
+	s.sseBroker.Broadcast(ticketID, "refresh", "")
 	JSON(w, http.StatusCreated, t)
 }
 
@@ -150,5 +151,6 @@ func (s *Server) handleRemoveTicketTag(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusInternalServerError, "remove_failed", err.Error())
 		return
 	}
+	s.sseBroker.Broadcast(ticketID, "refresh", "")
 	w.WriteHeader(http.StatusNoContent)
 }

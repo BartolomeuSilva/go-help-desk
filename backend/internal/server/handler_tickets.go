@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/publiciallc/go-help-desk/backend/internal/dbgen"
@@ -264,10 +265,13 @@ func (s *Server) handleCreateTicket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.TrimSpace(body.Subject) == "" {
+	sanitizedSubject := strings.TrimSpace(bluemonday.StrictPolicy().Sanitize(body.Subject))
+	if sanitizedSubject == "" {
 		Error(w, http.StatusBadRequest, "bad_request", "subject is required")
 		return
 	}
+	body.Subject = sanitizedSubject
+	body.Description = bluemonday.UGCPolicy().Sanitize(body.Description)
 	if body.CategoryID == uuid.Nil {
 		Error(w, http.StatusBadRequest, "bad_request", "category_id is required")
 		return
@@ -398,6 +402,69 @@ func (s *Server) handleGetTicket(w http.ResponseWriter, r *http.Request) {
 	s.respondTicket(w, r, t, http.StatusOK)
 }
 
+func (s *Server) handleTicketEvents(w http.ResponseWriter, r *http.Request) {
+	a := authmw.GetActor(r)
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "bad_request", "invalid ticket ID")
+		return
+	}
+
+	t, err := s.tickets.GetByID(r.Context(), id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// Users can only subscribe to their own tickets.
+	if a != nil && a.Role == user.RoleUser {
+		if t.ReporterUserID == nil || *t.ReporterUserID != a.UserID {
+			Error(w, http.StatusForbidden, "forbidden", "not your ticket")
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		Error(w, http.StatusInternalServerError, "internal_error", "streaming not supported")
+		return
+	}
+
+	// Send initial connection establish comment
+	_, _ = w.Write([]byte(":\n\n"))
+	flusher.Flush()
+
+	ch := s.sseBroker.Subscribe(id)
+	defer s.sseBroker.Unsubscribe(id, ch)
+
+	for {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			_, err := w.Write([]byte(msg))
+			if err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		case <-time.After(15 * time.Second):
+			_, err := w.Write([]byte(":\n\n"))
+			if err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
+}
+
 // PATCH /api/v1/tickets/{id}
 func (s *Server) handleUpdateTicket(w http.ResponseWriter, r *http.Request) {
 	a := authmw.GetActor(r)
@@ -467,6 +534,7 @@ func (s *Server) handleUpdateTicket(w http.ResponseWriter, r *http.Request) {
 		handleError(w, err)
 		return
 	}
+	s.sseBroker.Broadcast(id, "refresh", "")
 	s.respondTicket(w, r, t, http.StatusOK)
 }
 
@@ -488,10 +556,12 @@ func (s *Server) handleAddReply(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
 		return
 	}
-	if strings.TrimSpace(body.Body) == "" {
+	sanitizedBody := bluemonday.UGCPolicy().Sanitize(body.Body)
+	if strings.TrimSpace(sanitizedBody) == "" {
 		Error(w, http.StatusBadRequest, "bad_request", "body is required")
 		return
 	}
+	body.Body = sanitizedBody
 
 	// Internal replies are staff/admin only.
 	if body.Internal && a.Role == user.RoleUser {
@@ -544,6 +614,7 @@ func (s *Server) handleAddReply(w http.ResponseWriter, r *http.Request) {
 		handleError(w, err)
 		return
 	}
+	s.sseBroker.Broadcast(id, "refresh", "")
 	JSON(w, http.StatusCreated, reply)
 }
 
@@ -581,6 +652,7 @@ func (s *Server) handleResolveTicket(w http.ResponseWriter, r *http.Request) {
 		handleError(w, err)
 		return
 	}
+	s.sseBroker.Broadcast(id, "refresh", "")
 	JSON(w, http.StatusOK, t)
 }
 
@@ -617,6 +689,7 @@ func (s *Server) handleReopenTicket(w http.ResponseWriter, r *http.Request) {
 		handleError(w, err)
 		return
 	}
+	s.sseBroker.Broadcast(id, "refresh", "")
 	JSON(w, http.StatusOK, t)
 }
 
@@ -705,4 +778,52 @@ func (s *Server) handleListLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	JSON(w, http.StatusOK, links)
+}
+
+func (s *Server) handleTicketEventsPublic(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "bad_request", "invalid ticket ID")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		Error(w, http.StatusInternalServerError, "internal_error", "streaming not supported")
+		return
+	}
+
+	// Send initial connection establish comment
+	_, _ = w.Write([]byte(":\n\n"))
+	flusher.Flush()
+
+	ch := s.sseBroker.Subscribe(id)
+	defer s.sseBroker.Unsubscribe(id, ch)
+
+	for {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			_, err := w.Write([]byte(msg))
+			if err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		case <-time.After(15 * time.Second):
+			_, err := w.Write([]byte(":\n\n"))
+			if err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
 }

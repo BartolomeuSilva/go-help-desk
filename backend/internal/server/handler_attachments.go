@@ -302,6 +302,7 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	s.sseBroker.Broadcast(ticketID, "refresh", "")
 	JSON(w, http.StatusCreated, att)
 }
 

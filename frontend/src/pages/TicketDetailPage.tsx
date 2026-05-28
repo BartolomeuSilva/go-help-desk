@@ -328,6 +328,8 @@ export function TicketDetailPage() {
   const [replyFiles, setReplyFiles] = useState<File[]>([])
   const [replyUploadStates, setReplyUploadStates] = useState<Record<string, UploadState> | undefined>()
   const [replyError, setReplyError] = useState('')
+  const [sseStatus, setSseStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
+  const [sseError, setSseError] = useState<string | null>(null)
 
   const { data: ticket, isLoading, error } = useQuery({
     queryKey: ['ticket', id],
@@ -361,6 +363,41 @@ export function TicketDetailPage() {
     },
     onError: (err) => setDetailsError(extractError(err)),
   })
+
+  useEffect(() => {
+    setSseStatus('connecting')
+    setSseError(null)
+
+    const eventSource = new EventSource(`/api/v1/tickets/${id}/events`, {
+      withCredentials: true,
+    })
+
+    eventSource.onopen = () => {
+      setSseStatus('connected')
+      setSseError(null)
+    }
+
+    const handleRefresh = () => {
+      qc.invalidateQueries({ queryKey: ['ticket', id] })
+      qc.invalidateQueries({ queryKey: ['replies', id] })
+      qc.invalidateQueries({ queryKey: ['statusHistory', id] })
+      qc.invalidateQueries({ queryKey: ['attachments', id] })
+      qc.invalidateQueries({ queryKey: ['customFields', id] })
+    };
+
+    eventSource.addEventListener('refresh', handleRefresh)
+
+    eventSource.onerror = (err) => {
+      setSseStatus('error')
+      setSseError('Conexão SSE perdida ou não pôde ser estabelecida.')
+      console.error('SSE connection error:', err)
+    }
+
+    return () => {
+      eventSource.removeEventListener('refresh', handleRefresh)
+      eventSource.close()
+    }
+  }, [id, qc])
 
   const { data: replies = [] } = useQuery({
     queryKey: ['replies', id],
@@ -552,6 +589,24 @@ export function TicketDetailPage() {
               <Badge variant={priorityVariant(ticket.priority) as never}>
                 {ticket.priority}
               </Badge>
+              {sseStatus === 'connected' && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Tempo real ativo
+                </span>
+              )}
+              {sseStatus === 'connecting' && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-amber-500 font-medium">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Conectando...
+                </span>
+              )}
+              {sseStatus === 'error' && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-rose-500 font-medium" title={sseError || undefined}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                  Sem tempo real
+                </span>
+              )}
             </div>
           </div>
 

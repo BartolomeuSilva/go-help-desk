@@ -44,7 +44,7 @@ export function SetupPage() {
           </p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} method="POST" className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="display-name">Full name</Label>
               <Input

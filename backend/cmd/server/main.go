@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -171,7 +172,8 @@ func run() error {
 		Path:     "/",
 		MaxAge:   86400 * 30,
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   strings.HasPrefix(strings.ToLower(cfg.BaseURL), "https://"),
 	}
 
 	apiKeyLookup := authmw.APIKeyAuthFunc(func(ctx context.Context, hashed string) (auth.APIKey, user.User, error) {

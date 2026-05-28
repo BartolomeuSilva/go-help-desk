@@ -1338,3 +1338,134 @@ func TestTicketSLA_Integration(t *testing.T) {
 	}
 	require.True(t, found, "ticket must be found in list")
 }
+
+func TestSecurityHeaders(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	resp := h.doUnauth(t, http.MethodGet, "/health", nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "DENY", resp.Header.Get("X-Frame-Options"))
+	require.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+	require.Equal(t, "1; mode=block", resp.Header.Get("X-XSS-Protection"))
+	require.Contains(t, resp.Header.Get("Content-Security-Policy"), "default-src 'self'")
+}
+
+func TestLoginRateLimiting(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// Perform 5 failed login attempts
+	for i := 0; i < 5; i++ {
+		resp := h.doUnauth(t, http.MethodPost, "/api/v1/auth/local/login", map[string]any{
+			"email":    "nonexistent@test.local",
+			"password": "wrongpassword",
+		})
+		require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	}
+
+	// The 6th attempt must be rate limited (429)
+	resp := h.doUnauth(t, http.MethodPost, "/api/v1/auth/local/login", map[string]any{
+		"email":    "nonexistent@test.local",
+		"password": "wrongpassword",
+	})
+	require.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
+}
+
+func TestStoredXSSSanitization(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	catID := h.catID
+
+	// Create a ticket with unsafe HTML
+	unsafeSubject := "Unsafe Subject <script>alert('xss')</script>"
+	unsafeDesc := "Unsafe Description <img src=x onerror=alert('xss')>"
+	resp := h.do(t, http.MethodPost, "/api/v1/tickets", map[string]any{
+		"subject":     unsafeSubject,
+		"description": unsafeDesc,
+		"category_id": catID,
+		"priority":    "medium",
+	})
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var tk ticket.Ticket
+	decodeJSON(t, resp, &tk)
+
+	// Subject must be fully stripped of HTML tags
+	require.Equal(t, "Unsafe Subject alert('xss')", tk.Subject)
+	// Description must have onerror stripped (safe HTML remains)
+	require.NotContains(t, tk.Description, "onerror")
+	require.Contains(t, tk.Description, "<img src=\"x\">")
+
+	// Add a reply with unsafe HTML
+	unsafeReplyBody := "Reply Body <iframe src='http://evil.com'></iframe>"
+	replyResp := h.do(t, http.MethodPost, "/api/v1/tickets/"+tk.ID.String()+"/replies", map[string]any{
+		"body": unsafeReplyBody,
+	})
+	require.Equal(t, http.StatusOK, replyResp.StatusCode)
+
+	var updatedTicket map[string]any
+	decodeJSON(t, replyResp, &updatedTicket)
+
+	// Fetch replies and verify sanitization
+	listResp := h.do(t, http.MethodGet, "/api/v1/tickets/"+tk.ID.String()+"/replies", nil)
+	require.Equal(t, http.StatusOK, listResp.StatusCode)
+	var replies []ticket.Reply
+	decodeJSON(t, listResp, &replies)
+	require.NotEmpty(t, replies)
+	lastReply := replies[len(replies)-1]
+	require.NotContains(t, lastReply.Body, "iframe")
+	require.NotContains(t, lastReply.Body, "evil.com")
+}
+
+func TestPrivilegeEscalationRestriction(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// Staff user attempts to create an admin user
+	resp := h.do(t, http.MethodPost, "/api/v1/admin/users", map[string]any{
+		"email":        "maliciousadmin@test.local",
+		"display_name": "Malicious Admin",
+		"role":         "admin",
+		"password":     "password123",
+	})
+	// Staff cannot create admin accounts
+	require.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	// Staff user attempts to update a user's role to admin
+	// First let's create a regular user as admin
+	seededUser, err := h.userSvc.Create(context.Background(), user.CreateUserInput{
+		Email:       "regularuser@test.local",
+		DisplayName: "Regular User",
+		Role:        user.RoleUser,
+		Password:    "password123",
+	})
+	require.NoError(t, err)
+
+	// Staff attempts to update the user to admin
+	patchResp := h.do(t, http.MethodPatch, "/api/v1/admin/users/"+seededUser.ID.String(), map[string]any{
+		"role": "admin",
+	})
+	require.Equal(t, http.StatusForbidden, patchResp.StatusCode)
+
+	// Staff attempts to disable the admin user account
+	// We need to fetch the admin user ID from harness or database
+	adminUsers, err := h.userSvc.ListAdmin(context.Background(), 10, 0)
+	require.NoError(t, err)
+	var adminUser *user.User
+	for _, u := range adminUsers {
+		if u.Role == user.RoleAdmin {
+			adminUser = &u
+			break
+		}
+	}
+	require.NotNil(t, adminUser)
+
+	disableResp := h.do(t, http.MethodPatch, "/api/v1/admin/users/"+adminUser.ID.String(), map[string]any{
+		"disabled": true,
+	})
+	// Staff cannot modify/disable admin accounts
+	require.Equal(t, http.StatusForbidden, disableResp.StatusCode)
+}
+
