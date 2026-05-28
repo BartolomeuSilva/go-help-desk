@@ -10,8 +10,10 @@ import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { FolderIcon, FileTextIcon, SearchIcon, BookOpenIcon, SettingsIcon, EyeIcon } from 'lucide-react'
 import type { KBArticle } from '@/api/types'
+import { useT } from '@/i18n'
 
 export function KBPage() {
+  const { t } = useT()
   const { user } = useAuthStore()
   const isStaffOrAdmin = user?.role === 'admin' || user?.role === 'staff'
   const [searchQuery, setSearchQuery] = useState('')
@@ -58,18 +60,18 @@ export function KBPage() {
             <div className="flex items-center gap-2">
               <BookOpenIcon className="h-6 w-6 text-blue-600 dark:text-[#faff69]" />
               <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white font-sans">
-                Knowledge Base
+                {t('kb.title')}
               </h1>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Encontre respostas rápidas e tutoriais da nossa equipe de suporte.
+              {t('kb.subtitle')}
             </p>
           </div>
           {user?.role === 'admin' && (
             <Link to="/admin/kb">
               <Button className="shrink-0">
                 <SettingsIcon className="mr-2 h-4 w-4" />
-                Manage KB
+                {t('kb.manage')}
               </Button>
             </Link>
           )}
@@ -82,7 +84,7 @@ export function KBPage() {
           </div>
           <Input
             type="text"
-            placeholder="Buscar por artigos, termos ou palavras-chave..."
+            placeholder={t('kb.search_placeholder')}
             className="pl-10 h-12 bg-white dark:bg-[#1a1a1a] border-gray-300 dark:border-[#2a2a2a] text-gray-900 dark:text-white rounded-lg shadow-sm focus:ring-blue-500 dark:focus:ring-[#faff69]"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -99,7 +101,7 @@ export function KBPage() {
             {hasSearch ? (
               <div className="space-y-4">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                  Resultados da busca ({searchResults.length})
+                  {t('kb.search_results')} ({searchResults.length})
                 </h2>
                 <div className="grid gap-4 md:grid-cols-2">
                   {searchResults.map((art) => {
@@ -117,7 +119,7 @@ export function KBPage() {
                           </h3>
                           {art.status === 'draft' && (
                             <Badge variant="secondary" className="shrink-0">
-                              Draft
+                              {t('kb.badge_draft')}
                             </Badge>
                           )}
                         </div>
@@ -125,9 +127,9 @@ export function KBPage() {
                           {art.content.replace(/[#*`-]/g, '')}
                         </p>
                         <div className="mt-4 flex items-center justify-between text-[11px] text-gray-400">
-                          <span>Pasta: {catName}</span>
+                          <span>{t('kb.folder_prefix')} {catName}</span>
                           <span className="flex items-center gap-1">
-                            <EyeIcon className="h-3 w-3" /> {art.views} views
+                            <EyeIcon className="h-3 w-3" /> {art.views} {t('kb.views_suffix')}
                           </span>
                         </div>
                       </Link>
@@ -135,7 +137,7 @@ export function KBPage() {
                   })}
                   {searchResults.length === 0 && (
                     <div className="col-span-2 py-12 text-center text-gray-400">
-                      Nenhum artigo encontrado para "{searchQuery}".
+                      {t('kb.no_articles_found')} "{searchQuery}".
                     </div>
                   )}
                 </div>
@@ -162,7 +164,7 @@ export function KBPage() {
                         <div className="flex gap-1">
                           {!cat.is_public && (
                             <Badge variant="outline" className="text-[10px] border-red-200 dark:border-red-950/50 text-red-600 bg-red-50 dark:bg-red-950/20">
-                              Private
+                              {t('kb.badge_private')}
                             </Badge>
                           )}
                         </div>
@@ -180,26 +182,26 @@ export function KBPage() {
                             <Link
                               to="/kb/articles/$id"
                               params={{ id: art.id }}
-                              className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-[#faff69] transition-colors truncate"
+                              className="flex items-center gap-2 text-gray-700 dark:text-white hover:text-blue-600 dark:hover:text-[#faff69] transition-colors truncate"
                             >
                               <FileTextIcon className="h-4 w-4 text-gray-400 dark:text-gray-500 shrink-0" />
                               <span className="truncate">{art.title}</span>
                             </Link>
                             {art.status === 'draft' && (
                               <Badge variant="secondary" className="text-[9px] px-1 py-0 scale-90">
-                                Draft
+                                {t('kb.badge_draft')}
                               </Badge>
                             )}
                           </li>
                         ))}
                         {catArticles.length === 0 && (
                           <li className="text-xs text-gray-400 py-2">
-                            Nenhum artigo nesta categoria.
+                            {t('kb.empty_category')}
                           </li>
                         )}
                         {catArticles.length > 5 && (
                           <li className="text-xs text-blue-600 dark:text-[#faff69] font-medium pt-2">
-                            + {catArticles.length - 5} outros artigos
+                            + {catArticles.length - 5} {t('kb.more_articles')}
                           </li>
                         )}
                       </ul>
@@ -208,7 +210,7 @@ export function KBPage() {
                 })}
                 {categories.length === 0 && (
                   <div className="col-span-2 py-12 text-center text-gray-400">
-                    Nenhuma categoria criada na Base de Conhecimento ainda.
+                    {t('kb.no_categories')}
                   </div>
                 )}
               </div>

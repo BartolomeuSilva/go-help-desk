@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useAuthStore } from '@/store/auth'
+import { useT } from '@/i18n'
 import { listStatuses } from '@/api/admin'
 import { Layout } from '@/components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +11,7 @@ import { PlusIcon } from 'lucide-react'
 
 export function DashboardPage() {
   const { user } = useAuthStore()
+  const { t } = useT()
   const { data: statuses, isLoading } = useQuery({
     queryKey: ['statuses'],
     queryFn: listStatuses,
@@ -20,13 +22,13 @@ export function DashboardPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-sm text-gray-500">Welcome back, {user?.display_name}</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+            <p className="text-sm text-gray-500">{t('dashboard.welcome')}, {user?.display_name}</p>
           </div>
           <Link to="/tickets/new">
             <Button>
               <PlusIcon className="mr-2 h-4 w-4" />
-              New Ticket
+              {t('dashboard.new_ticket')}
             </Button>
           </Link>
         </div>
@@ -52,7 +54,7 @@ export function DashboardPage() {
 
         <div className="flex gap-4">
           <Link to="/tickets">
-            <Button variant="outline">View all tickets</Button>
+            <Button variant="outline">{t('dashboard.view_all')}</Button>
           </Link>
         </div>
       </div>

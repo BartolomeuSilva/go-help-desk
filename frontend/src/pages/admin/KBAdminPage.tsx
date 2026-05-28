@@ -21,8 +21,10 @@ import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { PlusIcon, PencilIcon, Trash2Icon, FolderIcon, FileTextIcon, EyeIcon, BookOpenIcon } from 'lucide-react'
 import type { KBCategory, KBArticle } from '@/api/types'
+import { useT } from '@/i18n'
 
 export function KBAdminPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState<'articles' | 'categories'>('articles')
   const [selectedCatId, setSelectedCatId] = useState<string>('')
@@ -128,7 +130,7 @@ export function KBAdminPage() {
   const handleCatSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!catName.trim()) {
-      setCatFormError('Category name is required')
+      setCatFormError(t('kb.admin.form.name_required'))
       return
     }
     if (editCatId) {
@@ -146,17 +148,17 @@ export function KBAdminPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <BookOpenIcon className="h-6 w-6 text-blue-600 dark:text-[#faff69]" />
-              Knowledge Base Management
+              {t('kb.admin.title')}
             </h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Manage help categories and write help articles to help customers resolve issues.
+              {t('kb.admin.subtitle')}
             </p>
           </div>
           {activeTab === 'articles' && (
             <Link to="/admin/kb/articles/new">
               <Button>
                 <PlusIcon className="mr-2 h-4 w-4" />
-                New Article
+                {t('kb.admin.new_article')}
               </Button>
             </Link>
           )}
@@ -172,7 +174,7 @@ export function KBAdminPage() {
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'
             }`}
           >
-            Articles
+            {t('kb.admin.tab.articles')}
           </button>
           <button
             onClick={() => setActiveTab('categories')}
@@ -182,7 +184,7 @@ export function KBAdminPage() {
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-white'
             }`}
           >
-            Categories
+            {t('kb.admin.tab.categories')}
           </button>
         </div>
 
@@ -192,7 +194,7 @@ export function KBAdminPage() {
             {/* Sidebar list of categories */}
             <div className="md:col-span-1 space-y-2">
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-                Filter by Category
+                {t('kb.admin.filter_category')}
               </h3>
               {loadingCats ? (
                 <Spinner size="sm" />
@@ -213,7 +215,7 @@ export function KBAdminPage() {
                     </button>
                   ))}
                   {categories.length === 0 && (
-                    <p className="text-xs text-gray-500">Create a category first.</p>
+                    <p className="text-xs text-gray-500">{t('kb.admin.create_cat_first')}</p>
                   )}
                 </div>
               )}
@@ -230,10 +232,10 @@ export function KBAdminPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-[#121212] text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-[#2a2a2a]">
                       <tr>
-                        <th className="px-4 py-3 text-left">Title</th>
-                        <th className="px-4 py-3 text-left">Status</th>
-                        <th className="px-4 py-3 text-left">Views</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
+                        <th className="px-4 py-3 text-left">{t('kb.admin.table.title')}</th>
+                        <th className="px-4 py-3 text-left">{t('kb.admin.table.status')}</th>
+                        <th className="px-4 py-3 text-left">{t('kb.admin.table.views')}</th>
+                        <th className="px-4 py-3 text-right">{t('kb.admin.table.actions')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-[#1a1a1a]">
@@ -247,7 +249,7 @@ export function KBAdminPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Badge variant={art.status === 'published' ? 'default' : 'secondary'}>
-                              {art.status}
+                              {art.status === 'published' ? t('kb.admin.badge.public') : t('kb.badge_draft')}
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
@@ -258,7 +260,7 @@ export function KBAdminPage() {
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <Link to="/admin/kb/articles/$id" params={{ id: art.id }}>
-                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Edit Article">
+                                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title={t('kb.admin.table.edit_article')}>
                                   <PencilIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                                 </Button>
                               </Link>
@@ -267,7 +269,7 @@ export function KBAdminPage() {
                                 variant="ghost"
                                 className="h-8 w-8 p-0 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
                                 onClick={() => setPendingDeleteArticle(art)}
-                                title="Delete Article"
+                                title={t('kb.admin.table.delete_article')}
                               >
                                 <Trash2Icon className="h-4 w-4" />
                               </Button>
@@ -278,7 +280,7 @@ export function KBAdminPage() {
                       {articles.length === 0 && (
                         <tr>
                           <td colSpan={4} className="px-4 py-12 text-center text-gray-400">
-                            Nenhum artigo cadastrado nesta categoria.
+                            {t('kb.admin.table.empty_articles')}
                           </td>
                         </tr>
                       )}
@@ -297,7 +299,7 @@ export function KBAdminPage() {
               <div className="flex justify-end">
                 <Button onClick={handleNewCatClick}>
                   <PlusIcon className="mr-2 h-4 w-4" />
-                  New Category
+                  {t('kb.admin.new_category')}
                 </Button>
               </div>
             )}
@@ -307,16 +309,16 @@ export function KBAdminPage() {
               <Card className="border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] shadow-sm max-w-xl">
                 <CardHeader className="bg-gray-50/50 dark:bg-[#121212]/50 border-b border-gray-200 dark:border-[#2a2a2a] py-4">
                   <CardTitle className="text-sm font-semibold text-gray-800 dark:text-white">
-                    {editCatId ? 'Edit Category' : 'New Category'}
+                    {editCatId ? t('kb.admin.form.edit_category') : t('kb.admin.form.new_category')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
                   <form onSubmit={handleCatSubmit} className="space-y-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="cat-name">Name</Label>
+                      <Label htmlFor="cat-name">{t('kb.admin.form.name')}</Label>
                       <Input
                         id="cat-name"
-                        placeholder="e.g. Instalações e Updates"
+                        placeholder={t('kb.admin.form.name_placeholder')}
                         value={catName}
                         onChange={(e) => {
                           setCatName(e.target.value)
@@ -326,10 +328,10 @@ export function KBAdminPage() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="cat-desc">Description</Label>
+                      <Label htmlFor="cat-desc">{t('kb.admin.form.description')}</Label>
                       <Textarea
                         id="cat-desc"
-                        placeholder="Resumo de artigos relacionados a..."
+                        placeholder={t('kb.admin.form.desc_placeholder')}
                         rows={3}
                         value={catDescription}
                         onChange={(e) => setCatDescription(e.target.value)}
@@ -344,7 +346,7 @@ export function KBAdminPage() {
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4 dark:bg-[#1a1a1a] dark:border-[#2a2a2a]"
                       />
                       <Label htmlFor="cat-public" className="cursor-pointer">
-                        Pública (visível para clientes não logados)
+                        {t('kb.admin.form.public')}
                       </Label>
                     </div>
 
@@ -356,10 +358,10 @@ export function KBAdminPage() {
                           !catName.trim() || createCatMutation.isPending || updateCatMutation.isPending
                         }
                       >
-                        {createCatMutation.isPending || updateCatMutation.isPending ? 'Saving…' : 'Save'}
+                        {createCatMutation.isPending || updateCatMutation.isPending ? t('kb.admin.form.saving') : t('kb.admin.form.save')}
                       </Button>
                       <Button type="button" variant="outline" onClick={resetCatForm}>
-                        Cancel
+                        {t('kb.admin.form.cancel')}
                       </Button>
                     </div>
                   </form>
@@ -377,10 +379,10 @@ export function KBAdminPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 dark:bg-[#121212] text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-[#2a2a2a]">
                     <tr>
-                      <th className="px-4 py-3 text-left">Category Name</th>
-                      <th className="px-4 py-3 text-left">Description</th>
-                      <th className="px-4 py-3 text-left">Visibility</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                      <th className="px-4 py-3 text-left">{t('kb.admin.table.cat_name')}</th>
+                      <th className="px-4 py-3 text-left">{t('kb.admin.table.cat_desc')}</th>
+                      <th className="px-4 py-3 text-left">{t('kb.admin.table.visibility')}</th>
+                      <th className="px-4 py-3 text-right">{t('kb.admin.table.actions')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-[#1a1a1a]">
@@ -397,7 +399,7 @@ export function KBAdminPage() {
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={cat.is_public ? 'default' : 'secondary'}>
-                            {cat.is_public ? 'Public' : 'Private'}
+                            {cat.is_public ? t('kb.admin.badge.public') : t('kb.admin.badge.private')}
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -407,7 +409,7 @@ export function KBAdminPage() {
                               variant="ghost"
                               className="h-8 w-8 p-0"
                               onClick={() => handleEditCatClick(cat)}
-                              title="Edit Category"
+                              title={t('kb.admin.table.edit_cat')}
                             >
                               <PencilIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                             </Button>
@@ -416,7 +418,7 @@ export function KBAdminPage() {
                               variant="ghost"
                               className="h-8 w-8 p-0 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
                               onClick={() => setPendingDeleteCat(cat)}
-                              title="Delete Category"
+                              title={t('kb.admin.table.delete_cat')}
                             >
                               <Trash2Icon className="h-4 w-4" />
                             </Button>
@@ -427,7 +429,7 @@ export function KBAdminPage() {
                     {categories.length === 0 && (
                       <tr>
                         <td colSpan={4} className="px-4 py-12 text-center text-gray-400">
-                          Nenhuma categoria cadastrada.
+                          {t('kb.admin.table.empty_categories')}
                         </td>
                       </tr>
                     )}
@@ -445,9 +447,9 @@ export function KBAdminPage() {
         onOpenChange={(open) => {
           if (!open) setPendingDeleteCat(null)
         }}
-        title={`Delete category "${pendingDeleteCat?.name ?? ''}"?`}
-        description="Are you sure? Removing this category will permanently delete all its associated articles! This action cannot be undone."
-        confirmLabel="Delete"
+        title={t('kb.admin.delete.confirm_cat_title').replace('{name}', pendingDeleteCat?.name ?? '')}
+        description={t('kb.admin.delete.confirm_cat_desc')}
+        confirmLabel={t('kb.admin.delete.confirm_action')}
         isPending={deleteCatMutation.isPending}
         onConfirm={() => {
           if (pendingDeleteCat) deleteCatMutation.mutate(pendingDeleteCat.id)
@@ -460,9 +462,9 @@ export function KBAdminPage() {
         onOpenChange={(open) => {
           if (!open) setPendingDeleteArticle(null)
         }}
-        title={`Delete article "${pendingDeleteArticle?.title ?? ''}"?`}
-        description="Are you sure you want to permanently delete this help article? This action cannot be undone."
-        confirmLabel="Delete"
+        title={t('kb.admin.delete.confirm_art_title').replace('{title}', pendingDeleteArticle?.title ?? '')}
+        description={t('kb.admin.delete.confirm_art_desc')}
+        confirmLabel={t('kb.admin.delete.confirm_action')}
         isPending={deleteArticleMutation.isPending}
         onConfirm={() => {
           if (pendingDeleteArticle) deleteArticleMutation.mutate(pendingDeleteArticle.id)

@@ -806,6 +806,55 @@ func TestUpdateSettings_AsAdmin(t *testing.T) {
 	require.Contains(t, settings, "reopen_window_days")
 }
 
+// ── Reports ──────────────────────────────────────────────────────────────────
+
+func TestGetCSATReport_AsAdmin(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	resp := h.doAsAdmin(t, http.MethodGet, "/api/v1/admin/reports/csat", nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var report map[string]any
+	decodeJSON(t, resp, &report)
+	require.Contains(t, report, "csat_average")
+	require.Contains(t, report, "rated_tickets_count")
+	require.Contains(t, report, "stars_distribution")
+	require.Contains(t, report, "agent_performance")
+}
+
+func TestGetCSATReport_AsStaff(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	resp := h.do(t, http.MethodGet, "/api/v1/admin/reports/csat", nil)
+	require.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
+func TestSendCSATFeedback_AsAdmin(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	resp := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/reports/csat/send-feedback", map[string]any{
+		"agent_id":          h.staffID.String(),
+		"sentiment_summary": "Clientes gostaram do atendimento rápido.",
+		"coaching_tips":     []string{"Manter o tempo de resposta baixo", "Continuar sendo educado"},
+	})
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+}
+
+func TestSendCSATFeedback_AsStaff(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	resp := h.do(t, http.MethodPost, "/api/v1/admin/reports/csat/send-feedback", map[string]any{
+		"agent_id":          h.staffID.String(),
+		"sentiment_summary": "Clientes gostaram do atendimento rápido.",
+		"coaching_tips":     []string{"Manter o tempo de resposta baixo"},
+	})
+	require.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
+
 // ── Me ────────────────────────────────────────────────────────────────────────
 
 func TestGetMe_AsStaff(t *testing.T) {
@@ -1468,4 +1517,62 @@ func TestPrivilegeEscalationRestriction(t *testing.T) {
 	// Staff cannot modify/disable admin accounts
 	require.Equal(t, http.StatusForbidden, disableResp.StatusCode)
 }
+
+func TestRateTicket(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// 1. Cria o ticket
+	createResp := h.do(t, http.MethodPost, "/api/v1/tickets", map[string]any{
+		"subject":     "Rate me",
+		"description": "Details",
+		"category_id": h.catID.String(),
+	})
+	require.Equal(t, http.StatusCreated, createResp.StatusCode)
+	var tk ticket.Ticket
+	decodeJSON(t, createResp, &tk)
+
+	// 2. Tentar avaliar o ticket enquanto estiver aberto (deve falhar - 400 Bad Request)
+	rateRespOpen := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/rate", tk.ID), map[string]any{
+		"rating":  5,
+		"comment": "Great!",
+	})
+	require.Equal(t, http.StatusBadRequest, rateRespOpen.StatusCode)
+
+	// 3. Resolve o ticket
+	resolveResp := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/resolve", tk.ID), map[string]any{
+		"notes": "Fixed it.",
+	})
+	require.Equal(t, http.StatusOK, resolveResp.StatusCode)
+
+	// 4. Avaliar com nota inválida (deve falhar - 400 Bad Request)
+	rateRespInvalid := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/rate", tk.ID), map[string]any{
+		"rating":  6,
+		"comment": "Invalid",
+	})
+	require.Equal(t, http.StatusBadRequest, rateRespInvalid.StatusCode)
+
+	// 5. Avaliar com nota válida (deve passar - 200 OK)
+	rateResp := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/rate", tk.ID), map[string]any{
+		"rating":  5,
+		"comment": "Excelente atendimento!",
+	})
+	require.Equal(t, http.StatusOK, rateResp.StatusCode)
+
+	var rated ticket.Ticket
+	decodeJSON(t, rateResp, &rated)
+	require.NotNil(t, rated.Rating)
+	require.Equal(t, 5, *rated.Rating)
+	require.NotNil(t, rated.RatingComment)
+	require.Equal(t, "Excelente atendimento!", *rated.RatingComment)
+	require.NotNil(t, rated.RatedAt)
+
+	// 6. Tentar avaliar novamente (deve falhar - 400 Bad Request)
+	rateRespAgain := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/rate", tk.ID), map[string]any{
+		"rating":  4,
+		"comment": "Second try",
+	})
+	require.Equal(t, http.StatusBadRequest, rateRespAgain.StatusCode)
+}
+
 

@@ -198,3 +198,12 @@ export async function getITSMDefault(params: {
   const res = await api.get<{ ticket_type: string | null }>('/itsm/default', { params })
   return res.data.ticket_type
 }
+
+export async function rateTicket(
+  id: string,
+  input: { rating: number; comment?: string }
+): Promise<Ticket> {
+  const res = await api.post<Ticket>(`/tickets/${id}/rate`, input)
+  return res.data
+}
+

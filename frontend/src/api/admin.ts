@@ -228,6 +228,19 @@ export async function deleteLogo(): Promise<void> {
   await api.delete('/admin/settings/logo')
 }
 
+export async function uploadLogoDark(file: File): Promise<{ url: string }> {
+  const form = new FormData()
+  form.append('logo', file)
+  const res = await api.post<{ url: string }>('/admin/settings/logo-dark', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data
+}
+
+export async function deleteLogoDark(): Promise<void> {
+  await api.delete('/admin/settings/logo-dark')
+}
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 
 export async function getSettings(): Promise<Record<string, unknown>> {

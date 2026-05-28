@@ -236,6 +236,9 @@ type Ticket struct {
 	GuestPhone      string         `json:"guest_phone"`
 	Tsv             interface{}    `json:"tsv"`
 	TicketType      sql.NullString `json:"ticket_type"`
+	Rating          sql.NullInt32  `json:"rating"`
+	RatingComment   sql.NullString `json:"rating_comment"`
+	RatedAt         sql.NullTime   `json:"rated_at"`
 }
 
 type TicketCustomFieldValue struct {

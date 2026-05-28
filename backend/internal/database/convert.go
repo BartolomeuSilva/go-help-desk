@@ -60,3 +60,21 @@ func TimePtr(n sql.NullTime) *time.Time {
 	v := n.Time
 	return &v
 }
+
+// NullInt32 wraps a *int for nullable INT columns.
+func NullInt32(p *int) sql.NullInt32 {
+	if p == nil {
+		return sql.NullInt32{}
+	}
+	return sql.NullInt32{Int32: int32(*p), Valid: true}
+}
+
+// IntPtr unwraps a nullable int32; nil when not valid.
+func IntPtr(n sql.NullInt32) *int {
+	if !n.Valid {
+		return nil
+	}
+	v := int(n.Int32)
+	return &v
+}
+

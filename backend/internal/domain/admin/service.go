@@ -192,6 +192,18 @@ func (s *Service) SiteLogoURL(ctx context.Context) string {
 	return v
 }
 
+// SiteLogoDarkURL returns the configured dark-mode logo URL (empty if not set).
+func (s *Service) SiteLogoDarkURL(ctx context.Context) string {
+	v, _ := s.GetString(ctx, KeySiteLogoDarkURL)
+	return v
+}
+
+// GeminiAPIKey returns the configured Gemini API key (empty if not set).
+func (s *Service) GeminiAPIKey(ctx context.Context) string {
+	v, _ := s.GetString(ctx, KeyGeminiAPIKey)
+	return v
+}
+
 // AllowedEmailDomains returns the list of permitted email domains. Empty means unrestricted.
 func (s *Service) AllowedEmailDomains(ctx context.Context) []string {
 	raw, err := s.store.Get(ctx, KeyAllowedEmailDomains)

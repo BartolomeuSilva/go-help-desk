@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/auth'
+import { useLanguageStore } from '@/store/language'
+import { useT } from '@/i18n'
 import { logout } from '@/api/auth'
 import { getSiteConfig } from '@/api/admin'
 import { Button } from '@/components/ui/button'
-import { TicketIcon, UsersIcon, SettingsIcon, LogOutIcon, HomeIcon, FolderIcon, CircleDotIcon, ShieldIcon, UsersRoundIcon, TagIcon, SlidersIcon, PuzzleIcon, MessageSquare, Sun, Moon, BookOpen, HelpCircle } from 'lucide-react'
+import { TicketIcon, UsersIcon, SettingsIcon, LogOutIcon, HomeIcon, FolderIcon, CircleDotIcon, ShieldIcon, UsersRoundIcon, TagIcon, SlidersIcon, PuzzleIcon, MessageSquare, Sun, Moon, BookOpen, HelpCircle, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NavItemProps {
@@ -39,6 +41,9 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { user, clear } = useAuthStore()
+  const { lang, setLang } = useLanguageStore()
+  const { t } = useT()
+
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('theme')
@@ -64,11 +69,11 @@ export function Layout({ children }: LayoutProps) {
   const { data: siteConfig } = useQuery({
     queryKey: ['site-config'],
     queryFn: getSiteConfig,
-    staleTime: 5 * 60 * 1000, // refresh at most every 5 min
+    staleTime: 5 * 60 * 1000,
   })
 
   const siteName = siteConfig?.name ?? 'Go Help Desk'
-  const logoURL = siteConfig?.logo_url ?? ''
+  const logoURL = (theme === 'dark' && siteConfig?.logo_dark_url) ? siteConfig.logo_dark_url : (siteConfig?.logo_url ?? '')
   const version = siteConfig?.version ?? ''
 
   async function handleLogout() {
@@ -93,41 +98,75 @@ export function Layout({ children }: LayoutProps) {
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-            <NavItem to="/dashboard" icon={<HomeIcon className="h-4 w-4" />} label="Dashboard" />
-            <NavItem to="/tickets" icon={<TicketIcon className="h-4 w-4" />} label="Tickets" />
-            <NavItem to="/kb" icon={<BookOpen className="h-4 w-4" />} label="Knowledge Base" />
-            <NavItem to="/help" icon={<HelpCircle className="h-4 w-4" />} label="User Guide" />
+            <NavItem to="/dashboard" icon={<HomeIcon className="h-4 w-4" />} label={t('nav.dashboard')} />
+            <NavItem to="/tickets" icon={<TicketIcon className="h-4 w-4" />} label={t('nav.tickets')} />
+            <NavItem to="/kb" icon={<BookOpen className="h-4 w-4" />} label={t('nav.knowledge_base')} />
+            <NavItem to="/help" icon={<HelpCircle className="h-4 w-4" />} label={t('nav.user_guide')} />
             {user?.role === 'admin' && (
               <>
                 <div className="px-3 pt-4 pb-1">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Admin</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('nav.admin')}</span>
                 </div>
-                <NavItem to="/admin/users" icon={<UsersIcon className="h-4 w-4" />} label="Users" />
+                <NavItem to="/admin/users" icon={<UsersIcon className="h-4 w-4" />} label={t('nav.users')} />
               </>
             )}
             {user?.role === 'admin' && (
               <>
-                <NavItem to="/admin/groups" icon={<UsersRoundIcon className="h-4 w-4" />} label="Groups" />
-                <NavItem to="/admin/roles" icon={<ShieldIcon className="h-4 w-4" />} label="Roles" />
-                <NavItem to="/admin/categories" icon={<FolderIcon className="h-4 w-4" />} label="Categories" />
-                <NavItem to="/admin/statuses" icon={<CircleDotIcon className="h-4 w-4" />} label="Statuses" />
-                <NavItem to="/admin/tags" icon={<TagIcon className="h-4 w-4" />} label="Tags" />
-                <NavItem to="/admin/custom-fields" icon={<SlidersIcon className="h-4 w-4" />} label="Custom Fields" />
-                <NavItem to="/admin/plugins" icon={<PuzzleIcon className="h-4 w-4" />} label="Plugins" />
-                <NavItem to="/admin/canned-responses" icon={<MessageSquare className="h-4 w-4" />} label="Canned Responses" />
-                <NavItem to="/admin/kb" icon={<BookOpen className="h-4 w-4" />} label="Knowledge Base" />
-                <NavItem to="/admin/settings" icon={<SettingsIcon className="h-4 w-4" />} label="Settings" />
+                <NavItem to="/admin/groups" icon={<UsersRoundIcon className="h-4 w-4" />} label={t('nav.groups')} />
+                <NavItem to="/admin/roles" icon={<ShieldIcon className="h-4 w-4" />} label={t('nav.roles')} />
+                <NavItem to="/admin/categories" icon={<FolderIcon className="h-4 w-4" />} label={t('nav.categories')} />
+                <NavItem to="/admin/statuses" icon={<CircleDotIcon className="h-4 w-4" />} label={t('nav.statuses')} />
+                <NavItem to="/admin/tags" icon={<TagIcon className="h-4 w-4" />} label={t('nav.tags')} />
+                <NavItem to="/admin/custom-fields" icon={<SlidersIcon className="h-4 w-4" />} label={t('nav.custom_fields')} />
+                <NavItem to="/admin/plugins" icon={<PuzzleIcon className="h-4 w-4" />} label={t('nav.plugins')} />
+                <NavItem to="/admin/canned-responses" icon={<MessageSquare className="h-4 w-4" />} label={t('nav.canned_responses')} />
+                <NavItem to="/admin/kb" icon={<BookOpen className="h-4 w-4" />} label={t('nav.kb_management')} />
+                <NavItem to="/admin/settings" icon={<SettingsIcon className="h-4 w-4" />} label={t('nav.settings')} />
+                <NavItem to="/admin/reports/csat" icon={<BarChart3 className="h-4 w-4" />} label={t('nav.csat_ai_coach')} />
               </>
             )}
           </nav>
 
-          {/* User & Theme Toggle */}
+          {/* User, Language & Theme Controls */}
           <div className="border-t border-gray-200 dark:border-[#2a2a2a] p-3 space-y-2">
             <div className="px-3 text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</div>
-            
+
+            {/* Language selector */}
+            <div className="flex items-center justify-between px-3 py-1">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('nav.language')}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  id="lang-pt"
+                  onClick={() => setLang('pt')}
+                  title="Português (Brasil)"
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all',
+                    lang === 'pt'
+                      ? 'bg-[#faff69] text-black'
+                      : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-[#1a1a1a]'
+                  )}
+                >
+                  🇧🇷 PT
+                </button>
+                <button
+                  id="lang-en"
+                  onClick={() => setLang('en')}
+                  title="English (United States)"
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all',
+                    lang === 'en'
+                      ? 'bg-[#faff69] text-black'
+                      : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-[#1a1a1a]'
+                  )}
+                >
+                  🇺🇸 EN
+                </button>
+              </div>
+            </div>
+
             {/* Theme selector */}
             <div className="flex items-center justify-between px-3 py-1">
-              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Theme</span>
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('nav.theme')}</span>
               <Button
                 variant="ghost"
                 size="icon"
@@ -145,7 +184,7 @@ export function Layout({ children }: LayoutProps) {
 
             <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white" onClick={handleLogout}>
               <LogOutIcon className="h-4 w-4" />
-              Sign out
+              {t('nav.sign_out')}
             </Button>
           </div>
         </aside>

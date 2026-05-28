@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getSettings, updateSettings, getSAMLConfig, saveSAMLConfig, getSiteConfig, uploadLogo, deleteLogo, listStatuses, listCategories, listSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy } from '@/api/admin'
+import { getSettings, updateSettings, getSAMLConfig, saveSAMLConfig, getSiteConfig, uploadLogo, deleteLogo, uploadLogoDark, deleteLogoDark, listStatuses, listCategories, listSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy } from '@/api/admin'
 import type { SLAPolicy } from '@/api/types'
 import { extractError } from '@/api/client'
 import { Layout } from '@/components/Layout'
@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { useState, useEffect, useRef } from 'react'
+import { useT } from '@/i18n'
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -70,13 +71,14 @@ function SaveBar({ onSave, isPending, error, saved }: {
   error: string
   saved: boolean
 }) {
+  const { t } = useT()
   return (
     <div className="flex items-center gap-3 pt-2">
       <Button onClick={onSave} disabled={isPending}>
-        {isPending ? 'Saving…' : 'Save changes'}
+        {isPending ? t('settings.saving') : t('settings.save_changes')}
       </Button>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {saved && <p className="text-sm text-green-600">Saved.</p>}
+      {saved && <p className="text-sm text-green-600">{t('settings.saved')}</p>}
     </div>
   )
 }
@@ -125,7 +127,9 @@ function SAMLSection() {
     onError: (err) => setSaveError(extractError(err)),
   })
 
-  if (isLoading) return <div className="py-4 text-center text-sm text-gray-400">Loading…</div>
+  const { t } = useT()
+
+  if (isLoading) return <div className="py-4 text-center text-sm text-gray-400">{t('settings.saml.loading')}</div>
 
   const spMetadataURL = saml?.sp_metadata_url ?? ''
 
@@ -136,15 +140,15 @@ function SAMLSection() {
           'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
           saml?.configured ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
         )}>
-          {saml?.configured ? 'Configured' : 'Not configured'}
+          {saml?.configured ? t('settings.saml.configured') : t('settings.saml.not_configured')}
         </span>
         {saml?.configured && (
           <span className="text-xs text-gray-500">
-            SP metadata:{' '}
+            {t('settings.saml.sp_metadata_prefix')}{' '}
             <button
               className="font-mono text-blue-600 underline decoration-dotted hover:decoration-solid"
               onClick={() => navigator.clipboard.writeText(spMetadataURL)}
-              title="Copy to clipboard"
+              title={t('settings.saml.copy_clipboard')}
             >
               {spMetadataURL}
             </button>
@@ -153,7 +157,7 @@ function SAMLSection() {
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">IdP metadata URL</label>
+        <label className="block text-sm font-medium text-gray-700">{t('settings.saml.idp_metadata_url')}</label>
         <Input
           placeholder="https://idp.example.com/saml/metadata"
           value={metadataURL}
@@ -164,11 +168,11 @@ function SAMLSection() {
 
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700">
-          SP certificate (PEM)
-          {saml?.configured && !certPEM && <span className="ml-2 text-xs font-normal text-gray-400">already configured</span>}
+          {t('settings.saml.sp_cert')}
+          {saml?.configured && !certPEM && <span className="ml-2 text-xs font-normal text-gray-400">{t('settings.saml.already_configured')}</span>}
         </label>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => certFileRef.current?.click()}>Upload .pem / .crt</Button>
+          <Button variant="outline" size="sm" onClick={() => certFileRef.current?.click()}>{t('settings.saml.upload_pem_crt')}</Button>
           {certPEM && <span className="text-xs text-gray-500 truncate max-w-xs font-mono">{certPEM.split('\n')[0]}…</span>}
         </div>
         <input ref={certFileRef} type="file" accept=".pem,.crt,.cer" className="hidden"
@@ -182,11 +186,11 @@ function SAMLSection() {
 
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700">
-          SP private key (PEM)
-          {saml?.configured && !keyPEM && <span className="ml-2 text-xs font-normal text-gray-400">already configured — upload to replace</span>}
+          {t('settings.saml.sp_key')}
+          {saml?.configured && !keyPEM && <span className="ml-2 text-xs font-normal text-gray-400">{t('settings.saml.already_configured_replace')}</span>}
         </label>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => keyFileRef.current?.click()}>Upload .pem / .key</Button>
+          <Button variant="outline" size="sm" onClick={() => keyFileRef.current?.click()}>{t('settings.saml.upload_pem_key')}</Button>
           {keyPEM && <span className="text-xs text-gray-500 font-mono">{keyPEM.split('\n')[0]}…</span>}
         </div>
         <input ref={keyFileRef} type="file" accept=".pem,.key" className="hidden"
@@ -200,10 +204,10 @@ function SAMLSection() {
 
       <div className="flex items-center gap-3 pt-1">
         <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving…' : 'Save SAML config'}
+          {saveMutation.isPending ? t('settings.saving') : t('settings.saml.save_config')}
         </Button>
         {saveError && <p className="text-sm text-red-600">{saveError}</p>}
-        {saved && !warning && <p className="text-sm text-green-600">SAML config saved.</p>}
+        {saved && !warning && <p className="text-sm text-green-600">{t('settings.saml.config_saved')}</p>}
         {warning && <p className="text-sm text-amber-600">{warning}</p>}
       </div>
     </div>
@@ -239,25 +243,26 @@ function GeneralPanel({
   error: string
   saved: boolean
 }) {
+  const { t } = useT()
   const { data: statuses = [] } = useQuery({ queryKey: ['statuses'], queryFn: listStatuses })
   // Reopen target should be an active, non-system status (not Resolved/Closed).
   const targetableStatuses = statuses.filter((s) => s.active && s.kind !== 'system')
 
   return (
     <div className="space-y-6">
-      <Section title="Submissions">
+      <Section title={t('settings.general.submissions')}>
         <SettingRow
-          label="Guest submission"
-          description="Allow unauthenticated users to submit a ticket using only their email address. They receive a tracking number to follow up without creating an account."
+          label={t('settings.general.guest_submission')}
+          description={t('settings.general.guest_submission_desc')}
         >
           <Toggle checked={bool('guest_submission_enabled')} onChange={(v) => setBool('guest_submission_enabled', v)} />
         </SettingRow>
       </Section>
 
-      <Section title="Ticket lifecycle">
+      <Section title={t('settings.general.ticket_lifecycle')}>
         <SettingRow
-          label="Reopen window"
-          description="How many days after resolution a user may reopen their ticket by adding a reply. Set to 0 to prevent reopening entirely."
+          label={t('settings.general.reopen_window')}
+          description={t('settings.general.reopen_window_desc')}
         >
           <div className="flex items-center gap-2">
             <Input
@@ -265,19 +270,19 @@ function GeneralPanel({
               value={num('reopen_window_days')}
               onChange={(e) => setNum('reopen_window_days', Math.max(0, parseInt(e.target.value, 10) || 0))}
             />
-            <span className="text-sm text-gray-500">days</span>
+            <span className="text-sm text-gray-500">{t('settings.general.days')}</span>
           </div>
         </SettingRow>
         <SettingRow
-          label="Reopen target status"
-          description="The status a ticket is moved to when a user reopens it."
+          label={t('settings.general.reopen_target_status')}
+          description={t('settings.general.reopen_target_status_desc')}
         >
           <Select
             className="w-44"
             value={str('reopen_target_status_name')}
             onChange={(e) => setStr('reopen_target_status_name', e.target.value)}
           >
-            <option value="">Select…</option>
+            <option value="">{t('settings.select')}</option>
             {targetableStatuses.map((s) => (
               <option key={s.id} value={s.name}>{s.name}</option>
             ))}
@@ -301,16 +306,24 @@ function BrandingPanel({
   error: string
   saved: boolean
 }) {
+  const { t } = useT()
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputDarkRef = useRef<HTMLInputElement>(null)
   const [logoError, setLogoError] = useState('')
+  const [logoDarkError, setLogoDarkError] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [uploadingDark, setUploadingDark] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deletingDark, setDeletingDark] = useState(false)
   const [confirmDeleteLogo, setConfirmDeleteLogo] = useState(false)
+  const [confirmDeleteLogoDark, setConfirmDeleteLogoDark] = useState(false)
   const [logoKey, setLogoKey] = useState(0)
+  const [logoDarkKey, setLogoDarkKey] = useState(0)
 
   const { data: siteConfig } = useQuery({ queryKey: ['site-config'], queryFn: getSiteConfig })
   const currentLogoURL = siteConfig?.logo_url ?? ''
+  const currentLogoDarkURL = siteConfig?.logo_dark_url ?? ''
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -346,12 +359,46 @@ function BrandingPanel({
     }
   }
 
+  async function handleFileChangeDark(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLogoDarkError('')
+    setUploadingDark(true)
+    try {
+      await uploadLogoDark(file)
+      setLogoDarkKey((k) => k + 1)
+      qc.invalidateQueries({ queryKey: ['site-config'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'settings'] })
+    } catch (err) {
+      setLogoDarkError(extractError(err))
+    } finally {
+      setUploadingDark(false)
+      if (fileInputDarkRef.current) fileInputDarkRef.current.value = ''
+    }
+  }
+
+  async function handleDeleteLogoDark() {
+    setLogoDarkError('')
+    setDeletingDark(true)
+    try {
+      await deleteLogoDark()
+      setLogoDarkKey((k) => k + 1)
+      qc.invalidateQueries({ queryKey: ['site-config'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'settings'] })
+      setConfirmDeleteLogoDark(false)
+    } catch (err) {
+      setLogoDarkError(extractError(err))
+    } finally {
+      setDeletingDark(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <Section title="Identity">
+      <Section title={t('settings.branding.identity')}>
         <SettingRow
-          label="Site name"
-          description="Displayed in the sidebar header and browser tab when no logo is set."
+          label={t('settings.branding.site_name')}
+          description={t('settings.branding.site_name_desc')}
         >
           <Input
             className="w-56"
@@ -361,61 +408,134 @@ function BrandingPanel({
           />
         </SettingRow>
 
-        <div className="px-5 py-4 space-y-3">
+        <div className="px-5 py-5 space-y-6">
           <div>
-            <div className="text-sm font-medium text-gray-900">Logo</div>
-            <div className="mt-0.5 text-sm text-gray-500">
-              Target size: <span className="font-medium">320 × 64 px</span> · PNG, SVG, JPG, or GIF · Max 2 MB.
-              Larger images are scaled proportionally to fit. The logo replaces the site name in the sidebar.
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('settings.branding.system_logos')}</div>
+            <div className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+              {t('settings.branding.system_logos_desc')}
             </div>
           </div>
 
-          {currentLogoURL && (
-            <div className="flex items-center gap-3">
-              <img
-                src={`${currentLogoURL}?v=${logoKey}`}
-                alt="Current logo"
-                className="h-8 max-w-[200px] rounded border object-contain p-1"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Logo Modo Claro */}
+            <div className="rounded-lg border border-gray-200 dark:border-neutral-800 p-4 bg-gray-50 dark:bg-neutral-900/50 space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('settings.branding.light_mode')}</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.branding.light_mode_desc')}</p>
+              </div>
+
+              <div className="h-20 flex items-center justify-center rounded border border-gray-200 bg-white p-2">
+                {currentLogoURL ? (
+                  <img
+                    src={`${currentLogoURL}?v=${logoKey}`}
+                    alt="Logo Claro"
+                    className="h-full max-w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-xs text-gray-400 italic">{t('settings.branding.no_logo_site_name')}</span>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || deleting}
+                >
+                  {uploading ? t('common.uploading') : currentLogoURL ? t('settings.branding.replace') : t('settings.branding.upload_logo')}
+                </Button>
+                {currentLogoURL && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    onClick={() => setConfirmDeleteLogo(true)}
+                    disabled={deleting || uploading}
+                  >
+                    {deleting ? t('settings.branding.removing') : t('settings.branding.remove')}
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.gif,.svg"
+                className="hidden"
+                onChange={handleFileChange}
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmDeleteLogo(true)}
-                disabled={deleting || uploading}
-              >
-                {deleting ? 'Removing…' : 'Remove logo'}
-              </Button>
+              {logoError && <p className="text-xs text-red-600 dark:text-red-400">{logoError}</p>}
             </div>
-          )}
+
+            {/* Logo Modo Escuro */}
+            <div className="rounded-lg border border-gray-200 dark:border-neutral-800 p-4 bg-gray-50 dark:bg-neutral-900/50 space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('settings.branding.dark_mode')}</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('settings.branding.dark_mode_desc')}</p>
+              </div>
+
+              <div className="h-20 flex items-center justify-center rounded border border-neutral-700 bg-neutral-950 p-2">
+                {currentLogoDarkURL ? (
+                  <img
+                    src={`${currentLogoDarkURL}?v=${logoDarkKey}`}
+                    alt="Logo Escuro"
+                    className="h-full max-w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-xs text-neutral-500 italic">{t('settings.branding.no_logo_dark_fallback')}</span>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputDarkRef.current?.click()}
+                  disabled={uploadingDark || deletingDark}
+                >
+                  {uploadingDark ? t('common.uploading') : currentLogoDarkURL ? t('settings.branding.replace') : t('settings.branding.upload_logo')}
+                </Button>
+                {currentLogoDarkURL && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    onClick={() => setConfirmDeleteLogoDark(true)}
+                    disabled={deletingDark || uploadingDark}
+                  >
+                    {deletingDark ? t('settings.branding.removing') : t('settings.branding.remove')}
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={fileInputDarkRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.gif,.svg"
+                className="hidden"
+                onChange={handleFileChangeDark}
+              />
+              {logoDarkError && <p className="text-xs text-red-600 dark:text-red-400">{logoDarkError}</p>}
+            </div>
+          </div>
+
           <ConfirmDialog
             open={confirmDeleteLogo}
             onOpenChange={setConfirmDeleteLogo}
-            title="Remove site logo?"
-            description="The default logo will be shown until you upload a new one."
-            confirmLabel="Remove logo"
+            title={t('settings.branding.remove_light_title')}
+            description={t('settings.branding.remove_light_desc')}
+            confirmLabel={t('settings.branding.remove')}
             isPending={deleting}
             onConfirm={handleDeleteLogo}
           />
-
-          <div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading || deleting}
-            >
-              {uploading ? 'Uploading…' : currentLogoURL ? 'Replace logo' : 'Upload logo'}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".png,.jpg,.jpeg,.gif,.svg"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </div>
-
-          {logoError && <p className="text-sm text-red-600">{logoError}</p>}
+          <ConfirmDialog
+            open={confirmDeleteLogoDark}
+            onOpenChange={setConfirmDeleteLogoDark}
+            title={t('settings.branding.remove_dark_title')}
+            description={t('settings.branding.remove_dark_desc')}
+            confirmLabel={t('settings.branding.remove')}
+            isPending={deletingDark}
+            onConfirm={handleDeleteLogoDark}
+          />
         </div>
       </Section>
 
@@ -439,24 +559,25 @@ function AuthPanel({
   error: string
   saved: boolean
 }) {
+  const { t } = useT()
   const [confirmOpenReg, setConfirmOpenReg] = useState(false)
 
   const domainsLocked = strArr('allowed_email_domains').length > 0
 
   return (
     <div className="space-y-6">
-      <Section title="SAML">
+      <Section title={t('settings.auth.saml')}>
         <div>
           <SettingRow
-            label="Enable SAML login"
-            description="Authenticate users via your SAML 2.0 identity provider (Okta, Azure AD, Google Workspace). Admins always retain local login as a failsafe."
+            label={t('settings.auth.saml_enable')}
+            description={t('settings.auth.saml_enable_desc')}
           >
             <Toggle checked={bool('saml_enabled')} onChange={(v) => setBool('saml_enabled', v)} />
           </SettingRow>
           {bool('saml_enabled') && (
             <div className="border-t bg-gray-50">
               <div className="px-5 pt-3 pb-0">
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-400">SAML configuration</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-gray-400">{t('settings.auth.saml_config')}</p>
               </div>
               <SAMLSection />
             </div>
@@ -464,17 +585,17 @@ function AuthPanel({
         </div>
       </Section>
 
-      <Section title="Multi-factor authentication">
+      <Section title={t('settings.auth.mfa')}>
         <SettingRow
-          label="Enable MFA"
-          description="Allow users to opt in to TOTP (Google Authenticator, Authy, 1Password). Users can enable MFA from their profile; enrolled users are prompted for a one-time code at each sign-in."
+          label={t('settings.auth.mfa_enable')}
+          description={t('settings.auth.mfa_enable_desc')}
         >
           <Toggle checked={bool('mfa_enabled')} onChange={(v) => setBool('mfa_enabled', v)} />
         </SettingRow>
         {bool('mfa_enabled') && (
           <SettingRow
-            label="Require MFA for roles"
-            description="Users in the selected roles must enroll in MFA to sign in. Unenrolled users are forced through setup on their next login; leave all unchecked to keep MFA opt-in."
+            label={t('settings.auth.mfa_require')}
+            description={t('settings.auth.mfa_require_desc')}
           >
             <div className="flex gap-4">
               {(['admin', 'staff', 'user'] as const).map((r) => (
@@ -493,19 +614,19 @@ function AuthPanel({
         )}
       </Section>
 
-      <Section title="Registration">
+      <Section title={t('settings.auth.registration')}>
         <SettingRow
-          label="Allow self-service signup"
-          description="Let users create their own accounts without an admin invitation. Requires email verification."
+          label={t('settings.auth.self_signup')}
+          description={t('settings.auth.self_signup_desc')}
         >
           <Toggle checked={bool('self_signup_enabled')} onChange={(v) => setBool('self_signup_enabled', v)} />
         </SettingRow>
         {bool('self_signup_enabled') && (
           <>
             <div className="border-t px-5 py-4 space-y-2">
-              <div className="text-sm font-medium text-gray-900">Allowed email domains</div>
+              <div className="text-sm font-medium text-gray-900">{t('settings.auth.allowed_domains')}</div>
               <div className="text-sm text-gray-500">
-                One domain per line (e.g. <span className="font-mono">company.com</span>). Leave empty and enable open registration to allow any email.
+                {t('settings.auth.allowed_domains_desc')}
               </div>
               <textarea
                 rows={3}
@@ -521,11 +642,11 @@ function AuthPanel({
               />
             </div>
             <SettingRow
-              label="Allow open registration"
+              label={t('settings.auth.open_reg')}
               description={
                 domainsLocked
-                  ? 'Clear the domain list above to enable open registration.'
-                  : 'Anyone can sign up regardless of email domain.'
+                  ? t('settings.auth.open_reg_desc')
+                  : t('settings.auth.open_reg_desc_active')
               }
             >
               <Toggle
@@ -539,9 +660,9 @@ function AuthPanel({
             <ConfirmDialog
               open={confirmOpenReg}
               onOpenChange={setConfirmOpenReg}
-              title="Allow open registration?"
-              description="Anyone with any email address will be able to create an account on this instance. Make sure this is intentional."
-              confirmLabel="Enable open registration"
+              title={t('settings.auth.confirm_open_reg_title')}
+              description={t('settings.auth.confirm_open_reg_desc')}
+              confirmLabel={t('settings.auth.confirm_open_reg_action')}
               onConfirm={() => { setBool('open_registration_enabled', true); setConfirmOpenReg(false) }}
             />
           </>
@@ -596,19 +717,20 @@ function PolicyFormRow({
   onCancel: () => void
   isPending: boolean
 }) {
+  const { t } = useT()
   return (
-    <tr className="bg-blue-50">
+    <tr className="bg-blue-50 dark:bg-blue-950/20">
       <td className="px-3 py-2">
         <Input
-          className="h-7 text-sm"
+          className="h-7 text-sm w-full min-w-[130px]"
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          placeholder="Policy name"
+          placeholder={t('settings.sla.policy_name_placeholder')}
         />
       </td>
       <td className="px-3 py-2">
         <Select
-          className="h-7 text-sm"
+          className="h-7 text-sm w-full min-w-[100px]"
           value={form.priority}
           onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
         >
@@ -619,11 +741,11 @@ function PolicyFormRow({
       </td>
       <td className="px-3 py-2">
         <Select
-          className="h-7 text-sm"
+          className="h-7 text-sm w-full min-w-[130px]"
           value={form.category_id}
           onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))}
         >
-          <option value="">All categories</option>
+          <option value="">{t('settings.sla.all_categories')}</option>
           {categories.filter((c) => c.active).map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -636,7 +758,7 @@ function PolicyFormRow({
             value={form.response_target_min}
             onChange={(e) => setForm((f) => ({ ...f, response_target_min: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
           />
-          <span className="text-xs text-gray-400">min</span>
+          <span className="text-xs text-gray-400">{t('settings.sla.minutes_abbr')}</span>
         </div>
       </td>
       <td className="px-3 py-2">
@@ -646,13 +768,13 @@ function PolicyFormRow({
             value={form.resolution_target_min}
             onChange={(e) => setForm((f) => ({ ...f, resolution_target_min: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
           />
-          <span className="text-xs text-gray-400">min</span>
+          <span className="text-xs text-gray-400">{t('settings.sla.minutes_abbr')}</span>
         </div>
       </td>
       <td className="px-3 py-2">
-        <div className="flex gap-2">
-          <Button size="sm" onClick={onSave} disabled={isPending}>Save</Button>
-          <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>
+        <div className="flex gap-2 min-w-[125px]">
+          <Button size="sm" onClick={onSave} disabled={isPending}>{t('common.save')}</Button>
+          <Button size="sm" variant="outline" onClick={onCancel}>{t('common.cancel')}</Button>
         </div>
       </td>
     </tr>
@@ -660,6 +782,7 @@ function PolicyFormRow({
 }
 
 function SLAPoliciesSection() {
+  const { t } = useT()
   const qc = useQueryClient()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<SLAPolicy | null>(null)
@@ -735,7 +858,7 @@ function SLAPoliciesSection() {
   return (
     <div className="border-t bg-gray-50">
       <div className="px-5 pt-3 pb-0">
-        <p className="text-xs font-medium uppercase tracking-wider text-gray-400">SLA Policies</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-gray-400">{t('settings.sla.policies_title')}</p>
       </div>
       <div className="px-5 py-4 space-y-3">
         {showTable ? (
@@ -743,11 +866,11 @@ function SLAPoliciesSection() {
             <table className="w-full text-sm">
               <thead className="border-b border-gray-200 dark:border-[#2a2a2a] bg-gray-50 dark:bg-[#0a0a0a]">
                 <tr className="text-left text-xs font-medium text-gray-500">
-                  <th className="px-3 py-2">Name</th>
-                  <th className="px-3 py-2">Priority</th>
-                  <th className="px-3 py-2">Category</th>
-                  <th className="px-3 py-2">Response</th>
-                  <th className="px-3 py-2">Resolution</th>
+                  <th className="px-3 py-2">{t('settings.sla.name')}</th>
+                  <th className="px-3 py-2">{t('settings.sla.priority')}</th>
+                  <th className="px-3 py-2">{t('settings.sla.category')}</th>
+                  <th className="px-3 py-2">{t('settings.sla.response')}</th>
+                  <th className="px-3 py-2">{t('settings.sla.resolution')}</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -772,19 +895,19 @@ function SLAPoliciesSection() {
                       <td className="px-3 py-2 text-gray-600">
                         {p.category_id
                           ? (categories.find((c) => c.id === p.category_id)?.name ?? '—')
-                          : 'All categories'}
+                          : t('settings.sla.all_categories')}
                       </td>
                       <td className="px-3 py-2 tabular-nums text-gray-600">{fmtMin(p.response_target_min)}</td>
                       <td className="px-3 py-2 tabular-nums text-gray-600">{fmtMin(p.resolution_target_min)}</td>
                       <td className="px-3 py-2">
                         <div className="flex gap-3">
-                          <button className="text-xs text-blue-600 hover:underline" onClick={() => startEdit(p)}>Edit</button>
+                          <button className="text-xs text-blue-600 hover:underline" onClick={() => startEdit(p)}>{t('common.edit')}</button>
                           <button
                             className="text-xs text-red-600 hover:underline disabled:opacity-40"
                             onClick={() => setPendingDelete(p)}
                             disabled={deleteMutation.isPending}
                           >
-                            Delete
+                            {t('common.delete')}
                           </button>
                         </div>
                       </td>
@@ -803,19 +926,19 @@ function SLAPoliciesSection() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-gray-500">No SLA policies defined.</p>
+          <p className="text-sm text-gray-500">{t('settings.sla.no_policies')}</p>
         )}
         {formError && <p className="text-sm text-red-600">{formError}</p>}
         {!showAdd && !editingId && (
-          <Button size="sm" variant="outline" onClick={startAdd}>+ Add policy</Button>
+          <Button size="sm" variant="outline" onClick={startAdd}>{t('settings.sla.add_policy')}</Button>
         )}
       </div>
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
-        title={`Delete SLA policy "${pendingDelete?.name ?? ''}"?`}
-        description="Tickets currently tracking against this policy will lose their SLA targets."
-        confirmLabel="Delete policy"
+        title={`${t('settings.sla.delete_title')} "${pendingDelete?.name ?? ''}"?`}
+        description={t('settings.sla.delete_desc')}
+        confirmLabel={t('settings.sla.delete_action')}
         isPending={deleteMutation.isPending}
         onConfirm={() => { if (pendingDelete) deleteMutation.mutate(pendingDelete.id) }}
       />
@@ -826,23 +949,26 @@ function SLAPoliciesSection() {
 // ── Features panel ────────────────────────────────────────────────────────────
 
 function FeaturesPanel({
-  bool, setBool,
+  bool, str, setBool, setStr,
   onSave, isPending, error, saved,
 }: {
   bool: (k: string) => boolean
+  str: (k: string) => string
   setBool: (k: string, v: boolean) => void
+  setStr: (k: string, v: string) => void
   onSave: () => void
   isPending: boolean
   error: string
   saved: boolean
 }) {
+  const { t } = useT()
   return (
     <div className="space-y-6">
-      <Section title="SLA">
+      <Section title={t('settings.features.sla')}>
         <div>
           <SettingRow
-            label="SLA tracking"
-            description="Enable SLA response and resolution time targets configurable per priority and category. When enabled, tickets approaching or breaching their SLA target are highlighted."
+            label={t('settings.features.sla_tracking')}
+            description={t('settings.features.sla_tracking_desc')}
           >
             <Toggle checked={bool('sla_enabled')} onChange={(v) => setBool('sla_enabled', v)} />
           </SettingRow>
@@ -850,13 +976,30 @@ function FeaturesPanel({
         </div>
       </Section>
 
-      <Section title="ITSM (IT Service Management)">
+      <Section title={t('settings.features.itsm')}>
         <div>
           <SettingRow
-            label="ITSM mode (Ticket types)"
-            description="Enable ITSM classification for tickets. When enabled, tickets can be classified as Incidents, Service Requests, Problems, or Change Requests. You can also assign default ticket types to CTI configurations."
+            label={t('settings.features.itsm_mode')}
+            description={t('settings.features.itsm_mode_desc')}
           >
             <Toggle checked={bool('itsm_enabled')} onChange={(v) => setBool('itsm_enabled', v)} />
+          </SettingRow>
+        </div>
+      </Section>
+
+      <Section title={t('settings.features.ai')}>
+        <div>
+          <SettingRow
+            label={t('settings.features.gemini_key')}
+            description={t('settings.features.gemini_key_desc')}
+          >
+            <Input
+              type="password"
+              className="w-56"
+              placeholder={t('settings.features.gemini_key_placeholder')}
+              value={str('gemini_api_key')}
+              onChange={(e) => setStr('gemini_api_key', e.target.value)}
+            />
           </SettingRow>
         </div>
       </Section>
@@ -869,6 +1012,7 @@ function FeaturesPanel({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState<Tab>('general')
   const [local, setLocal] = useState<Record<string, unknown>>({})
@@ -934,8 +1078,8 @@ export function SettingsPage() {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="mt-1 text-sm text-gray-500">System-wide configuration for this instance.</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('settings.title')}</h1>
+          <p className="mt-1 text-sm text-gray-500">{t('settings.subtitle')}</p>
         </div>
 
         {/* Tab bar */}
@@ -952,7 +1096,7 @@ export function SettingsPage() {
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 )}
               >
-                {tab.label}
+                {t(`settings.tabs.${tab.id}` as any)}
               </button>
             ))}
           </nav>

@@ -18,6 +18,9 @@ const (
 	KeyReopenTargetStatusName = "reopen_target_status_name"
 	KeySiteName               = "site_name"
 	KeySiteLogoURL            = "site_logo_url"
+	KeySiteLogoDarkURL        = "site_logo_dark_url"
+
+	KeyGeminiAPIKey           = "gemini_api_key"
 
 	// Registration settings.
 	KeyAllowedEmailDomains     = "allowed_email_domains"     // []string — empty = unrestricted for SAML JIT

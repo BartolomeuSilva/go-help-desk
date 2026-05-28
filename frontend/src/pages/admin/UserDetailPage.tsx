@@ -17,6 +17,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { ArrowLeftIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-react'
 import type { Role } from '@/api/types'
 import { listRoles } from '@/api/roles'
+import { useT } from '@/i18n'
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -39,6 +40,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 }
 
 export function UserDetailPage() {
+  const { t } = useT()
   const { id } = useParams({ from: '/admin/users/$id' })
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -164,10 +166,10 @@ export function UserDetailPage() {
   const memberGroupIds = new Set(user.groups.map((g) => g.id))
   const availableGroups = allGroups.filter((g) => !memberGroupIds.has(g.id))
 
-  function authTypeLabel(t: string) {
-    if (t === 'saml') return 'SSO (SAML)'
-    if (t === 'both') return 'Local + SSO'
-    return 'Local'
+  function authTypeLabel(authType: string) {
+    if (authType === 'saml') return t('users.auth_type.sso')
+    if (authType === 'both') return t('users.auth_type.both')
+    return t('users.auth_type.local')
   }
 
   return (
@@ -180,12 +182,12 @@ export function UserDetailPage() {
             className="mb-3 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800"
           >
             <ArrowLeftIcon className="h-3.5 w-3.5" />
-            Back to Users
+            {t('user_detail.back_to_users')}
           </button>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-gray-900">{user.display_name}</h1>
             {user.disabled && (
-              <Badge variant="secondary" className="text-xs">Disabled</Badge>
+              <Badge variant="secondary" className="text-xs">{t('users.disabled')}</Badge>
             )}
           </div>
           <p className="mt-1 text-sm text-gray-500">{user.email}</p>
@@ -193,15 +195,15 @@ export function UserDetailPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* ── Profile ──────────────────────────────────────────────────── */}
-          <SectionCard title="Profile">
-            <FieldRow label="Display name">
+          <SectionCard title={t('user_detail.profile')}>
+            <FieldRow label={t('users.display_name')}>
               <Input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 disabled={user.disabled}
               />
             </FieldRow>
-            <FieldRow label="Email address">
+            <FieldRow label={t('user_detail.email_address')}>
               <Input
                 type="email"
                 value={email}
@@ -209,7 +211,7 @@ export function UserDetailPage() {
                 disabled={user.disabled}
               />
             </FieldRow>
-            <FieldRow label="Role">
+            <FieldRow label={t('users.role')}>
               <Select
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
@@ -221,7 +223,7 @@ export function UserDetailPage() {
               </Select>
             </FieldRow>
             {user.disabled && (
-              <p className="text-xs text-amber-600">Enable the account to edit profile fields.</p>
+              <p className="text-xs text-amber-600">{t('user_detail.profile_disabled_hint')}</p>
             )}
             {profileError && <p className="text-sm text-red-600">{profileError}</p>}
             <div className="flex items-center gap-3 pt-1">
@@ -230,57 +232,57 @@ export function UserDetailPage() {
                 onClick={() => profileMutation.mutate()}
                 disabled={profileMutation.isPending || user.disabled}
               >
-                {profileMutation.isPending ? 'Saving…' : 'Save profile'}
+                {profileMutation.isPending ? t('user_detail.saving') : t('user_detail.save_profile')}
               </Button>
-              {profileSaved && <span className="text-sm text-green-600">Saved.</span>}
+              {profileSaved && <span className="text-sm text-green-600">{t('settings.saved')}</span>}
             </div>
           </SectionCard>
 
           {/* ── Account ──────────────────────────────────────────────────── */}
-          <SectionCard title="Account">
+          <SectionCard title={t('user_detail.account')}>
             {/* Info grid */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Member since</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('user_detail.member_since')}</p>
                 <p className="font-medium text-gray-800">
                   {new Date(user.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Login type</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('user_detail.login_type')}</p>
                 <p className="font-medium text-gray-800">{authTypeLabel(user.auth_type)}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">MFA</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('user_detail.mfa')}</p>
                 <div className="flex items-center gap-1.5">
                   {user.mfa_enabled ? (
                     <>
                       <ShieldCheckIcon className="h-4 w-4 text-green-600" />
-                      <span className="font-medium text-green-700">Enrolled</span>
+                      <span className="font-medium text-green-700">{t('user_detail.mfa_enrolled')}</span>
                     </>
                   ) : (
                     <>
                       <ShieldOffIcon className="h-4 w-4 text-gray-400" />
-                      <span className="font-medium text-gray-500">Not enrolled</span>
+                      <span className="font-medium text-gray-500">{t('user_detail.mfa_not_enrolled')}</span>
                     </>
                   )}
                 </div>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Status</p>
+                <p className="text-xs text-gray-400 mb-0.5">{t('user_detail.status')}</p>
                 <p className={`font-medium ${user.disabled ? 'text-red-600' : 'text-green-700'}`}>
-                  {user.disabled ? 'Disabled' : 'Active'}
+                  {user.disabled ? t('user_detail.disabled') : t('user_detail.active')}
                 </p>
               </div>
             </div>
 
-            <div className="border-t pt-3 space-y-3">
+            <div className="pt-3 border-t space-y-3">
               {/* MFA reset */}
               {user.mfa_enabled && (
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Reset MFA</p>
-                    <p className="text-xs text-gray-500">Clears the TOTP secret — user re-enrolls on next login.</p>
+                    <p className="text-sm font-medium text-gray-700">{t('user_detail.reset_mfa')}</p>
+                    <p className="text-xs text-gray-500">{t('user_detail.reset_mfa_desc')}</p>
                   </div>
                   <Button
                     variant="outline"
@@ -288,7 +290,7 @@ export function UserDetailPage() {
                     onClick={() => resetMFAMutation.mutate()}
                     disabled={resetMFAMutation.isPending}
                   >
-                    {resetMFAMutation.isPending ? 'Resetting…' : 'Reset MFA'}
+                    {resetMFAMutation.isPending ? t('user_detail.resetting') : t('user_detail.reset_mfa_button')}
                   </Button>
                 </div>
               )}
@@ -297,12 +299,12 @@ export function UserDetailPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-700">
-                    {user.disabled ? 'Enable account' : 'Disable account'}
+                    {user.disabled ? t('user_detail.enable_account') : t('user_detail.disable_account')}
                   </p>
                   <p className="text-xs text-gray-500">
                     {user.disabled
-                      ? 'Allow this user to sign in again.'
-                      : 'Prevent this user from signing in. Tickets and history are preserved.'}
+                      ? t('user_detail.enable_desc')
+                      : t('user_detail.disable_desc')}
                   </p>
                 </div>
                 <Button
@@ -314,18 +316,18 @@ export function UserDetailPage() {
                 >
                   {toggleDisabledMutation.isPending
                     ? '…'
-                    : user.disabled ? 'Enable' : 'Disable'}
+                    : user.disabled ? t('user_detail.enable') : t('user_detail.disable')}
                 </Button>
               </div>
 
               {/* Password reset */}
               {user.has_password && (
                 <div className="space-y-2 border-t pt-3">
-                  <p className="text-sm font-medium text-gray-700">Reset password</p>
+                  <p className="text-sm font-medium text-gray-700">{t('user_detail.reset_password')}</p>
                   <div className="flex gap-2">
                     <Input
                       type="password"
-                      placeholder="New password"
+                      placeholder={t('user_detail.new_password')}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       className="flex-1"
@@ -336,11 +338,11 @@ export function UserDetailPage() {
                       onClick={() => passwordMutation.mutate()}
                       disabled={passwordMutation.isPending || !newPassword}
                     >
-                      {passwordMutation.isPending ? 'Setting…' : 'Set password'}
+                      {passwordMutation.isPending ? t('user_detail.setting_password') : t('user_detail.set_password')}
                     </Button>
                   </div>
                   {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
-                  {passwordSaved && <p className="text-sm text-green-600">Password updated.</p>}
+                  {passwordSaved && <p className="text-sm text-green-600">{t('user_detail.password_updated')}</p>}
                 </div>
               )}
             </div>
@@ -348,9 +350,9 @@ export function UserDetailPage() {
         </div>
 
         {/* ── Groups ─────────────────────────────────────────────────────── */}
-        <SectionCard title="Groups">
+        <SectionCard title={t('user_detail.groups')}>
           {user.groups.length === 0 ? (
-            <p className="text-sm text-gray-400">Not a member of any groups.</p>
+            <p className="text-sm text-gray-400">{t('user_detail.no_groups')}</p>
           ) : (
             <div className="divide-y rounded-md border">
               {user.groups.map((g) => (
@@ -368,7 +370,7 @@ export function UserDetailPage() {
                     onClick={() => removeFromGroupMutation.mutate(g.id)}
                     disabled={removeFromGroupMutation.isPending}
                   >
-                    Remove
+                    {t('user_detail.remove_group')}
                   </Button>
                 </div>
               ))}
@@ -382,7 +384,7 @@ export function UserDetailPage() {
                 onChange={(e) => setAddGroupId(e.target.value)}
                 className="flex-1"
               >
-                <option value="">Add to group…</option>
+                <option value="">{t('user_detail.add_to_group_placeholder')}</option>
                 {availableGroups.map((g) => (
                   <option key={g.id} value={g.id}>{g.name}</option>
                 ))}
@@ -392,7 +394,7 @@ export function UserDetailPage() {
                 onClick={() => addToGroupMutation.mutate()}
                 disabled={!addGroupId || addToGroupMutation.isPending}
               >
-                {addToGroupMutation.isPending ? 'Adding…' : 'Add'}
+                {addToGroupMutation.isPending ? t('user_detail.adding') : t('user_detail.add')}
               </Button>
             </div>
           )}
@@ -401,11 +403,9 @@ export function UserDetailPage() {
 
         {/* ── Danger zone ─────────────────────────────────────────────────── */}
         <div className="rounded-lg border border-red-200 bg-red-50 px-5 py-4">
-          <h2 className="text-sm font-semibold text-red-700 mb-1">Danger zone</h2>
+          <h2 className="text-sm font-semibold text-red-700 mb-1">{t('user_detail.danger_zone')}</h2>
           <p className="text-sm text-red-600 mb-3">
-            Permanently deletes this account. Tickets and replies they created are preserved but
-            will show a removed user. This cannot be undone — disable the account instead if
-            you may need to restore access.
+            {t('user_detail.danger_zone_desc')}
           </p>
           <Button
             size="sm"
@@ -413,16 +413,16 @@ export function UserDetailPage() {
             className="border-red-300 text-red-600 hover:bg-red-100"
             onClick={() => setConfirmDelete(true)}
           >
-            Delete user
+            {t('user_detail.delete_user')}
           </Button>
         </div>
       </div>
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title={`Permanently delete "${user?.display_name ?? 'user'}"?`}
-        description="Their tickets and replies are preserved but show as a removed user. This cannot be undone."
-        confirmLabel="Delete user"
+        title={`${t('user_detail.delete_confirm_title')} "${user?.display_name ?? 'user'}"?`}
+        description={t('user_detail.delete_confirm_desc')}
+        confirmLabel={t('user_detail.delete_user')}
         isPending={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
       />

@@ -20,10 +20,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { PlusIcon, Trash2Icon, UsersIcon, PencilIcon, XIcon, CheckIcon } from 'lucide-react'
 import type { Group, User } from '@/api/types'
+import { useT } from '@/i18n'
 
 // ── Inline editable group name ────────────────────────────────────────────────
 
 function GroupNameEditor({ group, onSaved }: { group: Group; onSaved: () => void }) {
+  const { t } = useT()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(group.name)
   const [desc, setDesc] = useState(group.description)
@@ -51,7 +53,7 @@ function GroupNameEditor({ group, onSaved }: { group: Group; onSaved: () => void
         <button
           onClick={() => setEditing(true)}
           className="text-gray-400 hover:text-gray-600 ml-1"
-          title="Edit group"
+          title={t('groups.editor.edit_group_title')}
         >
           <PencilIcon className="h-3.5 w-3.5" />
         </button>
@@ -71,7 +73,7 @@ function GroupNameEditor({ group, onSaved }: { group: Group; onSaved: () => void
         value={desc}
         onChange={(e) => setDesc(e.target.value)}
         className="h-7 text-xs"
-        placeholder="Description (optional)"
+        placeholder={t('groups.editor.desc_placeholder')}
       />
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-1">
@@ -79,14 +81,14 @@ function GroupNameEditor({ group, onSaved }: { group: Group; onSaved: () => void
           onClick={() => mutation.mutate()}
           disabled={mutation.isPending}
           className="text-green-600 hover:text-green-700"
-          title="Save"
+          title={t('common.save')}
         >
           <CheckIcon className="h-4 w-4" />
         </button>
         <button
           onClick={() => { setEditing(false); setName(group.name); setDesc(group.description) }}
           className="text-gray-400 hover:text-gray-600"
-          title="Cancel"
+          title={t('common.cancel')}
         >
           <XIcon className="h-4 w-4" />
         </button>
@@ -98,6 +100,7 @@ function GroupNameEditor({ group, onSaved }: { group: Group; onSaved: () => void
 // ── Members panel ─────────────────────────────────────────────────────────────
 
 function MembersPanel({ group, allUsers }: { group: Group; allUsers: User[] }) {
+  const { t } = useT()
   const [selectedUserId, setSelectedUserId] = useState('')
   const [error, setError] = useState('')
   const qc = useQueryClient()
@@ -129,7 +132,7 @@ function MembersPanel({ group, allUsers }: { group: Group; allUsers: User[] }) {
   return (
     <div className="space-y-3">
       {members.length === 0 ? (
-        <p className="text-xs text-gray-400">No members yet.</p>
+        <p className="text-xs text-gray-400">{t('groups.members.no_members')}</p>
       ) : (
         <ul className="space-y-1">
           {members.map((m) => (
@@ -142,7 +145,7 @@ function MembersPanel({ group, allUsers }: { group: Group; allUsers: User[] }) {
                 onClick={() => removeMutation.mutate(m.id)}
                 disabled={removeMutation.isPending}
                 className="text-gray-400 hover:text-red-500"
-                title="Remove member"
+                title={t('groups.members.remove_title')}
               >
                 <XIcon className="h-3.5 w-3.5" />
               </button>
@@ -158,7 +161,7 @@ function MembersPanel({ group, allUsers }: { group: Group; allUsers: User[] }) {
             value={selectedUserId}
             onChange={(e) => setSelectedUserId(e.target.value)}
           >
-            <option value="">Add a staff member…</option>
+            <option value="">{t('groups.members.add_staff_placeholder')}</option>
             {eligible.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.display_name} ({u.email})
@@ -171,7 +174,7 @@ function MembersPanel({ group, allUsers }: { group: Group; allUsers: User[] }) {
             onClick={() => addMutation.mutate()}
             disabled={!selectedUserId || addMutation.isPending}
           >
-            Add
+            {t('groups.members.add_button')}
           </Button>
         </div>
       )}
@@ -183,6 +186,7 @@ function MembersPanel({ group, allUsers }: { group: Group; allUsers: User[] }) {
 // ── Group row ─────────────────────────────────────────────────────────────────
 
 function GroupRow({ group, allUsers, onDelete }: { group: Group; allUsers: User[]; onDelete: () => void }) {
+  const { t } = useT()
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -196,12 +200,12 @@ function GroupRow({ group, allUsers, onDelete }: { group: Group; allUsers: User[
               className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
             >
               <UsersIcon className="h-3.5 w-3.5" />
-              Members
+              {t('groups.row.members_button')}
             </button>
             <button
               onClick={onDelete}
               className="text-gray-400 hover:text-red-500"
-              title="Delete group"
+              title={t('groups.row.delete_button')}
             >
               <Trash2Icon className="h-4 w-4" />
             </button>
@@ -220,6 +224,7 @@ function GroupRow({ group, allUsers, onDelete }: { group: Group; allUsers: User[
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function GroupsPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -259,33 +264,32 @@ export function GroupsPage() {
     <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Groups</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('groups.title')}</h1>
         </div>
 
         <p className="text-sm text-gray-500">
-          Groups are named pools of staff members. Tickets can be assigned to a group; any member
-          can view and act on those tickets.
+          {t('groups.subtitle')}
         </p>
 
         {/* Create form */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">New group</CardTitle>
+            <CardTitle className="text-sm">{t('groups.new_group')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-3">
               <div className="flex-1 space-y-1">
-                <Label className="text-xs">Name</Label>
+                <Label className="text-xs">{t('groups.form.name')}</Label>
                 <Input
-                  placeholder="e.g. Tier 1 Support"
+                  placeholder={t('groups.form.name_placeholder')}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                 />
               </div>
               <div className="flex-1 space-y-1">
-                <Label className="text-xs">Description (optional)</Label>
+                <Label className="text-xs">{t('groups.form.description')}</Label>
                 <Input
-                  placeholder="e.g. First-line help desk staff"
+                  placeholder={t('groups.form.desc_placeholder')}
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
                 />
@@ -298,16 +302,16 @@ export function GroupsPage() {
               size="sm"
             >
               <PlusIcon className="mr-2 h-4 w-4" />
-              {createMutation.isPending ? 'Creating…' : 'Create group'}
+              {createMutation.isPending ? t('groups.form.creating') : t('groups.form.create')}
             </Button>
           </CardContent>
         </Card>
 
         {/* Group list */}
         {isLoading ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-gray-500">{t('common.loading')}</p>
         ) : groups.length === 0 ? (
-          <p className="text-sm text-gray-500">No groups yet.</p>
+          <p className="text-sm text-gray-500">{t('groups.list.empty')}</p>
         ) : (
           <div className="space-y-3">
             {groups.map((g) => (
@@ -324,9 +328,9 @@ export function GroupsPage() {
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
-        title={`Delete group "${pendingDelete?.name ?? ''}"?`}
-        description="Members will be unassigned and tickets currently routed to this group will need to be reassigned."
-        confirmLabel="Delete group"
+        title={`${t('groups.delete_confirm_title')} "${pendingDelete?.name ?? ''}"?`}
+        description={t('groups.delete_confirm_desc')}
+        confirmLabel={t('groups.row.delete_button')}
         isPending={deleteMutation.isPending}
         onConfirm={() => { if (pendingDelete) deleteMutation.mutate(pendingDelete.id) }}
       />

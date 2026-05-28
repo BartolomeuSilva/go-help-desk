@@ -32,14 +32,15 @@ import {
   GripVerticalIcon, PencilIcon, CheckIcon, XIcon, UsersRoundIcon, SlidersIcon,
 } from 'lucide-react'
 import type { Category, TicketType, TicketItem, Group, Assignment } from '@/api/types'
+import { useT } from '@/i18n'
 
 // ── ITSM Helpers ──────────────────────────────────────────────────────────────
 
 const ITSM_TICKET_TYPES = [
-  { value: 'incident', label: 'Incident' },
-  { value: 'service_request', label: 'Service Request' },
-  { value: 'problem', label: 'Problem' },
-  { value: 'change_request', label: 'Change Request' },
+  { value: 'incident', labelKey: 'itsm.incident' },
+  { value: 'service_request', labelKey: 'itsm.service_request' },
+  { value: 'problem', labelKey: 'itsm.problem' },
+  { value: 'change_request', labelKey: 'itsm.change_request' },
 ]
 
 function ITSMDefaultSelector({
@@ -51,6 +52,7 @@ function ITSMDefaultSelector({
   onSave: (v: string) => void
   onDelete: () => void
 }) {
+  const { t } = useT()
   return (
     <select
       value={currentValue || ''}
@@ -65,10 +67,10 @@ function ITSMDefaultSelector({
       className="ml-auto mr-4 rounded border border-gray-300 bg-white px-2 py-0.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
       onClick={(e) => e.stopPropagation()}
     >
-      <option value="">No default type</option>
-      {ITSM_TICKET_TYPES.map((t) => (
-        <option key={t.value} value={t.value}>
-          {t.label}
+      <option value="">{t('itsm.no_default_type')}</option>
+      {ITSM_TICKET_TYPES.map((tType) => (
+        <option key={tType.value} value={tType.value}>
+          {t(tType.labelKey as any)}
         </option>
       ))}
     </select>
@@ -86,6 +88,7 @@ function InlineName({
   onSave: (name: string) => Promise<unknown>
   className?: string
 }) {
+  const { t } = useT()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const [saving, setSaving] = useState(false)
@@ -130,11 +133,11 @@ function InlineName({
           onClick={commit}
           disabled={saving || !draft.trim()}
           className="text-green-600 hover:text-green-700 disabled:opacity-40"
-          title="Save"
+          title={t('common.save')}
         >
           <CheckIcon className="h-3.5 w-3.5" />
         </button>
-        <button onClick={cancel} className="text-gray-400 hover:text-gray-600" title="Cancel">
+        <button onClick={cancel} className="text-gray-400 hover:text-gray-600" title={t('common.cancel')}>
           <XIcon className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -147,7 +150,7 @@ function InlineName({
       <button
         onClick={(e) => { e.stopPropagation(); setDraft(value); setEditing(true) }}
         className="invisible text-gray-300 hover:text-gray-600 group-hover/name:visible"
-        title="Rename"
+        title={t('categories.action.rename')}
       >
         <PencilIcon className="h-3 w-3" />
       </button>
@@ -164,6 +167,7 @@ function GroupsSubsection({
   categoryId: string
   typeId?: string
 }) {
+  const { t } = useT()
   const qc = useQueryClient()
   const [addingGroup, setAddingGroup] = useState(false)
   const [selectedGroupId, setSelectedGroupId] = useState('')
@@ -206,7 +210,7 @@ function GroupsSubsection({
     <div className="px-3 py-2 border-t border-gray-100">
       <div className="flex items-center gap-1.5 mb-2">
         <UsersRoundIcon className="h-3 w-3 text-gray-400" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Groups</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('groups.title')}</span>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {assignedGroups.map((g) => (
@@ -218,7 +222,7 @@ function GroupsSubsection({
             <button
               onClick={() => removeMutation.mutate(g.id)}
               className="text-blue-400 hover:text-blue-700"
-              title="Remove group"
+              title={t('categories.groups.remove')}
             >
               <XIcon className="h-3 w-3" />
             </button>
@@ -232,7 +236,7 @@ function GroupsSubsection({
               value={selectedGroupId}
               onChange={(e) => setSelectedGroupId(e.target.value)}
             >
-              <option value="">Select group…</option>
+              <option value="">{t('categories.groups.select_placeholder')}</option>
               {available.map((g) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
@@ -243,7 +247,7 @@ function GroupsSubsection({
               onClick={() => addMutation.mutate()}
               disabled={!selectedGroupId || addMutation.isPending}
             >
-              Add
+              {t('groups.members.add_button')}
             </Button>
             <Button
               size="sm"
@@ -251,7 +255,7 @@ function GroupsSubsection({
               className="h-6 px-2 text-xs"
               onClick={() => { setAddingGroup(false); setSelectedGroupId('') }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
           </div>
         ) : (
@@ -259,7 +263,7 @@ function GroupsSubsection({
             onClick={() => setAddingGroup(true)}
             className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-2.5 py-0.5 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-600"
           >
-            <PlusIcon className="h-3 w-3" /> Add group
+            <PlusIcon className="h-3 w-3" /> {t('categories.groups.add_button')}
           </button>
         )}
       </div>
@@ -275,6 +279,7 @@ type FieldsScope =
   | { kind: 'item'; categoryId: string; typeId: string; itemId: string }
 
 function FieldsSubsection({ scope }: { scope: FieldsScope }) {
+  const { t } = useT()
   const qc = useQueryClient()
   const [addingField, setAddingField] = useState(false)
   const [selectedDefId, setSelectedDefId] = useState('')
@@ -346,13 +351,13 @@ function FieldsSubsection({ scope }: { scope: FieldsScope }) {
       <div className="px-3 py-2 border-t border-gray-100">
         <div className="flex items-center gap-1.5 mb-1">
           <SlidersIcon className="h-3 w-3 text-gray-400" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Fields</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('categories.fields.title')}</span>
         </div>
         <button
           onClick={() => setAddingField(true)}
           className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-2.5 py-0.5 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-600"
         >
-          <PlusIcon className="h-3 w-3" /> Assign field
+          <PlusIcon className="h-3 w-3" /> {t('categories.fields.assign_button')}
         </button>
       </div>
     )
@@ -362,7 +367,7 @@ function FieldsSubsection({ scope }: { scope: FieldsScope }) {
     <div className="px-3 py-2 border-t border-gray-100">
       <div className="flex items-center gap-1.5 mb-2">
         <SlidersIcon className="h-3 w-3 text-gray-400" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Fields</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{t('categories.fields.title')}</span>
       </div>
       <div className="space-y-1">
         {(assignments as Assignment[]).map((a) => (
@@ -378,7 +383,7 @@ function FieldsSubsection({ scope }: { scope: FieldsScope }) {
                 onChange={(e) => toggleMutation.mutate({ id: a.id, patch: { visible_on_new: e.target.checked } })}
                 className="h-3 w-3"
               />
-              visible
+              {t('categories.fields.visible')}
             </label>
             <label className="flex items-center gap-1 text-gray-500 cursor-pointer select-none">
               <input
@@ -387,12 +392,12 @@ function FieldsSubsection({ scope }: { scope: FieldsScope }) {
                 onChange={(e) => toggleMutation.mutate({ id: a.id, patch: { required_on_new: e.target.checked } })}
                 className="h-3 w-3"
               />
-              required
+              {t('categories.fields.required')}
             </label>
             <button
               onClick={() => removeMutation.mutate(a.id)}
               className="invisible text-gray-300 hover:text-red-500 group-hover:visible"
-              title="Remove assignment"
+              title={t('categories.fields.remove_tooltip')}
             >
               <XIcon className="h-3.5 w-3.5" />
             </button>
@@ -406,7 +411,7 @@ function FieldsSubsection({ scope }: { scope: FieldsScope }) {
               value={selectedDefId}
               onChange={(e) => setSelectedDefId(e.target.value)}
             >
-              <option value="">Select field…</option>
+              <option value="">{t('categories.fields.select_placeholder')}</option>
               {available.map((d) => (
                 <option key={d.id} value={d.id}>{d.name} ({d.field_type})</option>
               ))}
@@ -417,7 +422,7 @@ function FieldsSubsection({ scope }: { scope: FieldsScope }) {
               onClick={() => addMutation.mutate()}
               disabled={!selectedDefId || addMutation.isPending}
             >
-              Assign
+              {t('categories.fields.assign_action')}
             </Button>
             <Button
               size="sm"
@@ -425,7 +430,7 @@ function FieldsSubsection({ scope }: { scope: FieldsScope }) {
               className="h-6 px-2 text-xs"
               onClick={() => { setAddingField(false); setSelectedDefId('') }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
           </div>
         ) : (
@@ -433,7 +438,7 @@ function FieldsSubsection({ scope }: { scope: FieldsScope }) {
             onClick={() => setAddingField(true)}
             className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-300 px-2.5 py-0.5 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-600"
           >
-            <PlusIcon className="h-3 w-3" /> Assign field
+            <PlusIcon className="h-3 w-3" /> {t('categories.fields.assign_button')}
           </button>
         )}
       </div>
@@ -460,6 +465,7 @@ function SortableItemRow({
   onSaveITSM: (input: { category_id: string; type_id?: string; item_id?: string; ticket_type: string }) => void
   onDeleteITSM: (input: { category_id: string; type_id?: string; item_id?: string }) => void
 }) {
+  const { t } = useT()
   const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -488,7 +494,7 @@ function SortableItemRow({
           {...attributes}
           {...listeners}
           className="cursor-grab text-gray-200 hover:text-gray-400 active:cursor-grabbing"
-          title="Drag to reorder"
+          title={t('categories.action.drag_to_reorder')}
         >
           <GripVerticalIcon className="h-3.5 w-3.5" />
         </button>
@@ -515,7 +521,7 @@ function SortableItemRow({
           onClick={() => setConfirmOpen(true)}
           disabled={deleteMutation.isPending}
           className="invisible text-gray-300 hover:text-red-500 group-hover:visible"
-          title="Delete item"
+          title={t('categories.item.delete_tooltip')}
         >
           <TrashIcon className="h-3.5 w-3.5" />
         </button>
@@ -528,9 +534,9 @@ function SortableItemRow({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Delete item "${item.name}"?`}
-        description="Tickets already classified with this item keep their classification but it can no longer be selected for new tickets."
-        confirmLabel="Delete item"
+        title={t('categories.item.delete_confirm_title').replace('{name}', item.name)}
+        description={t('categories.item.delete_confirm_desc')}
+        confirmLabel={t('categories.item.delete_confirm_action')}
         isPending={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
       />
@@ -555,6 +561,7 @@ function SortableTypeRow({
   onSaveITSM: (input: { category_id: string; type_id?: string; item_id?: string; ticket_type: string }) => void
   onDeleteITSM: (input: { category_id: string; type_id?: string; item_id?: string }) => void
 }) {
+  const { t } = useT()
   const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
   const [addingItem, setAddingItem] = useState(false)
@@ -617,7 +624,7 @@ function SortableTypeRow({
           {...attributes}
           {...listeners}
           className="cursor-grab text-gray-200 hover:text-gray-400 active:cursor-grabbing"
-          title="Drag to reorder"
+          title={t('categories.action.drag_to_reorder')}
         >
           <GripVerticalIcon className="h-3.5 w-3.5" />
         </button>
@@ -643,7 +650,7 @@ function SortableTypeRow({
           onClick={() => setConfirmOpen(true)}
           disabled={deleteMutation.isPending}
           className="invisible text-gray-300 hover:text-red-500 group-hover:visible"
-          title="Delete type"
+          title={t('categories.type.delete_tooltip')}
         >
           <TrashIcon className="h-3.5 w-3.5" />
         </button>
@@ -651,9 +658,9 @@ function SortableTypeRow({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Delete type "${type.name}"?`}
-        description="All items under this type will also be removed. Tickets already classified under them keep their classification."
-        confirmLabel="Delete type"
+        title={t('categories.type.delete_confirm_title').replace('{name}', type.name)}
+        description={t('categories.type.delete_confirm_desc')}
+        confirmLabel={t('categories.type.delete_confirm_action')}
         isPending={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
       />
@@ -687,7 +694,7 @@ function SortableTypeRow({
                   <div className="flex items-center gap-2 py-2 pl-4 pr-3">
                     <Input
                       autoFocus
-                      placeholder="Item name"
+                      placeholder={t('categories.item.name_placeholder')}
                       value={itemName}
                       onChange={(e) => setItemName(e.target.value)}
                       onKeyDown={(e) => {
@@ -696,15 +703,15 @@ function SortableTypeRow({
                       }}
                       className="h-7 text-sm"
                     />
-                    <Button size="sm" className="h-7 text-xs" onClick={() => addItemMutation.mutate()} disabled={!itemName.trim() || addItemMutation.isPending}>Add</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setAddingItem(false); setItemName('') }}>Cancel</Button>
+                    <Button size="sm" className="h-7 text-xs" onClick={() => addItemMutation.mutate()} disabled={!itemName.trim() || addItemMutation.isPending}>{t('categories.item.add_action')}</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setAddingItem(false); setItemName('') }}>{t('common.cancel')}</Button>
                   </div>
                 ) : (
                   <button
                     onClick={() => setAddingItem(true)}
                     className="flex items-center gap-1.5 py-2 pl-5 text-xs text-gray-400 hover:text-gray-600"
                   >
-                    <PlusIcon className="h-3 w-3" /> Add item
+                    <PlusIcon className="h-3 w-3" /> {t('categories.item.add_button')}
                   </button>
                 )}
               </>
@@ -731,6 +738,7 @@ function SortableCategoryRow({
   onSaveITSM: (input: { category_id: string; type_id?: string; item_id?: string; ticket_type: string }) => void
   onDeleteITSM: (input: { category_id: string; type_id?: string; item_id?: string }) => void
 }) {
+  const { t } = useT()
   const qc = useQueryClient()
   const [expanded, setExpanded] = useState(false)
   const [addingType, setAddingType] = useState(false)
@@ -774,8 +782,8 @@ function SortableCategoryRow({
   async function handleTypeDragEnd(event: DragEndEvent) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const oldIndex = types.findIndex((t) => t.id === active.id)
-    const newIndex = types.findIndex((t) => t.id === over.id)
+    const oldIndex = types.findIndex((tType) => tType.id === active.id)
+    const newIndex = types.findIndex((tType) => tType.id === over.id)
     const reordered = arrayMove(types, oldIndex, newIndex)
     qc.setQueryData(['admin', 'types', cat.id], reordered)
     await Promise.all(
@@ -791,7 +799,7 @@ function SortableCategoryRow({
           {...attributes}
           {...listeners}
           className="cursor-grab text-gray-200 hover:text-gray-400 active:cursor-grabbing"
-          title="Drag to reorder"
+          title={t('categories.action.drag_to_reorder')}
         >
           <GripVerticalIcon className="h-4 w-4" />
         </button>
@@ -807,7 +815,7 @@ function SortableCategoryRow({
           className="text-sm font-semibold text-gray-900"
         />
         {!cat.active && (
-          <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-700">inactive</span>
+          <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-700">{t('categories.badge.inactive')}</span>
         )}
         {itsmEnabled && (
           <ITSMDefaultSelector
@@ -820,7 +828,7 @@ function SortableCategoryRow({
           onClick={() => setConfirmOpen(true)}
           disabled={deleteMutation.isPending}
           className="invisible text-gray-300 hover:text-red-500 group-hover:visible"
-          title="Delete category"
+          title={t('categories.category.delete_tooltip')}
         >
           <TrashIcon className="h-4 w-4" />
         </button>
@@ -828,9 +836,9 @@ function SortableCategoryRow({
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
-        title={`Delete category "${cat.name}"?`}
-        description="All types and items under this category will also be removed. Tickets already classified keep their classification."
-        confirmLabel="Delete category"
+        title={t('categories.category.delete_confirm_title').replace('{name}', cat.name)}
+        description={t('categories.category.delete_confirm_desc')}
+        confirmLabel={t('categories.category.delete_confirm_action')}
         isPending={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
       />
@@ -845,7 +853,7 @@ function SortableCategoryRow({
             ) : (
               <>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTypeDragEnd}>
-                  <SortableContext items={types.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={types.map((tType) => tType.id)} strategy={verticalListSortingStrategy}>
                     {types.map((type) => (
                       <SortableTypeRow
                         key={type.id}
@@ -863,7 +871,7 @@ function SortableCategoryRow({
                   <div className="flex items-center gap-2 py-2 pl-3 pr-3">
                     <Input
                       autoFocus
-                      placeholder="Type name"
+                      placeholder={t('categories.type.name_placeholder')}
                       value={typeName}
                       onChange={(e) => setTypeName(e.target.value)}
                       onKeyDown={(e) => {
@@ -872,15 +880,15 @@ function SortableCategoryRow({
                       }}
                       className="h-8 text-sm"
                     />
-                    <Button size="sm" className="h-8 text-xs" onClick={() => addTypeMutation.mutate()} disabled={!typeName.trim() || addTypeMutation.isPending}>Add</Button>
-                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setAddingType(false); setTypeName('') }}>Cancel</Button>
+                    <Button size="sm" className="h-8 text-xs" onClick={() => addTypeMutation.mutate()} disabled={!typeName.trim() || addTypeMutation.isPending}>{t('categories.type.add_action')}</Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setAddingType(false); setTypeName('') }}>{t('common.cancel')}</Button>
                   </div>
                 ) : (
                   <button
                     onClick={() => setAddingType(true)}
                     className="flex items-center gap-1.5 py-2 pl-3 text-xs text-gray-400 hover:text-gray-600"
                   >
-                    <PlusIcon className="h-3.5 w-3.5" /> Add type
+                    <PlusIcon className="h-3.5 w-3.5" /> {t('categories.type.add_button')}
                   </button>
                 )}
               </>
@@ -895,6 +903,7 @@ function SortableCategoryRow({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function CategoriesPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const [addingCategory, setAddingCategory] = useState(false)
   const [catName, setCatName] = useState('')
@@ -966,25 +975,24 @@ export function CategoriesPage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Categories</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t('categories.title')}</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Define the three-level classification hierarchy: Category → Type → Item.
-              Expand any node to manage its linked groups and custom field assignments.
+              {t('categories.subtitle')}
             </p>
           </div>
           <Button onClick={() => setAddingCategory(true)} className="ml-6 shrink-0">
             <PlusIcon className="mr-2 h-4 w-4" />
-            New Category
+            {t('categories.category.new_button')}
           </Button>
         </div>
 
         {addingCategory && (
           <div className="rounded-lg border bg-white p-4">
-            <p className="mb-3 text-sm font-medium text-gray-700">New category</p>
+            <p className="mb-3 text-sm font-medium text-gray-700">{t('categories.category.new_title')}</p>
             <div className="flex items-center gap-3">
               <Input
                 autoFocus
-                placeholder="Category name"
+                placeholder={t('categories.category.name_placeholder')}
                 value={catName}
                 onChange={(e) => setCatName(e.target.value)}
                 onKeyDown={(e) => {
@@ -994,9 +1002,9 @@ export function CategoriesPage() {
                 className="max-w-xs"
               />
               <Button onClick={() => addCategoryMutation.mutate()} disabled={!catName.trim() || addCategoryMutation.isPending}>
-                {addCategoryMutation.isPending ? 'Adding…' : 'Add'}
+                {addCategoryMutation.isPending ? t('categories.category.adding') : t('categories.category.add_action')}
               </Button>
-              <Button variant="outline" onClick={() => { setAddingCategory(false); setCatName('') }}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setAddingCategory(false); setCatName('') }}>{t('common.cancel')}</Button>
             </div>
             {formError && <p className="mt-2 text-sm text-red-600">{formError}</p>}
           </div>
@@ -1006,7 +1014,7 @@ export function CategoriesPage() {
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : categories.length === 0 ? (
           <div className="rounded-lg border border-dashed bg-white px-6 py-12 text-center">
-            <p className="text-sm text-gray-500">No categories yet. Add one to get started.</p>
+            <p className="text-sm text-gray-500">{t('categories.list.empty')}</p>
           </div>
         ) : (
           <div className="rounded-lg border bg-white overflow-hidden">

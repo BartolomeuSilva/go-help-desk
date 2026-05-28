@@ -10,10 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { PlusIcon, LockIcon } from 'lucide-react'
+import { useT } from '@/i18n'
 
 const DEFAULT_COLOR = '#6b7280'
 
 export function StatusesPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const [addingStatus, setAddingStatus] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<Status | null>(null)
@@ -65,26 +67,26 @@ export function StatusesPage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Ticket Statuses</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t('statuses.title')}</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Add custom intermediate statuses for your workflow. The three system statuses — New, Resolved, and Closed — have fixed lifecycle rules and cannot be removed or deactivated.
+              {t('statuses.subtitle')}
             </p>
           </div>
           <Button onClick={() => setAddingStatus(true)} className="ml-6 shrink-0">
             <PlusIcon className="mr-2 h-4 w-4" />
-            New Status
+            {t('statuses.new_status')}
           </Button>
         </div>
 
         {addingStatus && (
           <div className="rounded-lg border bg-white p-4">
-            <p className="mb-3 text-sm font-medium text-gray-700">New status</p>
+            <p className="mb-3 text-sm font-medium text-gray-700">{t('statuses.form.new_title')}</p>
             <div className="flex items-end gap-3">
               <div className="flex-1 space-y-1">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('statuses.form.name')}</label>
                 <Input
                   autoFocus
-                  placeholder="e.g. In Progress"
+                  placeholder={t('statuses.form.name_placeholder')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => {
@@ -94,7 +96,7 @@ export function StatusesPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Color</label>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('statuses.form.color')}</label>
                 <div className="flex items-center gap-2 h-9">
                   <input
                     type="color"
@@ -106,7 +108,7 @@ export function StatusesPage() {
                 </div>
               </div>
               <div className="w-28 space-y-1">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sort order</label>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('statuses.form.sort_order')}</label>
                 <Input
                   type="number"
                   value={sortOrder}
@@ -118,10 +120,10 @@ export function StatusesPage() {
                   onClick={() => createMutation.mutate()}
                   disabled={!name.trim() || createMutation.isPending}
                 >
-                  {createMutation.isPending ? 'Adding…' : 'Add'}
+                  {createMutation.isPending ? t('statuses.form.adding') : t('statuses.form.add')}
                 </Button>
                 <Button variant="outline" onClick={() => { setAddingStatus(false); setName('') }}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -136,12 +138,12 @@ export function StatusesPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
-                  <th className="w-10 px-4 py-3 text-left">Color</th>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Type</th>
-                  <th className="w-24 px-4 py-3 text-left">Sort order</th>
-                  <th className="px-4 py-3 text-left">Tickets</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="w-10 px-4 py-3 text-left">{t('statuses.table.color')}</th>
+                  <th className="px-4 py-3 text-left">{t('statuses.table.name')}</th>
+                  <th className="px-4 py-3 text-left">{t('statuses.table.type')}</th>
+                  <th className="w-24 px-4 py-3 text-left">{t('statuses.table.sort_order')}</th>
+                  <th className="px-4 py-3 text-left">{t('statuses.table.tickets')}</th>
+                  <th className="px-4 py-3 text-right">{t('statuses.table.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -157,13 +159,13 @@ export function StatusesPage() {
                       {s.name}
                       {!s.active && (
                         <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs font-normal text-gray-500">
-                          inactive
+                          {t('statuses.badge.inactive')}
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={s.kind === 'system' ? 'secondary' : 'outline'}>
-                        {s.kind}
+                        {s.kind === 'system' ? t('statuses.kind.system') : t('statuses.kind.custom')}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{s.sort_order}</td>
@@ -171,7 +173,7 @@ export function StatusesPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         {s.kind === 'system' ? (
-                          <span title="System status — cannot be modified" className="flex justify-end">
+                          <span title={t('statuses.tooltips.system')} className="flex justify-end">
                             <LockIcon className="h-3.5 w-3.5 text-gray-300" />
                           </span>
                         ) : s.active ? (
@@ -182,7 +184,7 @@ export function StatusesPage() {
                             onClick={() => deactivateMutation.mutate(s.id)}
                             disabled={deactivateMutation.isPending}
                           >
-                            Deactivate
+                            {t('statuses.actions.deactivate')}
                           </Button>
                         ) : (
                           <>
@@ -193,7 +195,7 @@ export function StatusesPage() {
                               onClick={() => reactivateMutation.mutate(s.id)}
                               disabled={reactivateMutation.isPending}
                             >
-                              Reactivate
+                              {t('statuses.actions.reactivate')}
                             </Button>
                             {s.ticket_count === 0 && (
                               <Button
@@ -203,7 +205,7 @@ export function StatusesPage() {
                                 onClick={() => setPendingDelete(s)}
                                 disabled={deleteMutation.isPending}
                               >
-                                Delete
+                                {t('statuses.actions.delete')}
                               </Button>
                             )}
                           </>
@@ -215,7 +217,7 @@ export function StatusesPage() {
                 {sorted.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">
-                      No statuses configured.
+                      {t('statuses.list.empty')}
                     </td>
                   </tr>
                 )}
@@ -227,12 +229,13 @@ export function StatusesPage() {
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
-        title={`Delete status "${pendingDelete?.name ?? ''}"?`}
-        description="This status has no tickets and will be permanently removed."
-        confirmLabel="Delete status"
+        title={t('statuses.delete.confirm_title').replace('{name}', pendingDelete?.name ?? '')}
+        description={t('statuses.delete.confirm_desc')}
+        confirmLabel={t('statuses.delete.confirm_action')}
         isPending={deleteMutation.isPending}
         onConfirm={() => { if (pendingDelete) deleteMutation.mutate(pendingDelete.id) }}
       />
     </Layout>
   )
 }
+

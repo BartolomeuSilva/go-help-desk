@@ -348,6 +348,68 @@ func (s *Service) Resolve(ctx context.Context, ticketID uuid.UUID, notes string,
 	return t, nil
 }
 
+// RateInput contains rating and rating comment.
+type RateInput struct {
+	Rating  int
+	Comment *string
+}
+
+// Rate sets the rating and rating comment on a resolved or closed ticket.
+func (s *Service) Rate(ctx context.Context, ticketID uuid.UUID, in RateInput, actor Actor) (Ticket, error) {
+	t, err := s.store.GetByID(ctx, ticketID)
+	if err != nil {
+		return Ticket{}, err
+	}
+
+	// 1. Apenas o repórter do ticket (se cadastrado) pode avaliar.
+	if t.ReporterUserID != nil {
+		if actor.UserID == nil || *actor.UserID != *t.ReporterUserID {
+			return Ticket{}, fmt.Errorf("only the ticket reporter can rate this ticket")
+		}
+	} else {
+		// Para tickets de guest, somente o próprio guest pode ratear. O handler se encarrega de validar se
+		// a requisição é legítima por token ou email de guest. Aqui apenas garantimos que o actor não seja
+		// um usuário cadastrado diferente.
+		if actor.UserID != nil {
+			return Ticket{}, fmt.Errorf("only the guest reporter can rate this guest ticket")
+		}
+	}
+
+	// 2. O ticket deve estar resolvido ou fechado.
+	status, err := s.getStatusByID(ctx, t.StatusID)
+	if err != nil {
+		return Ticket{}, err
+	}
+	if status.Name != StatusNameResolved && status.Name != StatusNameClosed {
+		return Ticket{}, fmt.Errorf("ticket must be resolved or closed to be rated")
+	}
+
+	// 3. O ticket não pode ter sido avaliado ainda.
+	if t.Rating != nil {
+		return Ticket{}, fmt.Errorf("ticket has already been rated")
+	}
+
+	if in.Rating < 0 || in.Rating > 5 {
+		return Ticket{}, fmt.Errorf("rating must be between 0 and 5")
+	}
+
+	before := ticketMap(t)
+	now := time.Now()
+
+	if err := s.store.UpdateRating(ctx, ticketID, in.Rating, in.Comment, now); err != nil {
+		return Ticket{}, fmt.Errorf("saving rating: %w", err)
+	}
+
+	t.Rating = &in.Rating
+	t.RatingComment = in.Comment
+	t.RatedAt = &now
+	t.UpdatedAt = now
+
+	s.writeAudit(ctx, actor.UserID, "ticket", t.ID, "rated", before, ticketMap(t))
+
+	return t, nil
+}
+
 // Close transitions a ticket to Closed. Used by the auto-close scheduler and
 // admin overrides. It does NOT call CanTransitionStatus — the caller decides
 // whether this is authorised.
@@ -634,12 +696,16 @@ func (s *Service) writeAudit(ctx context.Context, actorID *uuid.UUID, entityType
 
 // ticketMap produces a shallow map representation of a ticket for audit logs.
 func ticketMap(t Ticket) map[string]any {
-	return map[string]any{
+	m := map[string]any{
 		"id":        t.ID,
 		"status_id": t.StatusID,
 		"priority":  t.Priority,
 		"subject":   t.Subject,
 	}
+	if t.Rating != nil {
+		m["rating"] = *t.Rating
+	}
+	return m
 }
 
 // ErrNotFound is returned when a requested resource does not exist.

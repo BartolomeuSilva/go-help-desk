@@ -10,8 +10,10 @@ import { Spinner } from '@/components/ui/spinner'
 import { PuzzleIcon, UploadCloudIcon, Trash2Icon } from 'lucide-react'
 import type { Plugin } from '@/api/types'
 import { cn } from '@/lib/utils'
+import { useT } from '@/i18n'
 
 export function PluginsPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadError, setUploadError] = useState('')
@@ -65,9 +67,9 @@ export function PluginsPage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Plugins</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('plugins.title')}</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Extend the functionality of Go Help Desk. Native plugins are built-in, while custom WASM plugins can be uploaded as ZIP packages containing <code>manifest.json</code> and <code>plugin.wasm</code>.
+              {t('plugins.subtitle')}
             </p>
           </div>
         </div>
@@ -82,7 +84,7 @@ export function PluginsPage() {
               disabled={isUploading}
               className="relative cursor-pointer rounded-md font-semibold text-blue-600 dark:text-[#faff69] focus-within:outline-none hover:text-blue-500 dark:hover:text-[#e6eb52]"
             >
-              <span>{isUploading ? 'Uploading & compiling...' : 'Upload a plugin package'}</span>
+              <span>{isUploading ? t('plugins.upload.uploading') : t('plugins.upload.action')}</span>
             </button>
             <input
               type="file"
@@ -92,7 +94,7 @@ export function PluginsPage() {
               className="sr-only"
             />
           </div>
-          <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">ZIP file up to 25MB containing manifest.json and plugin.wasm</p>
+          <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">{t('plugins.upload.hint')}</p>
           {uploadError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{uploadError}</p>}
         </div>
 
@@ -104,11 +106,11 @@ export function PluginsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-[#121212] text-xs text-gray-500 dark:text-gray-400 uppercase">
                 <tr>
-                  <th className="px-4 py-3 text-left">Plugin info</th>
-                  <th className="px-4 py-3 text-left">Runtime</th>
-                  <th className="px-4 py-3 text-left">Hooks</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3 text-left">{t('plugins.table.info')}</th>
+                  <th className="px-4 py-3 text-left">{t('plugins.table.runtime')}</th>
+                  <th className="px-4 py-3 text-left">{t('plugins.table.hooks')}</th>
+                  <th className="px-4 py-3 text-left">{t('plugins.table.status')}</th>
+                  <th className="px-4 py-3 text-right">{t('plugins.table.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-[#1a1a1a]">
@@ -145,13 +147,13 @@ export function PluginsPage() {
                           </Badge>
                         ))}
                         {p.manifest.hooks.length === 0 && (
-                          <span className="text-xs text-gray-400 dark:text-gray-500">None</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">{t('plugins.table.none')}</span>
                         )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={p.enabled ? 'default' : 'secondary'}>
-                        {p.enabled ? 'Enabled' : 'Disabled'}
+                        {p.enabled ? t('plugins.status.enabled') : t('plugins.status.disabled')}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -162,7 +164,7 @@ export function PluginsPage() {
                           onClick={() => toggleMutation.mutate({ id: p.manifest.id, enabled: !p.enabled })}
                           disabled={toggleMutation.isPending}
                         >
-                          {p.enabled ? 'Disable' : 'Enable'}
+                          {p.enabled ? t('plugins.action.disable') : t('plugins.action.enable')}
                         </Button>
                         {p.manifest.runtime === 'wasm' && (
                           <Button
@@ -182,7 +184,7 @@ export function PluginsPage() {
                 {plugins.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                      No plugins loaded or installed.
+                      {t('plugins.list.empty')}
                     </td>
                   </tr>
                 )}
@@ -195,9 +197,9 @@ export function PluginsPage() {
       <ConfirmDialog
         open={pendingUninstall !== null}
         onOpenChange={(open) => { if (!open) setPendingUninstall(null) }}
-        title={`Uninstall plugin "${pendingUninstall?.manifest.name ?? ''}"?`}
-        description="This will permanently delete the plugin binary and configurations from the database and disk."
-        confirmLabel="Uninstall"
+        title={t('plugins.delete.confirm_title').replace('{name}', pendingUninstall?.manifest.name ?? '')}
+        description={t('plugins.delete.confirm_desc')}
+        confirmLabel={t('plugins.delete.confirm_action')}
         isPending={uninstallMutation.isPending}
         onConfirm={() => { if (pendingUninstall) uninstallMutation.mutate(pendingUninstall.manifest.id) }}
       />

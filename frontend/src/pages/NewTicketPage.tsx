@@ -12,6 +12,7 @@ import {
 import { listCategories, listTypes, listItems, getSiteConfig } from '@/api/admin'
 import { extractError } from '@/api/client'
 import { useAuthStore } from '@/store/auth'
+import { useT } from '@/i18n'
 import { Layout } from '@/components/Layout'
 import { AttachmentUpload, type UploadState } from '@/components/AttachmentUpload'
 import { Button } from '@/components/ui/button'
@@ -21,8 +22,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Assignment } from '@/api/types'
-
-const PRIORITIES = ['critical', 'high', 'medium', 'low'] as const
 
 function CustomFieldInput({
   field,
@@ -82,6 +81,7 @@ function CustomFieldInput({
 export function NewTicketPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const { t } = useT()
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin'
 
   const [subject, setSubject] = useState('')
@@ -179,7 +179,7 @@ export function NewTicketPage() {
         category_id: categoryId,
         type_id: typeId || undefined,
         item_id: isStaffOrAdmin ? (itemId || undefined) : undefined,
-        priority: isStaffOrAdmin ? priority : undefined,
+        priority: priority,
         ticket_type: (isStaffOrAdmin && itsmEnabled) ? (ticketType || undefined) : undefined,
         custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
       })
@@ -228,33 +228,51 @@ export function NewTicketPage() {
   return (
     <Layout>
       <div className="max-w-2xl space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">New Ticket</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('ticket.new_title')}</h1>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Ticket details</CardTitle>
+            <CardTitle className="text-base">{t('ticket.details_card')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-1">
-                <Label htmlFor="subject">Subject *</Label>
-                <Input
-                  id="subject"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Short summary of the issue"
-                  disabled={isUploading}
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-1 md:col-span-3">
+                  <Label htmlFor="subject">{t('ticket.subject')} *</Label>
+                  <Input
+                    id="subject"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder={t('ticket.subject_placeholder')}
+                    disabled={isUploading}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-1">
+                  <Label htmlFor="priority">{t('ticket.priority')} *</Label>
+                  <Select
+                    id="priority"
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as any)}
+                    disabled={isUploading}
+                    required
+                  >
+                    <option value="low">{t('ticket.priority_low')}</option>
+                    <option value="medium">{t('ticket.priority_medium')}</option>
+                    <option value="high">{t('ticket.priority_high')}</option>
+                    {isStaffOrAdmin && <option value="critical">{t('ticket.priority_critical')}</option>}
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">{t('ticket.description')}</Label>
                 <Textarea
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Full details of the request or issue"
+                  placeholder={t('ticket.description_placeholder')}
                   rows={5}
                   disabled={isUploading}
                 />
@@ -262,7 +280,7 @@ export function NewTicketPage() {
 
               <div className={`grid gap-4 ${isStaffOrAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <div className="space-y-1">
-                  <Label htmlFor="category">Category *</Label>
+                  <Label htmlFor="category">{t('ticket.category')} *</Label>
                   <Select
                     id="category"
                     value={categoryId}
@@ -274,7 +292,7 @@ export function NewTicketPage() {
                     }}
                     disabled={isUploading}
                   >
-                    <option value="">Select…</option>
+                    <option value="">{t('ticket.select_placeholder')}</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
@@ -282,7 +300,7 @@ export function NewTicketPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="type">Type</Label>
+                  <Label htmlFor="type">{t('ticket.type')}</Label>
                   <Select
                     id="type"
                     value={typeId}
@@ -293,23 +311,23 @@ export function NewTicketPage() {
                     }}
                     disabled={isUploading || !categoryId || types.length === 0}
                   >
-                    <option value="">Select…</option>
-                    {types.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
+                    <option value="">{t('ticket.select_placeholder')}</option>
+                    {types.map((tp) => (
+                      <option key={tp.id} value={tp.id}>{tp.name}</option>
                     ))}
                   </Select>
                 </div>
 
                 {isStaffOrAdmin && (
                   <div className="space-y-1">
-                    <Label htmlFor="item">Item</Label>
+                    <Label htmlFor="item">{t('ticket.item')}</Label>
                     <Select
                       id="item"
                       value={itemId}
                       onChange={(e) => { setItemId(e.target.value); setCustomFieldValues({}) }}
                       disabled={isUploading || !typeId || items.length === 0}
                     >
-                      <option value="">Select…</option>
+                      <option value="">{t('ticket.select_placeholder')}</option>
                       {items.map((i) => (
                         <option key={i.id} value={i.id}>{i.name}</option>
                       ))}
@@ -318,39 +336,23 @@ export function NewTicketPage() {
                 )}
               </div>
 
-              {isStaffOrAdmin && (
+              {isStaffOrAdmin && itsmEnabled && (
                 <div className="flex gap-4">
                   <div className="space-y-1 w-full max-w-xs">
-                    <Label htmlFor="priority">Priority</Label>
+                    <Label htmlFor="ticketType">{t('ticket.ticket_type')}</Label>
                     <Select
-                      id="priority"
-                      value={priority}
-                      onChange={(e) => setPriority(e.target.value as typeof priority)}
+                      id="ticketType"
+                      value={ticketType}
+                      onChange={(e) => setTicketType(e.target.value)}
                       disabled={isUploading}
                     >
-                      {PRIORITIES.map((p) => (
-                        <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-                      ))}
+                      <option value="">{t('itsm.select_type')}</option>
+                      <option value="incident">{t('itsm.incident')}</option>
+                      <option value="service_request">{t('itsm.service_request')}</option>
+                      <option value="problem">{t('itsm.problem')}</option>
+                      <option value="change_request">{t('itsm.change_request')}</option>
                     </Select>
                   </div>
-
-                  {itsmEnabled && (
-                    <div className="space-y-1 w-full max-w-xs">
-                      <Label htmlFor="ticketType">Ticket Type</Label>
-                      <Select
-                        id="ticketType"
-                        value={ticketType}
-                        onChange={(e) => setTicketType(e.target.value)}
-                        disabled={isUploading}
-                      >
-                        <option value="">Select type…</option>
-                        <option value="incident">Incident</option>
-                        <option value="service_request">Service Request</option>
-                        <option value="problem">Problem</option>
-                        <option value="change_request">Change Request</option>
-                      </Select>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -377,7 +379,7 @@ export function NewTicketPage() {
               )}
 
               <div className="space-y-1">
-                <Label>Attachments</Label>
+                <Label>{t('ticket.attachments')}</Label>
                 <AttachmentUpload
                   files={files}
                   onChange={setFiles}
@@ -390,13 +392,13 @@ export function NewTicketPage() {
 
               {uploadDone && createdTicketId && (
                 <div className="rounded-md bg-yellow-50 border border-yellow-200 p-3 text-sm space-y-1">
-                  <p className="text-yellow-800 font-medium">Some files failed to upload.</p>
+                  <p className="text-yellow-800 font-medium">{t('ticket.upload_failed')}</p>
                   <button
                     type="button"
                     className="text-blue-600 underline hover:no-underline"
                     onClick={() => navigate({ to: '/tickets/$id', params: { id: createdTicketId } })}
                   >
-                    View ticket anyway
+                    {t('ticket.view_anyway')}
                   </button>
                 </div>
               )}
@@ -405,10 +407,10 @@ export function NewTicketPage() {
                 <div className="flex gap-3">
                   <Button type="submit" disabled={submitting || isUploading}>
                     {submitting
-                      ? 'Submitting…'
+                      ? t('ticket.submitting')
                       : isUploading
-                      ? 'Uploading files…'
-                      : 'Submit ticket'}
+                      ? t('ticket.uploading')
+                      : t('ticket.submit')}
                   </Button>
                   <Button
                     type="button"
@@ -416,7 +418,7 @@ export function NewTicketPage() {
                     onClick={() => navigate({ to: '/tickets' })}
                     disabled={submitting || isUploading}
                   >
-                    Cancel
+                    {t('ticket.cancel')}
                   </Button>
                 </div>
               )}

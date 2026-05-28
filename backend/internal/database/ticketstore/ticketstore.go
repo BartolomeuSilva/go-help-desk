@@ -92,6 +92,15 @@ func (s *Store) Update(ctx context.Context, t ticket.Ticket) error {
 	})
 }
 
+func (s *Store) UpdateRating(ctx context.Context, id uuid.UUID, rating int, comment *string, ratedAt time.Time) error {
+	return s.q.UpdateTicketRating(ctx, dbgen.UpdateTicketRatingParams{
+		ID:            id,
+		Rating:        sql.NullInt32{Int32: int32(rating), Valid: true},
+		RatingComment: database.NullString(comment),
+		RatedAt:       sql.NullTime{Time: ratedAt, Valid: true},
+	})
+}
+
 // searchPattern builds the ILIKE pattern for a user-supplied search term.
 // Tracking-number prefixes (e.g. "OHD-" or "OHD-2025-000") use a suffix
 // wildcard only; everything else is wrapped in %…% for substring matching.
@@ -498,6 +507,9 @@ func fromRow(r dbgen.Ticket) ticket.Ticket {
 		TicketType:      ticketTypePtr(r.TicketType),
 		CreatedAt:       r.CreatedAt,
 		UpdatedAt:       r.UpdatedAt,
+		Rating:          database.IntPtr(r.Rating),
+		RatingComment:   database.StringPtr(r.RatingComment),
+		RatedAt:         database.TimePtr(r.RatedAt),
 	}
 }
 

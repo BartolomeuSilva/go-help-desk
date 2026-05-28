@@ -98,6 +98,9 @@ export interface Ticket {
   created_at: string
   updated_at: string
   sla?: SLASummary
+  rating?: number
+  rating_comment?: string
+  rated_at?: string
 }
 
 export interface Attachment {
@@ -152,6 +155,7 @@ export interface APIKey {
 export interface SiteConfig {
   name: string
   logo_url: string
+  logo_dark_url?: string
   version: string
   sla_enabled: boolean
   itsm_enabled: boolean

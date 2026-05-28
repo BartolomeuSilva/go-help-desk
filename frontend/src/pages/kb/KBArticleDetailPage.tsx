@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { getKBArticle, listKBCategories } from '@/api/kb'
+import { useT } from '@/i18n'
 import { Layout } from '@/components/Layout'
 import { useAuthStore } from '@/store/auth'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { ArrowLeftIcon, PencilIcon, CalendarIcon, EyeIcon, FolderIcon } from 'lucide-react'
 
 export function KBArticleDetailPage() {
+  const { t } = useT()
   const { id } = useParams({ from: '/kb/articles/$id' })
   const { user } = useAuthStore()
   const isStaffOrAdmin = user?.role === 'admin' || user?.role === 'staff'
@@ -107,7 +109,7 @@ export function KBArticleDetailPage() {
 
         if (line.startsWith('- ')) {
           return (
-            <li key={idx} className="list-disc ml-5 text-gray-700 dark:text-gray-300 my-1">
+            <li key={idx} className="list-disc ml-5 text-gray-700 dark:text-white my-1">
               {parseInline(line.slice(2))}
             </li>
           )
@@ -118,7 +120,7 @@ export function KBArticleDetailPage() {
         }
 
         return (
-          <p key={idx} className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 my-2">
+          <p key={idx} className="text-sm leading-relaxed text-gray-700 dark:text-white my-2">
             {parseInline(line)}
           </p>
         )
@@ -140,12 +142,12 @@ export function KBArticleDetailPage() {
     return (
       <Layout>
         <div className="py-12 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Artigo não encontrado</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('kb.detail.not_found_title')}</h1>
           <p className="mt-2 text-gray-500 dark:text-gray-400">
-            O artigo solicitado não existe ou você não tem permissão para visualizá-lo.
+            {t('kb.detail.not_found_desc')}
           </p>
           <Link to="/kb" className="mt-6 inline-block">
-            <Button>Voltar à Base de Conhecimento</Button>
+            <Button>{t('kb.detail.back_to_kb')}</Button>
           </Link>
         </div>
       </Layout>
@@ -160,14 +162,14 @@ export function KBArticleDetailPage() {
           <Link to="/kb">
             <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-gray-600 dark:text-gray-400">
               <ArrowLeftIcon className="h-4 w-4" />
-              Voltar
+              {t('kb.detail.back')}
             </Button>
           </Link>
           {user?.role === 'admin' && (
             <Link to="/admin/kb/articles/$id" params={{ id: article.id }}>
               <Button size="sm" className="gap-1.5">
                 <PencilIcon className="h-4 w-4" />
-                Edit Article
+                {t('kb.detail.edit_article')}
               </Button>
             </Link>
           )}
@@ -189,12 +191,12 @@ export function KBArticleDetailPage() {
               <span>•</span>
               <span className="flex items-center gap-1">
                 <EyeIcon className="h-3.5 w-3.5" />
-                {article.views} views
+                {article.views} {t('kb.views_suffix')}
               </span>
               {article.status === 'draft' && (
                 <>
                   <span>•</span>
-                  <Badge variant="secondary">Draft</Badge>
+                  <Badge variant="secondary">{t('kb.badge_draft')}</Badge>
                 </>
               )}
             </div>

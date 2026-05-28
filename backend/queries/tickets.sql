@@ -88,7 +88,12 @@ INSERT INTO ticket_replies (id, ticket_id, author_id, guest_token, body, interna
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: ListReplies :many
-SELECT * FROM ticket_replies WHERE ticket_id = $1 ORDER BY created_at ASC;
+SELECT r.*, u.display_name AS author_name
+FROM ticket_replies r
+LEFT JOIN users u ON r.author_id = u.id
+WHERE r.ticket_id = $1
+ORDER BY r.created_at ASC;
+
 
 -- name: CreateAttachment :exec
 INSERT INTO attachments (id, ticket_id, filename, mime_type, size_bytes, storage_path, created_at)
@@ -114,3 +119,9 @@ WHERE source_ticket_id = $1 AND target_ticket_id = $2 AND link_type = $3;
 -- name: ListTicketLinks :many
 SELECT * FROM ticket_links
 WHERE source_ticket_id = $1 OR target_ticket_id = $1;
+
+-- name: UpdateTicketRating :exec
+UPDATE tickets
+SET rating = $2, rating_comment = $3, rated_at = $4
+WHERE id = $1;
+

@@ -48,6 +48,7 @@ func (s *Server) ticketRouter() *chi.Mux {
 	r.Get("/{id}/replies", s.handleListReplies)
 	r.Post("/{id}/resolve", s.handleResolveTicket)
 	r.Post("/{id}/reopen", s.handleReopenTicket)
+	r.Post("/{id}/rate", s.handleRateTicket)
 	r.Post("/{id}/links", s.handleAddLink)
 	r.Delete("/{id}/links/{targetId}/{linkType}", s.handleRemoveLink)
 	r.Get("/{id}/links", s.handleListLinks)
@@ -193,6 +194,14 @@ func (s *Server) adminRouter() *chi.Mux {
 		r.Patch("/", s.handleUpdateSettings)
 		r.Post("/logo", s.handleUploadLogo)
 		r.Delete("/logo", s.handleDeleteLogo)
+		r.Post("/logo-dark", s.handleUploadLogoDark)
+		r.Delete("/logo-dark", s.handleDeleteLogoDark)
+	})
+
+	r.Route("/reports", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
+		r.Get("/csat", s.handleGetCSATReport)
+		r.Post("/csat/send-feedback", s.handleSendCSATFeedback)
 	})
 
 	r.Route("/saml", func(r chi.Router) {

@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useT } from '@/i18n'
 
 export function SignupPage() {
+  const { t } = useT()
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
@@ -20,7 +22,7 @@ export function SignupPage() {
     e.preventDefault()
     setError('')
     if (password !== confirm) {
-      setError('Passwords do not match.')
+      setError(t('setup.err_passwords_match'))
       return
     }
     setLoading(true)
@@ -31,7 +33,7 @@ export function SignupPage() {
       const msg = extractError(err)
       setError(
         msg === 'domain_not_allowed'
-          ? 'Your email domain is not permitted to register on this instance.'
+          ? t('signup.err_domain_not_allowed')
           : msg,
       )
     } finally {
@@ -43,24 +45,24 @@ export function SignupPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Create an account</CardTitle>
+          <CardTitle className="text-xl">{t('signup.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           {done ? (
             <div className="space-y-3 text-sm text-gray-700">
               <p>
-                Check your email for a verification link. Click it to activate your account and sign in.
+                {t('signup.check_email')}
               </p>
               <p>
                 <Link to="/login" className="text-blue-600 hover:underline">
-                  Back to sign in
+                  {t('signup.back_login')}
                 </Link>
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} method="POST" className="space-y-4">
               <div className="space-y-1">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('setup.email')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -71,7 +73,7 @@ export function SignupPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="display_name">Display name</Label>
+                <Label htmlFor="display_name">{t('signup.display_name')}</Label>
                 <Input
                   id="display_name"
                   type="text"
@@ -82,7 +84,7 @@ export function SignupPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t('setup.password')}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -93,7 +95,7 @@ export function SignupPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="confirm">Confirm password</Label>
+                <Label htmlFor="confirm">{t('setup.confirm_password')}</Label>
                 <Input
                   id="confirm"
                   type="password"
@@ -105,12 +107,12 @@ export function SignupPage() {
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Creating account…' : 'Create account'}
+                {loading ? t('signup.creating') : t('signup.create')}
               </Button>
               <p className="text-center text-sm text-gray-500">
-                Already have an account?{' '}
+                {t('signup.already_have')}{' '}
                 <Link to="/login" className="text-blue-600 hover:underline">
-                  Sign in
+                  {t('auth.sign_in')}
                 </Link>
               </p>
             </form>

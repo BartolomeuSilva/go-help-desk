@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from '@tanstack/react-router'
 import { login, verifyMFA, getMe, enrollMFAStart, enrollMFAConfirm, getSignupStatus } from '@/api/auth'
 import { useAuthStore } from '@/store/auth'
+import { useT } from '@/i18n'
 import { extractError } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +14,7 @@ type Step = 'credentials' | 'verify' | 'enroll'
 export function LoginPage() {
   const navigate = useNavigate()
   const { setUser } = useAuthStore()
+  const { t } = useT()
   const [step, setStep] = useState<Step>('credentials')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -94,9 +96,9 @@ export function LoginPage() {
   }
 
   const title =
-    step === 'verify' ? 'Two-factor authentication'
-    : step === 'enroll' ? 'Set up two-factor authentication'
-    : 'Sign in to Go Help Desk'
+    step === 'verify' ? t('auth.mfa_title')
+    : step === 'enroll' ? t('auth.enroll_title')
+    : t('auth.sign_in_title')
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -108,7 +110,7 @@ export function LoginPage() {
           {step === 'credentials' && (
             <form onSubmit={handleLogin} method="POST" className="space-y-4">
               <div className="space-y-1">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t('auth.email')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -119,7 +121,7 @@ export function LoginPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t('auth.password')}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -131,13 +133,13 @@ export function LoginPage() {
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Signing in…' : 'Sign in'}
+                {loading ? t('auth.signing_in') : t('auth.sign_in')}
               </Button>
               {signupEnabled && (
                 <p className="text-center text-sm text-gray-500">
-                  Don't have an account?{' '}
+                  {t('auth.no_account')}{' '}
                   <Link to="/signup" className="text-blue-600 hover:underline">
-                    Create one
+                    {t('auth.create_one')}
                   </Link>
                 </p>
               )}
@@ -146,9 +148,9 @@ export function LoginPage() {
 
           {step === 'verify' && (
             <form onSubmit={handleVerify} method="POST" className="space-y-4">
-              <p className="text-sm text-gray-600">Enter the 6-digit code from your authenticator app.</p>
+              <p className="text-sm text-gray-600">{t('auth.mfa_instruction')}</p>
               <div className="space-y-1">
-                <Label htmlFor="mfa">Verification code</Label>
+                <Label htmlFor="mfa">{t('auth.verification_code')}</Label>
                 <Input
                   id="mfa"
                   type="text"
@@ -162,7 +164,7 @@ export function LoginPage() {
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Verifying…' : 'Verify'}
+                {loading ? t('auth.verifying') : t('auth.verify')}
               </Button>
             </form>
           )}
@@ -170,9 +172,7 @@ export function LoginPage() {
           {step === 'enroll' && (
             <form onSubmit={handleEnroll} method="POST" className="space-y-4">
               <p className="text-sm text-gray-600">
-                Your administrator requires two-factor authentication for your role. Scan the QR
-                code with an authenticator app (Google Authenticator, Authy, 1Password), or enter
-                the secret manually, then confirm with a code.
+                {t('auth.enroll_instruction')}
               </p>
               {enrollQRDataURL ? (
                 <div className="flex flex-col items-center gap-2">
@@ -182,14 +182,14 @@ export function LoginPage() {
                     src={enrollQRDataURL}
                   />
                   <code className="max-w-full truncate text-[11px] text-gray-500" title={enrollSecret}>
-                    Secret: {enrollSecret}
+                    {t('common.secret_label')}: {enrollSecret}
                   </code>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">Generating setup code…</p>
+                <p className="text-sm text-gray-400">{t('auth.generating_code')}</p>
               )}
               <div className="space-y-1">
-                <Label htmlFor="enroll">Verification code</Label>
+                <Label htmlFor="enroll">{t('auth.verification_code')}</Label>
                 <Input
                   id="enroll"
                   type="text"
@@ -203,7 +203,7 @@ export function LoginPage() {
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading || !enrollSecret}>
-                {loading ? 'Confirming…' : 'Confirm & sign in'}
+                {loading ? t('auth.confirming') : t('auth.confirm_sign_in')}
               </Button>
             </form>
           )}

@@ -187,7 +187,7 @@ func (q *Queries) GetAttachmentByID(ctx context.Context, id uuid.UUID) (Attachme
 }
 
 const getTicketByID = `-- name: GetTicketByID :one
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets WHERE id = $1
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE id = $1
 `
 
 func (q *Queries) GetTicketByID(ctx context.Context, id uuid.UUID) (Ticket, error) {
@@ -216,12 +216,15 @@ func (q *Queries) GetTicketByID(ctx context.Context, id uuid.UUID) (Ticket, erro
 		&i.GuestPhone,
 		&i.Tsv,
 		&i.TicketType,
+		&i.Rating,
+		&i.RatingComment,
+		&i.RatedAt,
 	)
 	return i, err
 }
 
 const getTicketByTrackingNumber = `-- name: GetTicketByTrackingNumber :one
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets WHERE tracking_number = $1
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE tracking_number = $1
 `
 
 func (q *Queries) GetTicketByTrackingNumber(ctx context.Context, trackingNumber string) (Ticket, error) {
@@ -250,12 +253,15 @@ func (q *Queries) GetTicketByTrackingNumber(ctx context.Context, trackingNumber 
 		&i.GuestPhone,
 		&i.Tsv,
 		&i.TicketType,
+		&i.Rating,
+		&i.RatingComment,
+		&i.RatedAt,
 	)
 	return i, err
 }
 
 const listAllTickets = `-- name: ListAllTickets :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets ORDER BY created_at DESC LIMIT $1 OFFSET $2
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 
 type ListAllTicketsParams struct {
@@ -295,6 +301,9 @@ func (q *Queries) ListAllTickets(ctx context.Context, arg ListAllTicketsParams) 
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -345,10 +354,9 @@ func (q *Queries) ListAttachments(ctx context.Context, ticketID uuid.UUID) ([]At
 }
 
 const listReplies = `-- name: ListReplies :many
-SELECT r.id, r.ticket_id, r.author_id, r.guest_token, r.body, r.internal, r.created_at, r.notify_customer,
-       u.display_name AS author_name
+SELECT r.id, r.ticket_id, r.author_id, r.guest_token, r.body, r.internal, r.created_at, r.notify_customer, u.display_name AS author_name
 FROM ticket_replies r
-LEFT JOIN users u ON u.id = r.author_id
+LEFT JOIN users u ON r.author_id = u.id
 WHERE r.ticket_id = $1
 ORDER BY r.created_at ASC
 `
@@ -399,7 +407,7 @@ func (q *Queries) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]ListRe
 }
 
 const listResolvedTicketsBefore = `-- name: ListResolvedTicketsBefore :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
 WHERE resolved_at IS NOT NULL AND resolved_at < $1 AND closed_at IS NULL
 ORDER BY resolved_at ASC
 LIMIT $2
@@ -442,6 +450,9 @@ func (q *Queries) ListResolvedTicketsBefore(ctx context.Context, arg ListResolve
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -485,7 +496,7 @@ func (q *Queries) ListTicketLinks(ctx context.Context, sourceTicketID uuid.UUID)
 }
 
 const listTicketsByAssigneeGroup = `-- name: ListTicketsByAssigneeGroup :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets WHERE assignee_group_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE assignee_group_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListTicketsByAssigneeGroupParams struct {
@@ -526,6 +537,9 @@ func (q *Queries) ListTicketsByAssigneeGroup(ctx context.Context, arg ListTicket
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -541,7 +555,7 @@ func (q *Queries) ListTicketsByAssigneeGroup(ctx context.Context, arg ListTicket
 }
 
 const listTicketsByAssigneeUser = `-- name: ListTicketsByAssigneeUser :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets WHERE assignee_user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE assignee_user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListTicketsByAssigneeUserParams struct {
@@ -582,6 +596,9 @@ func (q *Queries) ListTicketsByAssigneeUser(ctx context.Context, arg ListTickets
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -597,7 +614,7 @@ func (q *Queries) ListTicketsByAssigneeUser(ctx context.Context, arg ListTickets
 }
 
 const listTicketsByReporter = `-- name: ListTicketsByReporter :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets WHERE reporter_user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE reporter_user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListTicketsByReporterParams struct {
@@ -638,6 +655,9 @@ func (q *Queries) ListTicketsByReporter(ctx context.Context, arg ListTicketsByRe
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -653,7 +673,7 @@ func (q *Queries) ListTicketsByReporter(ctx context.Context, arg ListTicketsByRe
 }
 
 const listTicketsByStatus = `-- name: ListTicketsByStatus :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets WHERE status_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE status_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListTicketsByStatusParams struct {
@@ -694,6 +714,9 @@ func (q *Queries) ListTicketsByStatus(ctx context.Context, arg ListTicketsByStat
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -709,7 +732,7 @@ func (q *Queries) ListTicketsByStatus(ctx context.Context, arg ListTicketsByStat
 }
 
 const listUnassignedTickets = `-- name: ListUnassignedTickets :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
 WHERE assignee_user_id IS NULL AND assignee_group_id IS NULL
 ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
@@ -751,6 +774,9 @@ func (q *Queries) ListUnassignedTickets(ctx context.Context, arg ListUnassignedT
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -777,7 +803,7 @@ func (q *Queries) NextTicketSeq(ctx context.Context) (int64, error) {
 }
 
 const searchAllTickets = `-- name: SearchAllTickets :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
 WHERE (tracking_number ILIKE $3 OR tsv @@ websearch_to_tsquery('simple', $3))
 ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
@@ -820,6 +846,9 @@ func (q *Queries) SearchAllTickets(ctx context.Context, arg SearchAllTicketsPara
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -835,7 +864,7 @@ func (q *Queries) SearchAllTickets(ctx context.Context, arg SearchAllTicketsPara
 }
 
 const searchTicketsByAssigneeGroup = `-- name: SearchTicketsByAssigneeGroup :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
 WHERE assignee_group_id = $1
   AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3
@@ -885,6 +914,9 @@ func (q *Queries) SearchTicketsByAssigneeGroup(ctx context.Context, arg SearchTi
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -900,7 +932,7 @@ func (q *Queries) SearchTicketsByAssigneeGroup(ctx context.Context, arg SearchTi
 }
 
 const searchTicketsByAssigneeUser = `-- name: SearchTicketsByAssigneeUser :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
 WHERE assignee_user_id = $1
   AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3
@@ -950,6 +982,9 @@ func (q *Queries) SearchTicketsByAssigneeUser(ctx context.Context, arg SearchTic
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -965,7 +1000,7 @@ func (q *Queries) SearchTicketsByAssigneeUser(ctx context.Context, arg SearchTic
 }
 
 const searchTicketsByReporter = `-- name: SearchTicketsByReporter :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
 WHERE reporter_user_id = $1
   AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3
@@ -1015,6 +1050,9 @@ func (q *Queries) SearchTicketsByReporter(ctx context.Context, arg SearchTickets
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1030,7 +1068,7 @@ func (q *Queries) SearchTicketsByReporter(ctx context.Context, arg SearchTickets
 }
 
 const searchUnassignedTickets = `-- name: SearchUnassignedTickets :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
 WHERE assignee_user_id IS NULL AND assignee_group_id IS NULL
   AND (tracking_number ILIKE $3 OR tsv @@ websearch_to_tsquery('simple', $3))
 ORDER BY created_at DESC LIMIT $1 OFFSET $2
@@ -1074,6 +1112,9 @@ func (q *Queries) SearchUnassignedTickets(ctx context.Context, arg SearchUnassig
 			&i.GuestPhone,
 			&i.Tsv,
 			&i.TicketType,
+			&i.Rating,
+			&i.RatingComment,
+			&i.RatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1154,6 +1195,29 @@ func (q *Queries) UpdateTicketCTI(ctx context.Context, arg UpdateTicketCTIParams
 		arg.TypeID,
 		arg.ItemID,
 		arg.UpdatedAt,
+	)
+	return err
+}
+
+const updateTicketRating = `-- name: UpdateTicketRating :exec
+UPDATE tickets
+SET rating = $2, rating_comment = $3, rated_at = $4
+WHERE id = $1
+`
+
+type UpdateTicketRatingParams struct {
+	ID            uuid.UUID      `json:"id"`
+	Rating        sql.NullInt32  `json:"rating"`
+	RatingComment sql.NullString `json:"rating_comment"`
+	RatedAt       sql.NullTime   `json:"rated_at"`
+}
+
+func (q *Queries) UpdateTicketRating(ctx context.Context, arg UpdateTicketRatingParams) error {
+	_, err := q.db.ExecContext(ctx, updateTicketRating,
+		arg.ID,
+		arg.Rating,
+		arg.RatingComment,
+		arg.RatedAt,
 	)
 	return err
 }

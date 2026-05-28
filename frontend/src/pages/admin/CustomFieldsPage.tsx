@@ -9,15 +9,17 @@ import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { PlusIcon } from 'lucide-react'
 import type { FieldDef, FieldType } from '@/api/types'
+import { useT } from '@/i18n'
 
-const FIELD_TYPES: { value: FieldType; label: string }[] = [
-  { value: 'text', label: 'Text' },
-  { value: 'textarea', label: 'Text area' },
-  { value: 'number', label: 'Number' },
-  { value: 'select', label: 'Select (dropdown)' },
+const FIELD_TYPES: { value: FieldType; labelKey: string }[] = [
+  { value: 'text', labelKey: 'custom_fields.types.text' },
+  { value: 'textarea', labelKey: 'custom_fields.types.textarea' },
+  { value: 'number', labelKey: 'custom_fields.types.number' },
+  { value: 'select', labelKey: 'custom_fields.types.select' },
 ]
 
 export function CustomFieldsPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
@@ -65,7 +67,8 @@ export function CustomFieldsPage() {
   }
 
   function labelForType(ft: FieldType) {
-    return FIELD_TYPES.find(t => t.value === ft)?.label ?? ft
+    const key = FIELD_TYPES.find(tType => tType.value === ft)?.labelKey
+    return key ? t(key as any) : ft
   }
 
   return (
@@ -73,40 +76,40 @@ export function CustomFieldsPage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Custom Fields</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t('custom_fields.title')}</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Define reusable fields that can be assigned to categories, types, and items. Once created, fields cannot be deleted — only deactivated.
+              {t('custom_fields.subtitle')}
             </p>
           </div>
           <Button onClick={() => setAdding(true)} className="ml-6 shrink-0">
             <PlusIcon className="mr-2 h-4 w-4" />
-            New Field
+            {t('custom_fields.new_field')}
           </Button>
         </div>
 
         {adding && (
           <div className="rounded-lg border bg-white p-4 space-y-3">
-            <p className="text-sm font-medium text-gray-700">New custom field</p>
+            <p className="text-sm font-medium text-gray-700">{t('custom_fields.form.new_title')}</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('custom_fields.form.name')}</label>
                 <Input
                   autoFocus
-                  placeholder="e.g. Asset Tag"
+                  placeholder={t('custom_fields.form.name_placeholder')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Escape') resetForm() }}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Type</label>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('custom_fields.form.type')}</label>
                 <select
                   className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={fieldType}
                   onChange={(e) => setFieldType(e.target.value as FieldType)}
                 >
-                  {FIELD_TYPES.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
+                  {FIELD_TYPES.map(tType => (
+                    <option key={tType.value} value={tType.value}>{t(tType.labelKey as any)}</option>
                   ))}
                 </select>
               </div>
@@ -114,17 +117,17 @@ export function CustomFieldsPage() {
             {fieldType === 'select' && (
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Options <span className="normal-case font-normal">(comma-separated)</span>
+                  {t('custom_fields.form.options')}
                 </label>
                 <Input
-                  placeholder="e.g. IT, HR, Finance"
+                  placeholder={t('custom_fields.form.options_placeholder')}
                   value={optionsRaw}
                   onChange={(e) => setOptionsRaw(e.target.value)}
                 />
               </div>
             )}
             <div className="w-36 space-y-1">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sort order</label>
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('custom_fields.form.sort_order')}</label>
               <Input
                 type="number"
                 value={sortOrder}
@@ -136,9 +139,9 @@ export function CustomFieldsPage() {
                 onClick={() => createMutation.mutate()}
                 disabled={!name.trim() || createMutation.isPending}
               >
-                {createMutation.isPending ? 'Adding…' : 'Add Field'}
+                {createMutation.isPending ? t('custom_fields.form.adding') : t('custom_fields.form.add')}
               </Button>
-              <Button variant="outline" onClick={resetForm}>Cancel</Button>
+              <Button variant="outline" onClick={resetForm}>{t('common.cancel')}</Button>
             </div>
             {formError && <p className="text-sm text-red-600">{formError}</p>}
           </div>
@@ -151,12 +154,12 @@ export function CustomFieldsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
                 <tr>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Type</th>
-                  <th className="px-4 py-3 text-left">Options</th>
-                  <th className="w-24 px-4 py-3 text-left">Sort</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3 text-left">{t('custom_fields.table.name')}</th>
+                  <th className="px-4 py-3 text-left">{t('custom_fields.table.type')}</th>
+                  <th className="px-4 py-3 text-left">{t('custom_fields.table.options')}</th>
+                  <th className="w-24 px-4 py-3 text-left">{t('custom_fields.table.sort')}</th>
+                  <th className="px-4 py-3 text-left">{t('custom_fields.table.status')}</th>
+                  <th className="px-4 py-3 text-right">{t('custom_fields.table.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -172,7 +175,7 @@ export function CustomFieldsPage() {
                     <td className="px-4 py-3 text-gray-500">{def.sort_order}</td>
                     <td className="px-4 py-3">
                       <Badge variant={def.active ? 'default' : 'secondary'}>
-                        {def.active ? 'Active' : 'Inactive'}
+                        {def.active ? t('custom_fields.badge.active') : t('custom_fields.badge.inactive')}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
@@ -185,7 +188,7 @@ export function CustomFieldsPage() {
                             onClick={() => deactivateMutation.mutate(def.id)}
                             disabled={deactivateMutation.isPending}
                           >
-                            Deactivate
+                            {t('custom_fields.actions.deactivate')}
                           </Button>
                         ) : (
                           <Button
@@ -195,7 +198,7 @@ export function CustomFieldsPage() {
                             onClick={() => reactivateMutation.mutate(def.id)}
                             disabled={reactivateMutation.isPending}
                           >
-                            Reactivate
+                            {t('custom_fields.actions.reactivate')}
                           </Button>
                         )}
                       </div>
@@ -205,7 +208,7 @@ export function CustomFieldsPage() {
                 {defs.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">
-                      No custom fields defined yet.
+                      {t('custom_fields.list.empty')}
                     </td>
                   </tr>
                 )}
@@ -217,3 +220,4 @@ export function CustomFieldsPage() {
     </Layout>
   )
 }
+

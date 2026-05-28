@@ -5,8 +5,10 @@ import { useAuthStore } from '@/store/auth'
 import { extractError } from '@/api/client'
 import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useT } from '@/i18n'
 
 export function VerifyEmailPage() {
+  const { t } = useT()
   const navigate = useNavigate()
   const { setUser } = useAuthStore()
   const [error, setError] = useState('')
@@ -14,7 +16,7 @@ export function VerifyEmailPage() {
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get('token') ?? ''
     if (!token) {
-      setError('No verification token found in the URL.')
+      setError(t('verify.no_token'))
       return
     }
     verifyEmail(token)
@@ -26,8 +28,8 @@ export function VerifyEmailPage() {
         const code = extractError(err)
         setError(
           code === 'token_expired'
-            ? 'This verification link has expired. Please sign up again to receive a new one.'
-            : 'This verification link is invalid or has already been used.',
+            ? t('verify.expired')
+            : t('verify.invalid'),
         )
       })
   // Run once on mount only.
@@ -38,7 +40,7 @@ export function VerifyEmailPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Verifying your email</CardTitle>
+          <CardTitle className="text-xl">{t('verify.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           {error ? (
@@ -46,14 +48,14 @@ export function VerifyEmailPage() {
               <p className="text-red-600">{error}</p>
               <p>
                 <Link to="/signup" className="text-blue-600 hover:underline">
-                  Back to sign up
+                  {t('verify.back_signup')}
                 </Link>
               </p>
             </div>
           ) : (
             <div className="flex items-center gap-3 text-sm text-gray-600">
               <Spinner />
-              <span>Please wait…</span>
+              <span>{t('verify.waiting')}</span>
             </div>
           )}
         </CardContent>

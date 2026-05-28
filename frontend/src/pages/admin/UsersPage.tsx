@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PlusIcon } from 'lucide-react'
 import type { Role } from '@/api/types'
 import { listRoles } from '@/api/roles'
+import { useT } from '@/i18n'
 
 function roleBadge(role: Role) {
   if (role === 'admin') return 'destructive'
@@ -22,6 +23,7 @@ function roleBadge(role: Role) {
 }
 
 export function UsersPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [showCreate, setShowCreate] = useState(false)
@@ -67,47 +69,47 @@ export function UsersPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-            <p className="mt-1 text-sm text-gray-500">Click a user to edit their profile, groups, and account settings.</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('users.title')}</h1>
+            <p className="mt-1 text-sm text-gray-500">{t('users.subtitle')}</p>
           </div>
           <Button onClick={() => setShowCreate(!showCreate)}>
             <PlusIcon className="mr-2 h-4 w-4" />
-            Add User
+            {t('users.add_user')}
           </Button>
         </div>
 
         {showCreate && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">New user</CardTitle>
+              <CardTitle className="text-base">{t('users.new_user')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <Label>Email</Label>
+                  <Label>{t('users.email')}</Label>
                   <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
                 </div>
                 <div className="space-y-1">
-                  <Label>Display name</Label>
+                  <Label>{t('users.display_name')}</Label>
                   <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
                 </div>
                 <div className="space-y-1">
-                  <Label>Role</Label>
+                  <Label>{t('users.role')}</Label>
                   <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
                     {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Password</Label>
+                  <Label>{t('users.password')}</Label>
                   <Input value={password} onChange={(e) => setPassword(e.target.value)} type="password" />
                 </div>
               </div>
               {formError && <p className="mt-2 text-sm text-red-600">{formError}</p>}
               <div className="mt-4 flex gap-2">
                 <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Creating…' : 'Create'}
+                  {createMutation.isPending ? t('users.creating') : t('users.create')}
                 </Button>
-                <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setShowCreate(false)}>{t('common.cancel')}</Button>
               </div>
             </CardContent>
           </Card>
@@ -120,11 +122,11 @@ export function UsersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                 <tr>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Email</th>
-                  <th className="px-4 py-3 text-left">Role</th>
-                  <th className="px-4 py-3 text-left">Login</th>
-                  <th className="px-4 py-3 text-left">Joined</th>
+                  <th className="px-4 py-3 text-left">{t('users.table.name')}</th>
+                  <th className="px-4 py-3 text-left">{t('users.table.email')}</th>
+                  <th className="px-4 py-3 text-left">{t('users.table.role')}</th>
+                  <th className="px-4 py-3 text-left">{t('users.table.login')}</th>
+                  <th className="px-4 py-3 text-left">{t('users.table.joined')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -137,7 +139,7 @@ export function UsersPage() {
                     <td className="px-4 py-3">
                       <span className="font-medium text-gray-900">{u.display_name}</span>
                       {u.disabled && (
-                        <Badge variant="secondary" className="ml-2 text-[10px]">Disabled</Badge>
+                        <Badge variant="secondary" className="ml-2 text-[10px]">{t('users.disabled')}</Badge>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{u.email}</td>
@@ -145,13 +147,13 @@ export function UsersPage() {
                       <Badge variant={roleBadge(u.role) as never}>{u.role}</Badge>
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
-                      {u.auth_type === 'saml' ? 'SSO' : u.auth_type === 'both' ? 'Local + SSO' : 'Local'}
+                      {u.auth_type === 'saml' ? t('users.auth_type.sso') : u.auth_type === 'both' ? t('users.auth_type.both') : t('users.auth_type.local')}
                     </td>
                     <td className="px-4 py-3 text-gray-500">{new Date(u.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
                 {users.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No users found.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">{t('users.no_users')}</td></tr>
                 )}
               </tbody>
             </table>

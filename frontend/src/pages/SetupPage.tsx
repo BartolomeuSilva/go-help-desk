@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useT } from '@/i18n'
 
 export function SetupPage() {
+  const { t } = useT()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -20,7 +22,7 @@ export function SetupPage() {
     e.preventDefault()
     setError('')
     if (password !== confirm) {
-      setError('Passwords do not match')
+      setError(t('setup.err_passwords_match'))
       return
     }
     setLoading(true)
@@ -38,15 +40,15 @@ export function SetupPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">Welcome to Go Help Desk</CardTitle>
+          <CardTitle className="text-xl">{t('setup.welcome')}</CardTitle>
           <p className="text-sm text-gray-500 mt-1">
-            Create your administrator account to get started.
+            {t('setup.instruction')}
           </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} method="POST" className="space-y-4">
             <div className="space-y-1">
-              <Label htmlFor="display-name">Full name</Label>
+              <Label htmlFor="display-name">{t('setup.full_name')}</Label>
               <Input
                 id="display-name"
                 type="text"
@@ -57,7 +59,7 @@ export function SetupPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('setup.email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -68,7 +70,7 @@ export function SetupPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('setup.password')}</Label>
               <Input
                 id="password"
                 type="password"
@@ -79,7 +81,7 @@ export function SetupPage() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="confirm">Confirm password</Label>
+              <Label htmlFor="confirm">{t('setup.confirm_password')}</Label>
               <Input
                 id="confirm"
                 type="password"
@@ -91,7 +93,7 @@ export function SetupPage() {
             </div>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account…' : 'Create admin account'}
+              {loading ? t('setup.creating') : t('setup.create')}
             </Button>
           </form>
         </CardContent>

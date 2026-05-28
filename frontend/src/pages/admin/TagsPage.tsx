@@ -10,8 +10,10 @@ import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { PlusIcon } from 'lucide-react'
 import type { Tag } from '@/api/types'
+import { useT } from '@/i18n'
 
 export function TagsPage() {
+  const { t } = useT()
   const qc = useQueryClient()
   const [newName, setNewName] = useState('')
   const [createError, setCreateError] = useState('')
@@ -54,20 +56,19 @@ export function TagsPage() {
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Tags</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{t('tags.title')}</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Tags are created by staff when tagging tickets, or added here directly. Admins can deactivate
-              inappropriate tags or restore previously deactivated ones.
+              {t('tags.subtitle')}
             </p>
           </div>
         </div>
 
         {/* Create tag form */}
         <div className="rounded-lg border bg-white p-4">
-          <p className="mb-3 text-sm font-medium text-gray-700">Add tag</p>
+          <p className="mb-3 text-sm font-medium text-gray-700">{t('tags.form.new_title')}</p>
           <div className="flex items-center gap-3">
             <Input
-              placeholder="Tag name (stored lowercase)"
+              placeholder={t('tags.form.name_placeholder')}
               value={newName}
               onChange={(e) => { setNewName(e.target.value); setCreateError('') }}
               onKeyDown={(e) => {
@@ -80,7 +81,7 @@ export function TagsPage() {
               disabled={!newName.trim() || createMutation.isPending}
             >
               <PlusIcon className="mr-2 h-4 w-4" />
-              {createMutation.isPending ? 'Adding…' : 'Add'}
+              {createMutation.isPending ? t('tags.form.adding') : t('tags.form.add')}
             </Button>
           </div>
           {createError && <p className="mt-2 text-sm text-red-600">{createError}</p>}
@@ -93,46 +94,46 @@ export function TagsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                 <tr>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Created</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3 text-left">{t('tags.table.name')}</th>
+                  <th className="px-4 py-3 text-left">{t('tags.table.status')}</th>
+                  <th className="px-4 py-3 text-left">{t('tags.table.created')}</th>
+                  <th className="px-4 py-3 text-right">{t('tags.table.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {tags.map((t) => (
-                  <tr key={t.id} className={isDeleted(t) ? 'opacity-50' : ''}>
-                    <td className="px-4 py-3 font-medium text-gray-900">{t.name}</td>
+                {tags.map((tTag) => (
+                  <tr key={tTag.id} className={isDeleted(tTag) ? 'opacity-50' : ''}>
+                    <td className="px-4 py-3 font-medium text-gray-900">{tTag.name}</td>
                     <td className="px-4 py-3">
-                      {isDeleted(t) ? (
-                        <Badge variant="secondary">Deactivated</Badge>
+                      {isDeleted(tTag) ? (
+                        <Badge variant="secondary">{t('tags.badge.deactivated')}</Badge>
                       ) : (
-                        <Badge variant="default">Active</Badge>
+                        <Badge variant="default">{t('tags.badge.active')}</Badge>
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-500">
-                      {new Date(t.created_at).toLocaleDateString()}
+                      {new Date(tTag.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {isDeleted(t) ? (
+                      {isDeleted(tTag) ? (
                         <Button
                           size="sm"
                           variant="outline"
                           className="text-green-700 border-green-300 hover:bg-green-50"
-                          onClick={() => restoreMutation.mutate(t.id)}
+                          onClick={() => restoreMutation.mutate(tTag.id)}
                           disabled={restoreMutation.isPending}
                         >
-                          Restore
+                          {t('tags.actions.restore')}
                         </Button>
                       ) : (
                         <Button
                           size="sm"
                           variant="outline"
                           className="text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => setPendingDelete(t)}
+                          onClick={() => setPendingDelete(tTag)}
                           disabled={deleteMutation.isPending}
                         >
-                          Deactivate
+                          {t('tags.actions.deactivate')}
                         </Button>
                       )}
                     </td>
@@ -141,7 +142,7 @@ export function TagsPage() {
                 {tags.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
-                      No tags yet.
+                      {t('tags.list.empty')}
                     </td>
                   </tr>
                 )}
@@ -153,12 +154,13 @@ export function TagsPage() {
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => { if (!open) setPendingDelete(null) }}
-        title={`Deactivate tag "${pendingDelete?.name ?? ''}"?`}
-        description="The tag stays on tickets that already use it but can't be added to new tickets. You can restore it later."
-        confirmLabel="Deactivate"
+        title={t('tags.delete.confirm_title').replace('{name}', pendingDelete?.name ?? '')}
+        description={t('tags.delete.confirm_desc')}
+        confirmLabel={t('tags.actions.deactivate')}
         isPending={deleteMutation.isPending}
         onConfirm={() => { if (pendingDelete) deleteMutation.mutate(pendingDelete.id) }}
       />
     </Layout>
   )
 }
+

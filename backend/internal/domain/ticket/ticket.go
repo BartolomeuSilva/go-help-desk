@@ -129,6 +129,9 @@ type Ticket struct {
 	TicketType      *TicketType    `json:"ticket_type,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
+	Rating          *int           `json:"rating,omitempty"`
+	RatingComment   *string        `json:"rating_comment,omitempty"`
+	RatedAt         *time.Time     `json:"rated_at,omitempty"`
 }
 
 // Reply is a message on a ticket thread, from either a staff member or the

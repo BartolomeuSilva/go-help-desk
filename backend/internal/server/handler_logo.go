@@ -18,11 +18,12 @@ import (
 )
 
 const (
-	logoMaxBytes  = 2 << 20 // 2 MB
-	logoMaxWidth  = 320
-	logoMaxHeight = 64
-	logoSubdir    = "site"
-	logoBasename  = "logo"
+	logoMaxBytes      = 2 << 20 // 2 MB
+	logoMaxWidth      = 320
+	logoMaxHeight     = 64
+	logoSubdir        = "site"
+	logoBasename      = "logo"
+	logoBasenameDark  = "logo-dark"
 )
 
 // svgForbidden rejects SVG content that could execute code when rendered.
@@ -268,3 +269,129 @@ func (s *Server) handleServeLogo(w http.ResponseWriter, r *http.Request) {
 
 	http.NotFound(w, r)
 }
+
+// ── Dark-mode logo handlers ───────────────────────────────────────────────────
+
+// handleUploadLogoDark accepts a multipart/form-data POST with a "logo" file
+// field, validates and stores it as the dark-mode logo, and saves the URL.
+func (s *Server) handleUploadLogoDark(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, logoMaxBytes+4096)
+	if err := r.ParseMultipartForm(logoMaxBytes); err != nil {
+		Error(w, http.StatusBadRequest, "invalid_form", "file too large or invalid multipart form")
+		return
+	}
+
+	f, _, err := r.FormFile("logo")
+	if err != nil {
+		Error(w, http.StatusBadRequest, "missing_field", "missing file field 'logo'")
+		return
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(io.LimitReader(f, logoMaxBytes+1))
+	if err != nil {
+		Error(w, http.StatusInternalServerError, "read_error", "reading uploaded file")
+		return
+	}
+	if int64(len(data)) > logoMaxBytes {
+		Error(w, http.StatusBadRequest, "file_too_large", "file exceeds the 2 MB limit")
+		return
+	}
+
+	kind, ext, err := detectLogoType(data)
+	if err != nil {
+		Error(w, http.StatusBadRequest, "invalid_type", err.Error())
+		return
+	}
+
+	var finalData []byte
+	var finalExt string
+
+	switch kind {
+	case "svg":
+		if err := sanitizeSVG(data); err != nil {
+			Error(w, http.StatusBadRequest, "invalid_svg", err.Error())
+			return
+		}
+		finalData = data
+		finalExt = "svg"
+	default:
+		resized, err := resizeRasterLogo(data, kind)
+		if err != nil {
+			Error(w, http.StatusBadRequest, "invalid_image", fmt.Sprintf("processing %s: %s", ext, err))
+			return
+		}
+		finalData = resized
+		finalExt = "png"
+	}
+
+	logoDir := filepath.Join(s.cfg.AttachmentDir, logoSubdir)
+	if err := os.MkdirAll(logoDir, 0o755); err != nil {
+		Error(w, http.StatusInternalServerError, "storage_error", "creating storage directory")
+		return
+	}
+
+	// Remove any previously stored dark logo before writing the new one.
+	for _, e := range []string{"png", "svg"} {
+		path := filepath.Join(logoDir, logoBasenameDark+"."+e)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			slog.Warn("failed to remove old dark logo file", "path", path, "error", err)
+		}
+	}
+
+	logoPath := filepath.Join(logoDir, logoBasenameDark+"."+finalExt)
+	if err := os.WriteFile(logoPath, finalData, 0o644); err != nil {
+		Error(w, http.StatusInternalServerError, "storage_error", "writing dark logo file")
+		return
+	}
+
+	logoURL := "/api/v1/logo-dark"
+	if err := s.adminSvc.SetString(r.Context(), "site_logo_dark_url", logoURL); err != nil {
+		Error(w, http.StatusInternalServerError, "settings_error", "saving dark logo URL to settings")
+		return
+	}
+
+	JSON(w, http.StatusOK, map[string]string{"url": logoURL})
+}
+
+// handleDeleteLogoDark removes the stored dark-mode logo file and clears the setting.
+func (s *Server) handleDeleteLogoDark(w http.ResponseWriter, r *http.Request) {
+	logoDir := filepath.Join(s.cfg.AttachmentDir, logoSubdir)
+	for _, ext := range []string{"png", "svg"} {
+		path := filepath.Join(logoDir, logoBasenameDark+"."+ext)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			slog.Warn("failed to remove dark logo file", "path", path, "error", err)
+		}
+	}
+
+	if err := s.adminSvc.SetString(r.Context(), "site_logo_dark_url", ""); err != nil {
+		Error(w, http.StatusInternalServerError, "settings_error", "clearing dark logo URL from settings")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleServeLogoDark serves the stored dark-mode logo file.
+// It is a public endpoint (no auth required).
+func (s *Server) handleServeLogoDark(w http.ResponseWriter, r *http.Request) {
+	logoDir := filepath.Join(s.cfg.AttachmentDir, logoSubdir)
+
+	for _, entry := range []struct{ ext, mime string }{
+		{"png", "image/png"},
+		{"svg", "image/svg+xml"},
+	} {
+		path := filepath.Join(logoDir, logoBasenameDark+"."+entry.ext)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		w.Header().Set("Content-Type", entry.mime)
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		_, _ = w.Write(data)
+		return
+	}
+
+	http.NotFound(w, r)
+}
+

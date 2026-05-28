@@ -171,3 +171,22 @@ func (d *EmailDispatcher) send(to, subject string, body []byte) error {
 	}
 	return smtpSendMail(addr, auth, fromAddr.Address, []string{toAddr.Address}, msg.Bytes())
 }
+
+// SendCSATFeedbackEmail envia um e-mail estruturado de coaching da IA para o atendente.
+func (d *EmailDispatcher) SendCSATFeedbackEmail(to, agentName, sentimentSummary string, coachingTips []string) error {
+	if !d.cfg.EmailEnabled() {
+		return nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Olá %s,\n\nAqui está um resumo de feedback de satisfação do cliente (CSAT) e dicas de treinamento geradas pela nossa IA para o seu atendimento:\n\n", agentName))
+	sb.WriteString("=== Sentimento dos Clientes ===\n")
+	sb.WriteString(sentimentSummary)
+	sb.WriteString("\n\n=== Recomendações Práticas de Treinamento ===\n")
+	for i, tip := range coachingTips {
+		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, tip))
+	}
+	sb.WriteString("\nContinue o bom trabalho!\n\nAtenciosamente,\nAdministração")
+
+	return d.send(to, "Feedback de Atendimento & Coaching IA", []byte(sb.String()))
+}

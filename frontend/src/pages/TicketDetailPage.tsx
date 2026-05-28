@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from '@tanstack/react-router'
+import { useT } from '@/i18n'
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getTicket,
@@ -17,7 +19,10 @@ import {
   listPublicCategories,
   listPublicTypes,
   listPublicItems,
+  rateTicket,
 } from '@/api/tickets'
+import { cn } from '@/lib/utils'
+import { Star } from 'lucide-react'
 import { TagInput } from '@/components/TagInput'
 import { AttachmentUpload, type UploadState } from '@/components/AttachmentUpload'
 import { listStatuses, listUsers, getSiteConfig } from '@/api/admin'
@@ -72,6 +77,7 @@ interface AssigneePanelProps {
 }
 
 function AssigneePanel({ ticketId, assigneeUserId, assigneeGroupId, users, groups, onUpdated }: AssigneePanelProps) {
+  const { t } = useT()
   const [mode, setMode] = useState<'user' | 'group'>('user')
   const [selectedId, setSelectedId] = useState('')
   const [error, setError] = useState('')
@@ -115,7 +121,7 @@ function AssigneePanel({ ticketId, assigneeUserId, assigneeGroupId, users, group
             {currentGroup.name}
           </span>
         ) : (
-          <span className="text-gray-400 dark:text-gray-600">Unassigned</span>
+          <span className="text-gray-400 dark:text-gray-600">{t('tickets.detail.unassigned')}</span>
         )}
       </div>
 
@@ -125,13 +131,13 @@ function AssigneePanel({ ticketId, assigneeUserId, assigneeGroupId, users, group
           className={`px-2 py-0.5 rounded ${mode === 'user' ? 'bg-blue-100 text-blue-700 dark:bg-[#1a1a1a] dark:text-[#faff69] font-medium' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
           onClick={() => setMode('user')}
         >
-          User
+          {t('tickets.detail.mode_user')}
         </button>
         <button
           className={`px-2 py-0.5 rounded ${mode === 'group' ? 'bg-blue-100 text-blue-700 dark:bg-[#1a1a1a] dark:text-[#faff69] font-medium' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'}`}
           onClick={() => setMode('group')}
         >
-          Group
+          {t('tickets.detail.mode_group')}
         </button>
       </div>
 
@@ -141,7 +147,7 @@ function AssigneePanel({ ticketId, assigneeUserId, assigneeGroupId, users, group
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
         >
-          <option value="">{mode === 'user' ? 'Select staff member…' : 'Select group…'}</option>
+          <option value="">{mode === 'user' ? t('tickets.detail.select_staff') : t('tickets.detail.select_group')}</option>
           {mode === 'user'
             ? staffUsers.map((u) => (
                 <option key={u.id} value={u.id}>{u.display_name}</option>
@@ -156,7 +162,7 @@ function AssigneePanel({ ticketId, assigneeUserId, assigneeGroupId, users, group
           onClick={() => assignMutation.mutate()}
           disabled={!selectedId || assignMutation.isPending}
         >
-          Assign
+          {t('tickets.detail.assign')}
         </Button>
       </div>
 
@@ -166,7 +172,7 @@ function AssigneePanel({ ticketId, assigneeUserId, assigneeGroupId, users, group
           onClick={() => unassignMutation.mutate()}
           disabled={unassignMutation.isPending}
         >
-          Clear assignment
+          {t('tickets.detail.clear_assignment')}
         </button>
       )}
       {error && <p className="text-xs text-red-600">{error}</p>}
@@ -182,6 +188,7 @@ interface CustomFieldsPanelProps {
 }
 
 function CustomFieldsPanel({ ticketId, isStaffOrAdmin }: CustomFieldsPanelProps) {
+  const { t } = useT()
   const qc = useQueryClient()
   const { data: values = [] } = useQuery<TicketFieldValue[]>({
     queryKey: ['customFields', ticketId],
@@ -262,7 +269,7 @@ function CustomFieldsPanel({ ticketId, isStaffOrAdmin }: CustomFieldsPanelProps)
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            Custom Fields
+            {t('tickets.detail.custom_fields')}
           </CardTitle>
           {isStaffOrAdmin && !editValues && (
             <button
@@ -273,7 +280,7 @@ function CustomFieldsPanel({ ticketId, isStaffOrAdmin }: CustomFieldsPanelProps)
                 setEditValues(init)
               }}
             >
-              Edit
+              {t('tickets.detail.edit')}
             </button>
           )}
         </div>
@@ -297,7 +304,7 @@ function CustomFieldsPanel({ ticketId, isStaffOrAdmin }: CustomFieldsPanelProps)
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
             >
-              {saveMutation.isPending ? 'Saving…' : 'Save'}
+              {saveMutation.isPending ? t('tickets.detail.saving') : t('tickets.detail.save')}
             </Button>
             <Button
               size="sm"
@@ -305,7 +312,7 @@ function CustomFieldsPanel({ ticketId, isStaffOrAdmin }: CustomFieldsPanelProps)
               className="h-7 text-xs"
               onClick={() => { setEditValues(null); setSaveError('') }}
             >
-              Cancel
+              {t('tickets.detail.cancel')}
             </Button>
           </div>
         )}
@@ -315,9 +322,104 @@ function CustomFieldsPanel({ ticketId, isStaffOrAdmin }: CustomFieldsPanelProps)
   )
 }
 
+function RatingForm({ ticketId }: { ticketId: string }) {
+  const [rating, setRating] = useState<number>(0)
+  const [hoverRating, setHoverRating] = useState<number>(0)
+  const [comment, setComment] = useState('')
+  const [error, setError] = useState('')
+
+  const qc = useQueryClient()
+
+  const rateMutation = useMutation({
+    mutationFn: () => rateTicket(ticketId, { rating, comment: comment.trim() || undefined }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+    },
+    onError: (err) => {
+      setError(extractError(err))
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (rating === 0) {
+      setError('Por favor, selecione uma nota de 1 a 5 estrelas.')
+      return
+    }
+    setError('')
+    rateMutation.mutate()
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+          Avalie o Atendimento
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                className="focus:outline-none transition-colors"
+                onClick={() => setRating(star)}
+                onMouseEnter={() => setHoverRating(star)}
+                onMouseLeave={() => setHoverRating(0)}
+              >
+                <Star
+                  className={cn(
+                    'h-6 w-6 cursor-pointer',
+                    star <= (hoverRating || rating)
+                      ? 'fill-[#faff69] text-[#faff69]'
+                      : 'text-gray-400 dark:text-gray-600 hover:text-gray-300'
+                  )}
+                />
+              </button>
+            ))}
+            {rating > 0 && (
+              <span className="ml-2 text-sm font-semibold text-white">
+                {rating} / 5
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="rating-comment" className="text-xs text-gray-400">
+              Comentário (opcional)
+            </Label>
+            <Textarea
+              id="rating-comment"
+              placeholder="Conte-nos como foi sua experiência..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={2}
+              className="text-xs bg-background text-foreground border-input"
+            />
+          </div>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <Button
+            type="submit"
+            size="sm"
+            className="w-full text-xs h-8"
+            disabled={rateMutation.isPending}
+          >
+            {rateMutation.isPending ? 'Enviando...' : 'Enviar Avaliação'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function TicketDetailPage() {
+  const { t } = useT()
   const { id } = useParams({ from: '/tickets/$id' })
   const { user } = useAuthStore()
   const qc = useQueryClient()
@@ -330,6 +432,7 @@ export function TicketDetailPage() {
   const [replyError, setReplyError] = useState('')
   const [sseStatus, setSseStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
   const [sseError, setSseError] = useState<string | null>(null)
+  const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null)
 
   const { data: ticket, isLoading, error } = useQuery({
     queryKey: ['ticket', id],
@@ -389,7 +492,7 @@ export function TicketDetailPage() {
 
     eventSource.onerror = (err) => {
       setSseStatus('error')
-      setSseError('Conexão SSE perdida ou não pôde ser estabelecida.')
+      setSseError(t('tickets.detail.sse_error'))
       console.error('SSE connection error:', err)
     }
 
@@ -398,6 +501,8 @@ export function TicketDetailPage() {
       eventSource.close()
     }
   }, [id, qc])
+
+
 
   const { data: replies = [] } = useQuery({
     queryKey: ['replies', id],
@@ -502,6 +607,27 @@ export function TicketDetailPage() {
     enabled: !!ticket,
   })
 
+  const imageAttachments = attachments.filter((a) => {
+    return a.mime_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(a.filename)
+  })
+
+  useEffect(() => {
+    if (previewImageIndex === null) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPreviewImageIndex(null)
+      } else if (e.key === 'ArrowRight' && imageAttachments.length > 1) {
+        setPreviewImageIndex((prev) => (prev !== null ? (prev + 1) % imageAttachments.length : null))
+      } else if (e.key === 'ArrowLeft' && imageAttachments.length > 1) {
+        setPreviewImageIndex((prev) => (prev !== null ? (prev - 1 + imageAttachments.length) % imageAttachments.length : null))
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [previewImageIndex, imageAttachments.length])
+
   const statusName = statuses.find((s) => s.id === ticket?.status_id)?.name ?? '…'
   const statusColor = statuses.find((s) => s.id === ticket?.status_id)?.color
 
@@ -561,7 +687,7 @@ export function TicketDetailPage() {
   })
 
   if (isLoading) return <Layout><div className="flex justify-center py-12"><Spinner size="lg" /></div></Layout>
-  if (error || !ticket) return <Layout><p className="text-red-600">Ticket not found.</p></Layout>
+  if (error || !ticket) return <Layout><p className="text-red-600">{t('tickets.detail.not_found')}</p></Layout>
 
   const canResolve = isStaffOrAdmin && statusName !== 'Resolved' && statusName !== 'Closed'
   const canReopen = isStaffOrAdmin && (statusName === 'Resolved' || statusName === 'Closed')
@@ -575,7 +701,7 @@ export function TicketDetailPage() {
             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
               <span>{ticket.tracking_number}</span>
               <span>·</span>
-              <span>Opened {formatDate(ticket.created_at)}</span>
+              <span>{t('tickets.detail.opened_at')} {formatDate(ticket.created_at)}</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{ticket.subject}</h1>
             <div className="flex items-center gap-2 flex-wrap">
@@ -587,24 +713,24 @@ export function TicketDetailPage() {
                 {statusName}
               </span>
               <Badge variant={priorityVariant(ticket.priority) as never}>
-                {ticket.priority}
+                {t(`ticket.priority_${ticket.priority}` as any)}
               </Badge>
               {sseStatus === 'connected' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Tempo real ativo
+                  {t('tickets.detail.sse_connected')}
                 </span>
               )}
               {sseStatus === 'connecting' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-amber-500 font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                  Conectando...
+                  {t('tickets.detail.sse_connecting')}
                 </span>
               )}
               {sseStatus === 'error' && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-rose-500 font-medium" title={sseError || undefined}>
                   <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                  Sem tempo real
+                  {t('tickets.detail.sse_disconnected')}
                 </span>
               )}
             </div>
@@ -618,7 +744,7 @@ export function TicketDetailPage() {
                 onClick={() => resolveMutation.mutate()}
                 disabled={resolveMutation.isPending}
               >
-                Mark Resolved
+                {t('tickets.detail.action_resolve')}
               </Button>
             )}
             {canReopen && (
@@ -628,7 +754,7 @@ export function TicketDetailPage() {
                 onClick={() => reopenMutation.mutate()}
                 disabled={reopenMutation.isPending}
               >
-                Reopen
+                {t('tickets.detail.action_reopen')}
               </Button>
             )}
           </div>
@@ -640,20 +766,20 @@ export function TicketDetailPage() {
             {/* Description */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm text-gray-500 dark:text-gray-400">Description</CardTitle>
+                <CardTitle className="text-sm text-gray-500 dark:text-gray-400">{t('tickets.detail.description')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="whitespace-pre-wrap text-sm">
-                  {ticket.description || <span className="text-gray-400 dark:text-gray-600">No description provided.</span>}
+                  {ticket.description || <span className="text-gray-400 dark:text-gray-600">{t('tickets.detail.no_description')}</span>}
                 </p>
               </CardContent>
             </Card>
 
             {/* Timeline */}
             <div className="space-y-2">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white">Timeline</h2>
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('tickets.detail.timeline')}</h2>
               {timeline.length === 0 && (
-                <p className="text-sm text-gray-400 dark:text-gray-500">No activity yet.</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">{t('tickets.detail.no_activity')}</p>
               )}
               {timeline.map((item) => {
                 if (item.kind === 'reply') {
@@ -665,7 +791,7 @@ export function TicketDetailPage() {
                   const authorUser = allUsers.find((u) => u.id === r.author_id)
                   const authorLabel = r.author_name
                     ?? authorUser?.display_name
-                    ?? (r.author_id ? r.author_id.slice(0, 8) + '…' : 'Customer')
+                    ?? (r.author_id ? r.author_id.slice(0, 8) + '…' : t('tickets.detail.timeline_customer'))
 
                   // Card style: left accent border + subtle background per author type
                   let cardClass: string
@@ -680,7 +806,7 @@ export function TicketDetailPage() {
                     textClass = 'text-yellow-900 dark:text-yellow-100'
                     badgeEl = (
                       <span className="rounded bg-yellow-100 dark:bg-yellow-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700 dark:text-yellow-300 uppercase tracking-wide">
-                        Internal
+                        {t('tickets.detail.timeline_internal')}
                       </span>
                     )
                   } else if (isSupport) {
@@ -689,7 +815,7 @@ export function TicketDetailPage() {
                     textClass = 'text-[#ffffff]'
                     badgeEl = (
                       <span className="rounded bg-black dark:bg-black px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase tracking-wide">
-                        Support
+                        {t('tickets.detail.timeline_support')}
                       </span>
                     )
                   } else {
@@ -698,7 +824,7 @@ export function TicketDetailPage() {
                     textClass = 'text-[#ffffff]'
                     badgeEl = (
                       <span className="rounded bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
-                        Customer
+                        {t('tickets.detail.timeline_customer')}
                       </span>
                     )
                   }
@@ -736,11 +862,11 @@ export function TicketDetailPage() {
                           <span style={{ color: h.to_status_color || undefined }} className="font-medium">
                             {h.to_status_name}
                           </span>
-                          {h.changed_by_name ? ` · ${h.changed_by_name}` : ' · System'}
+                          {h.changed_by_name ? ` · ${h.changed_by_name}` : ` · ${t('tickets.detail.timeline_system')}`}
                         </>
                       ) : (
                         <>
-                          Ticket opened as{' '}
+                          {t('tickets.detail.timeline_opened_as')}{' '}
                           <span style={{ color: h.to_status_color || undefined }} className="font-medium">
                             {h.to_status_name}
                           </span>
@@ -760,13 +886,13 @@ export function TicketDetailPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm">
-                    {isStaffOrAdmin ? 'Add work log entry' : 'Add reply'}
+                    {isStaffOrAdmin ? t('tickets.detail.reply_title_staff') : t('tickets.detail.reply_title')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {isStaffOrAdmin && cannedResponses.length > 0 && (
                     <div className="flex items-center gap-2 mb-1 justify-end">
-                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Canned response:</span>
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('tickets.detail.canned_response')}</span>
                       <select
                         className="h-8 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#1a1a1a] px-2 py-1 text-xs text-gray-700 dark:text-gray-300 shadow-sm focus:border-blue-500 dark:focus:border-[#faff69] focus:outline-none"
                         onChange={(e) => {
@@ -784,7 +910,7 @@ export function TicketDetailPage() {
                         }}
                         defaultValue=""
                       >
-                        <option value="">Insert template...</option>
+                        <option value="">{t('tickets.detail.canned_insert')}</option>
                         {cannedResponses.map((cr) => (
                           <option key={cr.id} value={cr.id}>
                             {cr.name}
@@ -795,7 +921,7 @@ export function TicketDetailPage() {
                   )}
 
                   <Textarea
-                    placeholder={isStaffOrAdmin ? 'Describe the work performed or add a note…' : 'Type your reply…'}
+                    placeholder={isStaffOrAdmin ? t('tickets.detail.reply_placeholder_staff') : t('tickets.detail.reply_placeholder')}
                     rows={4}
                     value={replyBody}
                     onChange={(e) => setReplyBody(e.target.value)}
@@ -817,7 +943,7 @@ export function TicketDetailPage() {
                             className="h-4 w-4 rounded border-gray-300"
                             disabled={!!replyUploadStates}
                           />
-                          Internal note (not visible to customer)
+                          {t('tickets.detail.reply_internal')}
                         </label>
 
                         {!replyInternal && (
@@ -829,7 +955,7 @@ export function TicketDetailPage() {
                               className="h-4 w-4 rounded border-gray-300"
                               disabled={!!replyUploadStates}
                             />
-                            Send ticket update email to customer
+                            {t('tickets.detail.reply_notify')}
                           </label>
                         )}
                       </div>
@@ -851,12 +977,12 @@ export function TicketDetailPage() {
                     disabled={replyMutation.isPending || !!replyUploadStates || !replyBody.trim()}
                   >
                     {replyMutation.isPending
-                      ? 'Saving…'
+                      ? t('tickets.detail.saving')
                       : replyUploadStates
-                      ? 'Uploading files…'
+                      ? t('tickets.detail.uploading')
                       : isStaffOrAdmin
-                      ? 'Save entry'
-                      : 'Send reply'}
+                      ? t('tickets.detail.reply_submit_staff')
+                      : t('tickets.detail.reply_submit')}
                   </Button>
                 </CardContent>
               </Card>
@@ -869,7 +995,7 @@ export function TicketDetailPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
-                    Assignee
+                    {t('tickets.detail.sidebar_assignee')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -889,12 +1015,12 @@ export function TicketDetailPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
-                    SLA Status
+                    {t('tickets.detail.sidebar_sla_status')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-white/70 dark:text-white/70">Status</span>
+                    <span className="text-white/70 dark:text-white/70">{t('tickets.list.header_status')}</span>
                     <span
                       className={
                         'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ' +
@@ -916,16 +1042,16 @@ export function TicketDetailPage() {
                         }
                       />
                       {ticket.sla.status === 'red'
-                        ? 'Breached'
+                        ? t('tickets.list.sla_breached')
                         : ticket.sla.status === 'amber'
-                        ? 'Critical'
-                        : 'Within SLA'}
+                        ? t('tickets.list.sla_critical')
+                        : t('tickets.list.sla_within')}
                     </span>
                   </div>
 
                   {ticket.sla.response_deadline && (
                     <div className="flex justify-between flex-col gap-0.5 border-t border-gray-50 dark:border-[#2a2a2a] pt-2">
-                      <span className="text-gray-500 dark:text-gray-400 text-xs">Response Deadline</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{t('tickets.detail.sla_response_deadline')}</span>
                       <span className="text-xs font-mono text-gray-900 dark:text-white">
                         {formatDate(ticket.sla.response_deadline)}
                       </span>
@@ -934,14 +1060,14 @@ export function TicketDetailPage() {
 
                   {ticket.sla.first_response_at ? (
                     <div className="flex justify-between flex-col gap-0.5">
-                      <span className="text-gray-500 dark:text-gray-400 text-xs">Responded At</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{t('tickets.detail.sla_responded_at')}</span>
                       <span className="text-xs font-mono text-green-600 dark:text-emerald-400">
                         {formatDate(ticket.sla.first_response_at)}
                       </span>
                     </div>
                   ) : ticket.sla.response_breached_at ? (
                     <div className="flex justify-between flex-col gap-0.5">
-                      <span className="text-gray-500 dark:text-gray-400 text-xs">Response Breached</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{t('tickets.detail.sla_response_breached')}</span>
                       <span className="text-xs font-mono text-red-600 dark:text-red-400">
                         {formatDate(ticket.sla.response_breached_at)}
                       </span>
@@ -950,7 +1076,7 @@ export function TicketDetailPage() {
 
                   {ticket.sla.resolution_deadline && (
                     <div className="flex justify-between flex-col gap-0.5 border-t border-gray-50 dark:border-[#2a2a2a] pt-2">
-                      <span className="text-gray-500 dark:text-gray-400 text-xs">Resolution Deadline</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{t('tickets.detail.sla_resolution_deadline')}</span>
                       <span className="text-xs font-mono text-gray-900 dark:text-white">
                         {formatDate(ticket.sla.resolution_deadline)}
                       </span>
@@ -959,14 +1085,14 @@ export function TicketDetailPage() {
 
                   {ticket.sla.resolved_at ? (
                     <div className="flex justify-between flex-col gap-0.5">
-                      <span className="text-gray-500 dark:text-gray-400 text-xs">Resolved At</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{t('tickets.detail.sla_resolved_at')}</span>
                       <span className="text-xs font-mono text-green-600 dark:text-emerald-400">
                         {formatDate(ticket.sla.resolved_at)}
                       </span>
                     </div>
                   ) : ticket.sla.resolution_breached_at ? (
                     <div className="flex justify-between flex-col gap-0.5">
-                      <span className="text-gray-500 dark:text-gray-400 text-xs">Resolution Breached</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{t('tickets.detail.sla_resolution_breached')}</span>
                       <span className="text-xs font-mono text-red-600 dark:text-red-400">
                         {formatDate(ticket.sla.resolution_breached_at)}
                       </span>
@@ -981,7 +1107,7 @@ export function TicketDetailPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
-                  Tags
+                  {t('tickets.detail.sidebar_tags')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -993,21 +1119,36 @@ export function TicketDetailPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
-                    Attachments
+                    {t('tickets.detail.sidebar_attachments')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1">
-                  {attachments.map((a) => (
-                    <a
-                      key={a.id}
-                      href={attachmentDownloadUrl(id, a.id)}
-                      className="flex items-center gap-2 text-sm text-blue-600 dark:text-[#faff69] hover:underline truncate"
-                      download={a.filename}
-                    >
-                      <span className="shrink-0 text-gray-400 dark:text-gray-500">↓</span>
-                      <span className="truncate">{a.filename}</span>
-                    </a>
-                  ))}
+                  {attachments.map((a) => {
+                    const isImage = a.mime_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(a.filename)
+                    const url = attachmentDownloadUrl(id, a.id)
+                    return (
+                      <a
+                        key={a.id}
+                        href={url}
+                        className="flex items-center gap-2 text-sm text-blue-600 dark:text-[#faff69] hover:underline truncate cursor-pointer"
+                        download={isImage ? undefined : a.filename}
+                        onClick={(e) => {
+                          if (isImage) {
+                            e.preventDefault()
+                            const imgIndex = imageAttachments.findIndex((img) => img.id === a.id)
+                            if (imgIndex !== -1) {
+                              setPreviewImageIndex(imgIndex)
+                            }
+                          }
+                        }}
+                      >
+                        <span className="shrink-0 text-gray-400 dark:text-gray-500">
+                          {isImage ? '👁' : '↓'}
+                        </span>
+                        <span className="truncate">{a.filename}</span>
+                      </a>
+                    )
+                  })}
                 </CardContent>
               </Card>
             )}
@@ -1016,11 +1157,11 @@ export function TicketDetailPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
-                    Classification
+                    {t('tickets.detail.sidebar_classification')}
                   </CardTitle>
                   {isStaffOrAdmin && !ctiEdit && (
                     <button className="text-xs text-blue-600 dark:text-[#faff69] hover:underline" onClick={startCtiEdit}>
-                      Edit
+                      {t('tickets.detail.edit')}
                     </button>
                   )}
                 </div>
@@ -1029,13 +1170,13 @@ export function TicketDetailPage() {
                 {ctiEdit ? (
                   <div className="space-y-2">
                     <div className="space-y-0.5">
-                      <Label className="text-xs text-gray-500 dark:text-gray-400">Category</Label>
+                      <Label className="text-xs text-gray-500 dark:text-gray-400">{t('ticket.category')}</Label>
                       <Select
                         className="h-7 text-xs w-full"
                         value={ctiCategoryId}
                         onChange={(e) => { setCtiCategoryId(e.target.value); setCtiTypeId(''); setCtiItemId('') }}
                       >
-                        <option value="">— select —</option>
+                        <option value="">{t('tickets.detail.select_select')}</option>
                         {categories.filter((c) => c.active).map((c) => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
@@ -1043,13 +1184,13 @@ export function TicketDetailPage() {
                     </div>
                     {ctiTypes.length > 0 && (
                       <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-500 dark:text-gray-400">Type</Label>
+                        <Label className="text-xs text-gray-500 dark:text-gray-400">{t('ticket.type')}</Label>
                         <Select
                           className="h-7 text-xs w-full"
                           value={ctiTypeId}
                           onChange={(e) => { setCtiTypeId(e.target.value); setCtiItemId('') }}
                         >
-                          <option value="">— none —</option>
+                          <option value="">{t('tickets.detail.select_none')}</option>
                           {ctiTypes.filter((t) => t.active).map((t) => (
                             <option key={t.id} value={t.id}>{t.name}</option>
                           ))}
@@ -1058,13 +1199,13 @@ export function TicketDetailPage() {
                     )}
                     {ctiItems.length > 0 && (
                       <div className="space-y-0.5">
-                        <Label className="text-xs text-gray-500 dark:text-gray-400">Item</Label>
+                        <Label className="text-xs text-gray-500 dark:text-gray-400">{t('ticket.item')}</Label>
                         <Select
                           className="h-7 text-xs w-full"
                           value={ctiItemId}
                           onChange={(e) => setCtiItemId(e.target.value)}
                         >
-                          <option value="">— none —</option>
+                          <option value="">{t('tickets.detail.select_none')}</option>
                           {ctiItems.filter((i) => i.active).map((i) => (
                             <option key={i.id} value={i.id}>{i.name}</option>
                           ))}
@@ -1079,7 +1220,7 @@ export function TicketDetailPage() {
                         onClick={() => ctiMutation.mutate()}
                         disabled={ctiMutation.isPending || !ctiCategoryId}
                       >
-                        {ctiMutation.isPending ? 'Saving…' : 'Save'}
+                        {ctiMutation.isPending ? t('tickets.detail.saving') : t('tickets.detail.save')}
                       </Button>
                       <Button
                         size="sm"
@@ -1087,25 +1228,25 @@ export function TicketDetailPage() {
                         className="h-7 text-xs"
                         onClick={() => { setCtiEdit(false); setCtiError('') }}
                       >
-                        Cancel
+                        {t('tickets.detail.cancel')}
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-white/70 dark:text-white/70">Category</span>
+                      <span className="text-white/70 dark:text-white/70">{t('ticket.category')}</span>
                       <span className="text-right text-xs font-medium text-white">{categoryName ?? '—'}</span>
                     </div>
                     {ticket.type_id && (
                       <div className="flex justify-between">
-                        <span className="text-white/70 dark:text-white/70">Type</span>
+                        <span className="text-white/70 dark:text-white/70">{t('ticket.type')}</span>
                         <span className="text-right text-xs text-white">{typeName ?? '—'}</span>
                       </div>
                     )}
                     {ticket.item_id && (
                       <div className="flex justify-between">
-                        <span className="text-white/70 dark:text-white/70">Item</span>
+                        <span className="text-white/70 dark:text-white/70">{t('ticket.item')}</span>
                         <span className="text-right text-xs text-white">{itemName ?? '—'}</span>
                       </div>
                     )}
@@ -1118,11 +1259,11 @@ export function TicketDetailPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
-                    Details
+                    {t('tickets.detail.sidebar_details')}
                   </CardTitle>
                   {isStaffOrAdmin && itsmEnabled && !detailsEdit && (
                     <button className="text-xs text-blue-600 dark:text-[#faff69] hover:underline" onClick={() => setDetailsEdit(true)}>
-                      Edit
+                      {t('tickets.detail.edit')}
                     </button>
                   )}
                 </div>
@@ -1131,17 +1272,17 @@ export function TicketDetailPage() {
                 {detailsEdit ? (
                   <div className="space-y-2">
                     <div className="space-y-0.5">
-                      <Label className="text-xs text-gray-500 dark:text-gray-400">Ticket Type</Label>
+                      <Label className="text-xs text-gray-500 dark:text-gray-400">{t('ticket.ticket_type')}</Label>
                       <Select
                         className="h-7 text-xs w-full"
                         value={editTicketType}
                         onChange={(e) => setEditTicketType(e.target.value)}
                       >
-                        <option value="">— select —</option>
-                        <option value="incident">Incident</option>
-                        <option value="service_request">Service Request</option>
-                        <option value="problem">Problem</option>
-                        <option value="change_request">Change Request</option>
+                        <option value="">{t('tickets.detail.select_select')}</option>
+                        <option value="incident">{t('itsm.incident')}</option>
+                        <option value="service_request">{t('itsm.service_request')}</option>
+                        <option value="problem">{t('itsm.problem')}</option>
+                        <option value="change_request">{t('itsm.change_request')}</option>
                       </Select>
                     </div>
                     {detailsError && <p className="text-xs text-red-600">{detailsError}</p>}
@@ -1152,7 +1293,7 @@ export function TicketDetailPage() {
                         onClick={() => detailsMutation.mutate()}
                         disabled={detailsMutation.isPending || !editTicketType}
                       >
-                        {detailsMutation.isPending ? 'Saving…' : 'Save'}
+                        {detailsMutation.isPending ? t('tickets.detail.saving') : t('tickets.detail.save')}
                       </Button>
                       <Button
                         size="sm"
@@ -1160,7 +1301,7 @@ export function TicketDetailPage() {
                         className="h-7 text-xs"
                         onClick={() => { setDetailsEdit(false); setEditTicketType(ticket.ticket_type ?? ''); setDetailsError('') }}
                       >
-                        Cancel
+                        {t('tickets.detail.cancel')}
                       </Button>
                     </div>
                   </div>
@@ -1168,10 +1309,10 @@ export function TicketDetailPage() {
                   <>
                     {itsmEnabled && (
                       <div className="flex justify-between items-center">
-                        <span className="text-white/70 dark:text-white/70">Ticket Type</span>
+                        <span className="text-white/70 dark:text-white/70">{t('ticket.ticket_type')}</span>
                         {ticket.ticket_type ? (
                           <Badge variant={ticketTypeVariant(ticket.ticket_type) as never}>
-                            {ticket.ticket_type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                            {t(`itsm.${ticket.ticket_type}` as any)}
                           </Badge>
                         ) : (
                           <span className="text-right text-xs text-white">—</span>
@@ -1179,16 +1320,16 @@ export function TicketDetailPage() {
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-white/70 dark:text-white/70">Priority</span>
-                      <Badge variant={priorityVariant(ticket.priority) as never}>{ticket.priority}</Badge>
+                      <span className="text-white/70 dark:text-white/70">{t('ticket.priority')}</span>
+                      <Badge variant={priorityVariant(ticket.priority) as never}>{t(`ticket.priority_${ticket.priority}` as any)}</Badge>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-white/70 dark:text-white/70">Created</span>
+                      <span className="text-white/70 dark:text-white/70">{t('tickets.detail.created')}</span>
                       <span className="text-right text-xs text-white">{formatDate(ticket.created_at)}</span>
                     </div>
                     {ticket.resolved_at && (
                       <div className="flex justify-between">
-                        <span className="text-white/70 dark:text-white/70">Resolved</span>
+                        <span className="text-white/70 dark:text-white/70">{t('tickets.detail.resolved')}</span>
                         <span className="text-right text-xs text-white">{formatDate(ticket.resolved_at)}</span>
                       </div>
                     )}
@@ -1196,9 +1337,144 @@ export function TicketDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Avaliação de Atendimento (Rating) */}
+            {(ticket.rating !== undefined && ticket.rating !== null) ? (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+                    Feedback do Cliente
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={cn(
+                          "h-5 w-5",
+                          star <= (ticket.rating ?? 0)
+                            ? "fill-[#faff69] text-[#faff69]"
+                            : "text-gray-400 dark:text-gray-600"
+                        )}
+                      />
+                    ))}
+                    <span className="ml-2 text-sm font-semibold text-white">
+                      {ticket.rating} / 5
+                    </span>
+                  </div>
+                  {ticket.rating_comment && (
+                    <p className="text-xs italic text-gray-300 dark:text-gray-400 border-l-2 border-[#faff69] pl-2 py-0.5 whitespace-pre-wrap">
+                      "{ticket.rating_comment}"
+                    </p>
+                  )}
+                  {ticket.rated_at && (
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                      Avaliado em: {formatDate(ticket.rated_at)}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              (statusName === 'Resolved' || statusName === 'Closed') &&
+              user && ticket.reporter_user_id === user.id && (
+                <RatingForm ticketId={id} />
+              )
+            )}
           </div>
         </div>
       </div>
+
+      {previewImageIndex !== null && imageAttachments.length > 0 && (() => {
+        const activeImg = imageAttachments[previewImageIndex]
+        const url = attachmentDownloadUrl(id, activeImg.id)
+        
+        return (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 md:p-10 transition-opacity duration-300 animate-in fade-in"
+            onClick={() => setPreviewImageIndex(null)}
+          >
+            <div 
+              className="relative max-w-5xl w-full max-h-full bg-white dark:bg-[#151515] rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border border-gray-200 dark:border-gray-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header com botões e nome do arquivo */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-gray-150 dark:border-[#2a2a2a] bg-gray-50/50 dark:bg-[#1a1a1a]/50">
+                <span className="text-sm font-semibold text-gray-800 dark:text-white truncate pr-4">
+                  {activeImg.filename}
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={url}
+                    download={activeImg.filename}
+                    className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-[#2c2c2c] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    title={t('tickets.detail.download_img')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </a>
+                  <button
+                    onClick={() => setPreviewImageIndex(null)}
+                    className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-[#2c2c2c] text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    title={t('tickets.detail.close')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Área da Imagem + Navegação */}
+              <div className="relative flex-1 overflow-auto bg-gray-150 dark:bg-[#101010] p-4 flex items-center justify-center min-h-[300px]">
+                
+                {/* Botão Anterior */}
+                {imageAttachments.length > 1 && (
+                  <button
+                    onClick={() => setPreviewImageIndex((prev) => (prev !== null ? (prev - 1 + imageAttachments.length) % imageAttachments.length : null))}
+                    className="absolute left-4 z-10 p-2.5 rounded-full bg-black/40 hover:bg-black/60 text-white transition-all shadow-md hover:scale-105"
+                    title={t('tickets.detail.prev')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                  </button>
+                )}
+
+                <img
+                  src={url}
+                  alt={activeImg.filename}
+                  className="max-w-full max-h-[70vh] object-contain rounded shadow-lg border border-gray-200 dark:border-gray-800"
+                />
+
+                {/* Botão Próximo */}
+                {imageAttachments.length > 1 && (
+                  <button
+                    onClick={() => setPreviewImageIndex((prev) => (prev !== null ? (prev + 1) % imageAttachments.length : null))}
+                    className="absolute right-4 z-10 p-2.5 rounded-full bg-black/40 hover:bg-black/60 text-white transition-all shadow-md hover:scale-105"
+                    title={t('tickets.detail.next')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Rodapé com Contador */}
+              {imageAttachments.length > 1 && (
+                <div className="bg-gray-50 dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400 text-center py-2 text-xs font-semibold px-4 border-t border-gray-100 dark:border-[#2a2a2a] tracking-wider">
+                  {previewImageIndex + 1} / {imageAttachments.length}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
     </Layout>
   )
 }

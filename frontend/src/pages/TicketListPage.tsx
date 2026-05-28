@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { PlusIcon, SearchIcon } from 'lucide-react'
+import { useT } from '@/i18n'
 
 function priorityVariant(p: string) {
   if (p === 'critical') return 'destructive'
@@ -18,18 +19,8 @@ function priorityVariant(p: string) {
   return 'secondary'
 }
 
-function emptyMessageFor(scope: TicketScope) {
-  switch (scope) {
-    case 'unassigned':
-      return 'No unassigned tickets.'
-    case 'all':
-      return 'No tickets in the system.'
-    default:
-      return 'No tickets are currently assigned to you or your groups.'
-  }
-}
-
 export function TicketListPage() {
+  const { t } = useT()
   const navigate = useNavigate()
   const { user } = useAuthStore()
   const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin'
@@ -85,6 +76,28 @@ export function TicketListPage() {
     return statuses.find(s => s.id === id)
   }
 
+  function emptyMessageFor(s: TicketScope) {
+    switch (s) {
+      case 'unassigned':
+        return t('tickets.list.empty_unassigned')
+      case 'all':
+        return t('tickets.list.empty_all')
+      default:
+        return t('tickets.list.empty_mine')
+    }
+  }
+
+  function scopeLabel(s: TicketScope) {
+    switch (s) {
+      case 'mine':
+        return t('tickets.list.scope_mine')
+      case 'unassigned':
+        return t('tickets.list.scope_unassigned')
+      case 'all':
+        return t('tickets.list.scope_all')
+    }
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -93,7 +106,7 @@ export function TicketListPage() {
           <Link to="/tickets/new">
             <Button>
               <PlusIcon className="mr-2 h-4 w-4" />
-              New Ticket
+              {t('tickets.list.new')}
             </Button>
           </Link>
         </div>
@@ -104,7 +117,7 @@ export function TicketListPage() {
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
             <Input
               className="pl-9"
-              placeholder="Search by tracking number, subject, or description…"
+              placeholder={t('tickets.list.search_placeholder')}
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
@@ -117,13 +130,13 @@ export function TicketListPage() {
                   type="button"
                   onClick={() => setScope(s)}
                   className={
-                    'px-3 py-1.5 capitalize transition-colors ' +
+                    'px-3 py-1.5 transition-colors ' +
                     (scope === s
                       ? 'bg-gray-900 text-white dark:bg-white dark:text-black'
                       : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-[#1a1a1a] dark:text-[#cccccc] dark:hover:bg-[#242424]')
                   }
                 >
-                  {s}
+                  {scopeLabel(s)}
                 </button>
               ))}
             </div>
@@ -135,7 +148,7 @@ export function TicketListPage() {
               checked={includeClosed}
               onChange={e => setIncludeClosed(e.target.checked)}
             />
-            Include closed
+            {t('tickets.list.include_closed')}
           </label>
           {isStaffOrAdmin && (
             <Button
@@ -153,7 +166,7 @@ export function TicketListPage() {
                 }
               }}
             >
-              Jump to ticket
+              {t('tickets.list.jump')}
             </Button>
           )}
         </div>
@@ -161,12 +174,12 @@ export function TicketListPage() {
         {/* Results */}
         {isFetching && allTickets.length === 0 ? (
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-            <Spinner size="sm" /> Loading tickets…
+            <Spinner size="sm" /> {t('tickets.list.loading')}
           </div>
         ) : tickets.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
             {query
-              ? 'No tickets match your search.'
+              ? t('tickets.list.no_match')
               : emptyMessageFor(effectiveScope)}
           </p>
         ) : (
@@ -174,27 +187,27 @@ export function TicketListPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-[#121212] text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 <tr>
-                  <th className="px-4 py-2 text-left">Ticket</th>
-                  <th className="px-4 py-2 text-left">Subject</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">Priority</th>
-                  {slaActive && <th className="px-4 py-2 text-left">SLA</th>}
+                  <th className="px-4 py-2 text-left">{t('tickets.list.header_ticket')}</th>
+                  <th className="px-4 py-2 text-left">{t('tickets.list.header_subject')}</th>
+                  <th className="px-4 py-2 text-left">{t('tickets.list.header_status')}</th>
+                  <th className="px-4 py-2 text-left">{t('tickets.list.header_priority')}</th>
+                  {slaActive && <th className="px-4 py-2 text-left">{t('tickets.list.header_sla')}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a2a] bg-white dark:bg-[#0a0a0a]">
-                {tickets.map(t => {
-                  const status = statusFor(t.status_id)
+                {tickets.map(ticket => {
+                  const status = statusFor(ticket.status_id)
                   return (
                     <tr
-                      key={t.id}
+                      key={ticket.id}
                       className="cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
-                      onClick={() => navigate({ to: '/tickets/$id', params: { id: t.id } })}
+                      onClick={() => navigate({ to: '/tickets/$id', params: { id: ticket.id } })}
                     >
                       <td className="whitespace-nowrap px-4 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">
-                        {t.tracking_number}
+                        {ticket.tracking_number}
                       </td>
                       <td className="px-4 py-2 font-medium text-gray-900 dark:text-white max-w-xs truncate">
-                        {t.subject}
+                        {ticket.subject}
                       </td>
                       <td className="px-4 py-2">
                         {status ? (
@@ -208,19 +221,19 @@ export function TicketListPage() {
                         ) : '—'}
                       </td>
                       <td className="px-4 py-2">
-                        <Badge variant={priorityVariant(t.priority) as never}>
-                          {t.priority}
+                        <Badge variant={priorityVariant(ticket.priority) as never}>
+                          {t(`ticket.priority_${ticket.priority}` as any)}
                         </Badge>
                       </td>
                       {slaActive && (
                         <td className="px-4 py-2 whitespace-nowrap">
-                          {t.sla ? (
+                          {ticket.sla ? (
                             <span
                               className={
                                 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ' +
-                                (t.sla.status === 'red'
+                                (ticket.sla.status === 'red'
                                   ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/50'
-                                  : t.sla.status === 'amber'
+                                  : ticket.sla.status === 'amber'
                                   ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50'
                                   : 'bg-green-50 text-green-700 border border-green-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50')
                               }
@@ -228,18 +241,18 @@ export function TicketListPage() {
                               <span
                                 className={
                                   'h-1.5 w-1.5 rounded-full ' +
-                                  (t.sla.status === 'red'
+                                  (ticket.sla.status === 'red'
                                     ? 'bg-red-600'
-                                    : t.sla.status === 'amber'
+                                    : ticket.sla.status === 'amber'
                                     ? 'bg-amber-600'
                                     : 'bg-emerald-600')
                                 }
                               />
-                              {t.sla.status === 'red'
-                                ? 'Breached'
-                                : t.sla.status === 'amber'
-                                ? 'Critical'
-                                : 'Within SLA'}
+                              {ticket.sla.status === 'red'
+                                ? t('tickets.list.sla_breached')
+                                : ticket.sla.status === 'amber'
+                                ? t('tickets.list.sla_critical')
+                                : t('tickets.list.sla_within')}
                             </span>
                           ) : (
                             <span className="text-gray-400 dark:text-gray-600 text-xs">—</span>

@@ -6,25 +6,23 @@ import { Badge } from '@/components/ui/badge'
 import { Select } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import type { Role, User } from '@/api/types'
+import { useT } from '@/i18n'
 
-const ROLES: { role: Role; label: string; description: string }[] = [
+const ROLES: { role: Role; labelKey: string; descKey: string }[] = [
   {
     role: 'admin',
-    label: 'Admin',
-    description:
-      'Full system access. Manage settings, users, groups, categories, and plugins. Can always log in with local auth even when SAML is enabled.',
+    labelKey: 'roles.built_in.admin.label',
+    descKey: 'roles.built_in.admin.description',
   },
   {
     role: 'staff',
-    label: 'Staff',
-    description:
-      'Create tickets. View, edit, and assign tickets within their scope. Search and open any ticket by number. Assign tickets to any staff member or group.',
+    labelKey: 'roles.built_in.staff.label',
+    descKey: 'roles.built_in.staff.description',
   },
   {
     role: 'user',
-    label: 'User',
-    description:
-      'Create tickets. View their own tickets. Update their own tickets unless the status is Resolved. Reopen a resolved ticket within the configured reopen window.',
+    labelKey: 'roles.built_in.user.label',
+    descKey: 'roles.built_in.user.description',
   },
 ]
 
@@ -81,6 +79,7 @@ function RoleCard({
   users: User[]
   currentUserRole: Role
 }) {
+  const { t } = useT()
   return (
     <div className="rounded-lg border bg-white overflow-hidden">
       <div className="flex items-start gap-3 border-b px-5 py-4">
@@ -90,15 +89,15 @@ function RoleCard({
         <p className="text-sm text-gray-500">{description}</p>
       </div>
       {users.length === 0 ? (
-        <p className="px-5 py-4 text-sm text-gray-400">No {label.toLowerCase()}s.</p>
+        <p className="px-5 py-4 text-sm text-gray-400">{t('roles.list.no_users_in_role')}</p>
       ) : (
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
             <tr>
-              <th className="px-4 py-2 text-left">Name</th>
-              <th className="px-4 py-2 text-left">Email</th>
-              <th className="px-4 py-2 text-left">Joined</th>
-              <th className="px-4 py-2 text-right">Role</th>
+              <th className="px-4 py-2 text-left">{t('users.table.name')}</th>
+              <th className="px-4 py-2 text-left">{t('users.table.email')}</th>
+              <th className="px-4 py-2 text-left">{t('users.table.joined')}</th>
+              <th className="px-4 py-2 text-right">{t('users.table.role')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -113,6 +112,7 @@ function RoleCard({
 }
 
 export function RolesPage() {
+  const { t } = useT()
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin', 'users'],
     queryFn: () => listUsers(500),
@@ -138,19 +138,18 @@ export function RolesPage() {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Roles</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('roles.title')}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            The three built-in roles define what each user can see and do. Change a user's role
-            using the dropdown in their row.
+            {t('roles.subtitle')}
           </p>
         </div>
 
-        {ROLES.map(({ role, label, description }) => (
+        {ROLES.map(({ role, labelKey, descKey }) => (
           <RoleCard
             key={role}
             role={role}
-            label={label}
-            description={description}
+            label={t(labelKey as any)}
+            description={t(descKey as any)}
             users={users.filter((u) => u.role === role)}
             currentUserRole={currentUserRole}
           />
@@ -159,3 +158,4 @@ export function RolesPage() {
     </Layout>
   )
 }
+

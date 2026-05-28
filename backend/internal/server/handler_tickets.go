@@ -827,3 +827,41 @@ func (s *Server) handleTicketEventsPublic(w http.ResponseWriter, r *http.Request
 		}
 	}
 }
+
+// POST /api/v1/tickets/{id}/rate
+func (s *Server) handleRateTicket(w http.ResponseWriter, r *http.Request) {
+	a := authmw.GetActor(r)
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		Error(w, http.StatusBadRequest, "bad_request", "invalid ticket ID")
+		return
+	}
+
+	var body struct {
+		Rating  int    `json:"rating"`
+		Comment string `json:"comment"`
+	}
+	if err := DecodeJSON(r, &body); err != nil {
+		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
+		return
+	}
+
+	actor := ticket.Actor{UserID: &a.UserID, Role: a.Role}
+	var commentPtr *string
+	if body.Comment != "" {
+		commentPtr = &body.Comment
+	}
+
+	t, err := s.tickets.Rate(r.Context(), id, ticket.RateInput{
+		Rating:  body.Rating,
+		Comment: commentPtr,
+	}, actor)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	s.sseBroker.Broadcast(id, "refresh", "")
+	s.respondTicket(w, r, t, http.StatusOK)
+}
+

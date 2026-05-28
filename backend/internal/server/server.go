@@ -221,6 +221,7 @@ func (s *Server) buildRouter() *chi.Mux {
 		// Public endpoints — no auth required.
 		r.Get("/site", s.handleGetSiteConfig)
 		r.Get("/logo", s.handleServeLogo)
+		r.Get("/logo-dark", s.handleServeLogoDark)
 		r.Get("/setup/status", s.handleSetupStatus)
 		r.Post("/setup", s.handleSetup)
 		r.Get("/tickets/{id}/events-public", s.handleTicketEventsPublic)
@@ -321,12 +322,33 @@ func (s *Server) handleGetSiteConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	JSON(w, http.StatusOK, map[string]any{
-		"name":         s.adminSvc.SiteName(r.Context()),
-		"logo_url":     logoURL,
-		"version":      version.Version,
-		"sla_enabled":  s.adminSvc.SLAEnabled(r.Context()),
-		"itsm_enabled": s.adminSvc.ITSMEnabled(r.Context()),
+		"name":           s.adminSvc.SiteName(r.Context()),
+		"logo_url":       logoURL,
+		"logo_dark_url":  s.siteLogoDarkURLWithMtime(r.Context()),
+		"version":        version.Version,
+		"sla_enabled":    s.adminSvc.SLAEnabled(r.Context()),
+		"itsm_enabled":   s.adminSvc.ITSMEnabled(r.Context()),
 	})
+}
+
+func (s *Server) siteLogoDarkURLWithMtime(ctx context.Context) string {
+	logoURL := s.adminSvc.SiteLogoDarkURL(ctx)
+	if logoURL == "" {
+		return ""
+	}
+	logoDir := filepath.Join(s.cfg.AttachmentDir, "site")
+	var mtime int64
+	for _, ext := range []string{"png", "svg"} {
+		path := filepath.Join(logoDir, "logo-dark."+ext)
+		if info, err := os.Stat(path); err == nil {
+			mtime = info.ModTime().Unix()
+			break
+		}
+	}
+	if mtime > 0 {
+		return fmt.Sprintf("%s?v=%d", logoURL, mtime)
+	}
+	return logoURL
 }
 
 // InitSAML reads SAML config from the database and initialises the SP

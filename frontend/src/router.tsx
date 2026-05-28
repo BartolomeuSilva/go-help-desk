@@ -27,6 +27,7 @@ import { KBArticleDetailPage } from '@/pages/kb/KBArticleDetailPage'
 import { KBAdminPage } from '@/pages/admin/KBAdminPage'
 import { KBArticleEditorPage } from '@/pages/admin/KBArticleEditorPage'
 import { HelpPage } from '@/pages/HelpPage'
+import { CSATReportPage } from '@/pages/admin/CSATReportPage'
 
 async function requireAuth() {
   const { user, setUser } = useAuthStore.getState()
@@ -152,6 +153,13 @@ const adminSettingsRoute = createRoute({
   component: SettingsPage,
 })
 
+const adminCSATReportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/reports/csat',
+  beforeLoad: requireAdmin,
+  component: CSATReportPage,
+})
+
 const adminTagsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/tags',
@@ -271,6 +279,7 @@ export const router = createRouter({
     adminCustomFieldsRoute,
     adminPluginsRoute,
     adminSettingsRoute,
+    adminCSATReportRoute,
     adminCannedResponsesRoute,
   ]),
 })

@@ -18,8 +18,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { ArrowLeftIcon, FileTextIcon, EyeIcon } from 'lucide-react'
+import { useT } from '@/i18n'
 
 export function KBArticleEditorPage() {
+  const { t } = useT()
   const { id } = useParams({ strict: false }) as { id?: string }
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -100,15 +102,15 @@ export function KBArticleEditorPage() {
     setError('')
 
     if (!title.trim()) {
-      setError('Title is required')
+      setError(t('kb.editor.form.err_title'))
       return
     }
     if (!categoryId) {
-      setError('Category is required')
+      setError(t('kb.editor.form.err_category'))
       return
     }
     if (!content.trim()) {
-      setError('Content is required')
+      setError(t('kb.editor.form.err_content'))
       return
     }
 
@@ -199,7 +201,7 @@ export function KBArticleEditorPage() {
 
         if (line.startsWith('- ')) {
           return (
-            <li key={idx} className="list-disc ml-5 text-gray-700 dark:text-gray-300 my-1">
+            <li key={idx} className="list-disc ml-5 text-gray-700 dark:text-white my-1">
               {parseInline(line.slice(2))}
             </li>
           )
@@ -210,7 +212,7 @@ export function KBArticleEditorPage() {
         }
 
         return (
-          <p key={idx} className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 my-2">
+          <p key={idx} className="text-sm leading-relaxed text-gray-700 dark:text-white my-2">
             {parseInline(line)}
           </p>
         )
@@ -240,14 +242,14 @@ export function KBArticleEditorPage() {
             className="mb-3 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors"
           >
             <ArrowLeftIcon className="h-3.5 w-3.5" />
-            Back to KB Management
+            {t('kb.editor.back')}
           </button>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <FileTextIcon className="h-6 w-6 text-blue-600 dark:text-[#faff69]" />
-            {isEdit ? 'Edit Help Article' : 'Write Help Article'}
+            {isEdit ? t('kb.editor.edit_title') : t('kb.editor.new_title')}
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Write clear documentation to help users help themselves. Markdown is supported.
+            {t('kb.editor.subtitle')}
           </p>
         </div>
 
@@ -256,15 +258,15 @@ export function KBArticleEditorPage() {
           <Card className="border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#1a1a1a] shadow-sm">
             <CardHeader className="bg-gray-50/50 dark:bg-[#121212]/50 border-b border-gray-200 dark:border-[#2a2a2a] py-4">
               <CardTitle className="text-sm font-semibold text-gray-800 dark:text-white">
-                Article Editor
+                {t('kb.editor.card_title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="art-title">Title *</Label>
+                <Label htmlFor="art-title">{t('kb.editor.form.title')}</Label>
                 <Input
                   id="art-title"
-                  placeholder="e.g. How to reset your password"
+                  placeholder={t('kb.editor.form.title_placeholder')}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   disabled={isSaving}
@@ -274,7 +276,7 @@ export function KBArticleEditorPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="art-category">Category *</Label>
+                  <Label htmlFor="art-category">{t('kb.editor.form.category')}</Label>
                   {loadingCats ? (
                     <div className="h-10 flex items-center"><Spinner size="sm" /></div>
                   ) : (
@@ -285,10 +287,10 @@ export function KBArticleEditorPage() {
                       disabled={isSaving}
                       required
                     >
-                      <option value="">Select...</option>
+                      <option value="">{t('kb.editor.form.select')}</option>
                       {categories.map((cat) => (
                         <option key={cat.id} value={cat.id}>
-                          {cat.name} {cat.is_public ? '' : '(Private)'}
+                          {cat.name} {cat.is_public ? '' : t('kb.editor.form.private_suffix')}
                         </option>
                       ))}
                     </Select>
@@ -296,7 +298,7 @@ export function KBArticleEditorPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="art-status">Status *</Label>
+                  <Label htmlFor="art-status">{t('kb.editor.form.status')}</Label>
                   <Select
                     id="art-status"
                     value={status}
@@ -304,17 +306,17 @@ export function KBArticleEditorPage() {
                     disabled={isSaving}
                     required
                   >
-                    <option value="draft">Draft (Private)</option>
-                    <option value="published">Published (Live)</option>
+                    <option value="draft">{t('kb.editor.form.status_draft')}</option>
+                    <option value="published">{t('kb.editor.form.status_published')}</option>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="art-content">Content (Markdown) *</Label>
+                <Label htmlFor="art-content">{t('kb.editor.form.content')}</Label>
                 <Textarea
                   id="art-content"
-                  placeholder="Write article body in Markdown..."
+                  placeholder={t('kb.editor.form.content_placeholder')}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   disabled={isSaving}
@@ -327,7 +329,7 @@ export function KBArticleEditorPage() {
 
               <div className="flex items-center gap-3 pt-2">
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving...' : 'Save Article'}
+                  {isSaving ? t('kb.editor.form.saving') : t('kb.editor.form.save')}
                 </Button>
                 <Button
                   type="button"
@@ -335,7 +337,7 @@ export function KBArticleEditorPage() {
                   onClick={() => navigate({ to: '/admin/kb' })}
                   disabled={isSaving}
                 >
-                  Cancel
+                  {t('kb.editor.form.cancel')}
                 </Button>
               </div>
             </CardContent>
@@ -346,10 +348,10 @@ export function KBArticleEditorPage() {
             <CardHeader className="bg-gray-50/50 dark:bg-[#121212]/50 border-b border-gray-200 dark:border-[#2a2a2a] py-4 flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2">
                 <EyeIcon className="h-4 w-4 text-gray-400" />
-                Live Preview
+                {t('kb.editor.preview.title')}
               </CardTitle>
               <Badge variant={status === 'published' ? 'default' : 'secondary'}>
-                {status}
+                {status === 'published' ? t('kb.admin.badge.public') : t('kb.badge_draft')}
               </Badge>
             </CardHeader>
             <CardContent className="pt-6">
@@ -358,13 +360,13 @@ export function KBArticleEditorPage() {
                   {title}
                 </h1>
               ) : (
-                <p className="text-sm italic text-gray-400 mb-4">No title specified</p>
+                <p className="text-sm italic text-gray-400 mb-4">{t('kb.editor.preview.no_title')}</p>
               )}
               <div className="prose dark:prose-invert max-w-none min-h-[350px] lg:min-h-[450px] max-h-[500px] overflow-y-auto pr-2">
                 {content ? (
                   renderMarkdown(content)
                 ) : (
-                  <p className="text-sm italic text-gray-400">Start typing markdown on the left to see the preview here...</p>
+                  <p className="text-sm italic text-gray-400">{t('kb.editor.preview.empty_content')}</p>
                 )}
               </div>
             </CardContent>

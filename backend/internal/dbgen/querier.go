@@ -73,7 +73,9 @@ type Querier interface {
 	// Category-specific policy takes precedence over a global one (category_id IS NULL).
 	FindSLAPolicy(ctx context.Context, arg FindSLAPolicyParams) (SlaPolicy, error)
 	GetAPIKeyByHash(ctx context.Context, hashedToken string) (ApiKey, error)
+	GetAgentCSATPerformance(ctx context.Context) ([]GetAgentCSATPerformanceRow, error)
 	GetAttachmentByID(ctx context.Context, id uuid.UUID) (Attachment, error)
+	GetCSATDistribution(ctx context.Context, arg GetCSATDistributionParams) ([]GetCSATDistributionRow, error)
 	GetCannedResponse(ctx context.Context, id uuid.UUID) (CannedResponse, error)
 	GetCannedResponseByName(ctx context.Context, name string) (CannedResponse, error)
 	GetCategory(ctx context.Context, id uuid.UUID) (Category, error)
@@ -88,8 +90,10 @@ type Querier interface {
 	GetKBCategory(ctx context.Context, id uuid.UUID) (KbCategory, error)
 	GetKBCategoryByName(ctx context.Context, name string) (KbCategory, error)
 	GetOAuthClientByClientID(ctx context.Context, clientID string) (OauthClient, error)
+	GetOverallCSAT(ctx context.Context, arg GetOverallCSATParams) (GetOverallCSATRow, error)
 	GetPendingRegistrationByToken(ctx context.Context, token uuid.UUID) (PendingRegistration, error)
 	GetPlugin(ctx context.Context, id string) (Plugin, error)
+	GetRecentCSATComments(ctx context.Context, arg GetRecentCSATCommentsParams) ([]GetRecentCSATCommentsRow, error)
 	GetRole(ctx context.Context, name string) (Role, error)
 	GetSLAPolicy(ctx context.Context, id uuid.UUID) (SlaPolicy, error)
 	GetSLARecord(ctx context.Context, ticketID uuid.UUID) (SlaRecord, error)
@@ -182,6 +186,7 @@ type Querier interface {
 	UpdateStatus(ctx context.Context, arg UpdateStatusParams) error
 	UpdateTicket(ctx context.Context, arg UpdateTicketParams) error
 	UpdateTicketCTI(ctx context.Context, arg UpdateTicketCTIParams) error
+	UpdateTicketRating(ctx context.Context, arg UpdateTicketRatingParams) error
 	UpdateType(ctx context.Context, arg UpdateTypeParams) error
 	UpdateUser(ctx context.Context, arg UpdateUserParams) error
 	UpdateWebhookConfig(ctx context.Context, arg UpdateWebhookConfigParams) error

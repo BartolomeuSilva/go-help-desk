@@ -40,6 +40,11 @@ func NewService(store Store, users userCreator, mailer Mailer, baseURL string) *
 	return &Service{store: store, users: users, mailer: mailer, baseURL: baseURL}
 }
 
+// Mailer returns the registration mailer.
+func (s *Service) Mailer() Mailer {
+	return s.mailer
+}
+
 // Register validates the request, stores a pending registration, and sends the
 // verification email. allowedDomains and openReg come from admin settings.
 func (s *Service) Register(ctx context.Context, email, displayName, password string, allowedDomains []string, openReg bool) error {
