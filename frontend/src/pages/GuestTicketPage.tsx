@@ -170,7 +170,7 @@ export function GuestTicketPage() {
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} method="POST" className="space-y-5">
               {/* Contact info */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label htmlFor="name">{t('guest.name')}</Label>
                   <Input

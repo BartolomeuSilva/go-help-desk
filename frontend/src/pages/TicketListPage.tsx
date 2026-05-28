@@ -183,88 +183,161 @@ export function TicketListPage() {
               : emptyMessageFor(effectiveScope)}
           </p>
         ) : (
-          <div className="overflow-hidden rounded-md border border-gray-200 dark:border-[#2a2a2a]">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-[#121212] text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                <tr>
-                  <th className="px-4 py-2 text-left">{t('tickets.list.header_ticket')}</th>
-                  <th className="px-4 py-2 text-left">{t('tickets.list.header_subject')}</th>
-                  <th className="px-4 py-2 text-left">{t('tickets.list.header_status')}</th>
-                  <th className="px-4 py-2 text-left">{t('tickets.list.header_priority')}</th>
-                  {slaActive && <th className="px-4 py-2 text-left">{t('tickets.list.header_sla')}</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a2a] bg-white dark:bg-[#0a0a0a]">
-                {tickets.map(ticket => {
-                  const status = statusFor(ticket.status_id)
-                  return (
-                    <tr
-                      key={ticket.id}
-                      className="cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
-                      onClick={() => navigate({ to: '/tickets/$id', params: { id: ticket.id } })}
-                    >
-                      <td className="whitespace-nowrap px-4 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">
-                        {ticket.tracking_number}
-                      </td>
-                      <td className="px-4 py-2 font-medium text-gray-900 dark:text-white max-w-xs truncate">
-                        {ticket.subject}
-                      </td>
-                      <td className="px-4 py-2">
-                        {status ? (
-                          <span
-                            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium"
-                            style={{ borderColor: status.color, color: status.color }}
-                          >
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: status.color }} />
-                            {status.name}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td className="px-4 py-2">
-                        <Badge variant={priorityVariant(ticket.priority) as never}>
-                          {t(`ticket.priority_${ticket.priority}` as any)}
-                        </Badge>
-                      </td>
-                      {slaActive && (
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          {ticket.sla ? (
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-hidden rounded-md border border-gray-200 dark:border-[#2a2a2a]">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-[#121212] text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <tr>
+                    <th className="px-4 py-2 text-left">{t('tickets.list.header_ticket')}</th>
+                    <th className="px-4 py-2 text-left">{t('tickets.list.header_subject')}</th>
+                    <th className="px-4 py-2 text-left">{t('tickets.list.header_status')}</th>
+                    <th className="px-4 py-2 text-left">{t('tickets.list.header_priority')}</th>
+                    {slaActive && <th className="px-4 py-2 text-left">{t('tickets.list.header_sla')}</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a2a] bg-white dark:bg-[#0a0a0a]">
+                  {tickets.map(ticket => {
+                    const status = statusFor(ticket.status_id)
+                    return (
+                      <tr
+                        key={ticket.id}
+                        className="cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a]"
+                        onClick={() => navigate({ to: '/tickets/$id', params: { id: ticket.id } })}
+                      >
+                        <td className="whitespace-nowrap px-4 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">
+                          {ticket.tracking_number}
+                        </td>
+                        <td className="px-4 py-2 font-medium text-gray-900 dark:text-white max-w-xs truncate">
+                          {ticket.subject}
+                        </td>
+                        <td className="px-4 py-2">
+                          {status ? (
                             <span
-                              className={
-                                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ' +
-                                (ticket.sla.status === 'red'
-                                  ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/50'
-                                  : ticket.sla.status === 'amber'
-                                  ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50'
-                                  : 'bg-green-50 text-green-700 border border-green-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50')
-                              }
+                              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium"
+                              style={{ borderColor: status.color, color: status.color }}
                             >
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: status.color }} />
+                              {status.name}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-2">
+                          <Badge variant={priorityVariant(ticket.priority) as never}>
+                            {t(`ticket.priority_${ticket.priority}` as any)}
+                          </Badge>
+                        </td>
+                        {slaActive && (
+                          <td className="px-4 py-2 whitespace-nowrap">
+                            {ticket.sla ? (
                               <span
                                 className={
-                                  'h-1.5 w-1.5 rounded-full ' +
+                                  'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ' +
                                   (ticket.sla.status === 'red'
-                                    ? 'bg-red-600'
+                                    ? 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/50'
                                     : ticket.sla.status === 'amber'
-                                    ? 'bg-amber-600'
-                                    : 'bg-emerald-600')
+                                    ? 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50'
+                                    : 'bg-green-50 text-green-700 border border-green-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50')
                                 }
-                              />
-                              {ticket.sla.status === 'red'
-                                ? t('tickets.list.sla_breached')
-                                : ticket.sla.status === 'amber'
-                                ? t('tickets.list.sla_critical')
-                                : t('tickets.list.sla_within')}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 dark:text-gray-600 text-xs">—</span>
-                          )}
-                        </td>
+                              >
+                                <span
+                                  className={
+                                    'h-1.5 w-1.5 rounded-full ' +
+                                    (ticket.sla.status === 'red'
+                                      ? 'bg-red-600'
+                                      : ticket.sla.status === 'amber'
+                                      ? 'bg-amber-600'
+                                      : 'bg-emerald-600')
+                                  }
+                                />
+                                {ticket.sla.status === 'red'
+                                  ? t('tickets.list.sla_breached')
+                                  : ticket.sla.status === 'amber'
+                                  ? t('tickets.list.sla_critical')
+                                  : t('tickets.list.sla_within')}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 dark:text-gray-600 text-xs">—</span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List View */}
+            <div className="block sm:hidden space-y-3">
+              {tickets.map(ticket => {
+                const status = statusFor(ticket.status_id)
+                return (
+                  <div
+                    key={ticket.id}
+                    onClick={() => navigate({ to: '/tickets/$id', params: { id: ticket.id } })}
+                    className="active:bg-gray-100 dark:active:bg-[#1a1a1a] bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-4 space-y-3 cursor-pointer shadow-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                        {ticket.tracking_number}
+                      </span>
+                      {status ? (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                          style={{ borderColor: status.color, color: status.color }}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: status.color }} />
+                          {status.name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">—</span>
                       )}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2">
+                      {ticket.subject}
+                    </h3>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-[#262626] text-xs">
+                      <Badge variant={priorityVariant(ticket.priority) as never} className="text-[10px]">
+                        {t(`ticket.priority_${ticket.priority}` as any)}
+                      </Badge>
+
+                      {slaActive && ticket.sla && (
+                        <span
+                          className={
+                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ' +
+                            (ticket.sla.status === 'red'
+                              ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400'
+                              : ticket.sla.status === 'amber'
+                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                              : 'bg-green-50 text-green-700 dark:bg-emerald-950/40 dark:text-emerald-400')
+                          }
+                        >
+                          <span
+                            className={
+                              'h-1 w-1 rounded-full ' +
+                              (ticket.sla.status === 'red'
+                                ? 'bg-red-600'
+                                : ticket.sla.status === 'amber'
+                                ? 'bg-amber-600'
+                                : 'bg-emerald-600')
+                            }
+                          />
+                          {ticket.sla.status === 'red'
+                            ? t('tickets.list.sla_breached')
+                            : ticket.sla.status === 'amber'
+                            ? t('tickets.list.sla_critical')
+                            : t('tickets.list.sla_within')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
     </Layout>
