@@ -236,6 +236,7 @@ const translations = {
 
   // ── Generic / Shared ─────────────────────────────────────────
   'common.loading':           { pt: 'Carregando…',     en: 'Loading…' },
+  'common.uploading':         { pt: 'Enviando…',       en: 'Uploading…' },
   'common.error':             { pt: 'Erro',            en: 'Error' },
   'common.save':              { pt: 'Salvar',          en: 'Save' },
   'common.cancel':            { pt: 'Cancelar',        en: 'Cancel' },
@@ -650,6 +651,7 @@ const translations = {
   'categories.category.adding':          { pt: 'Adicionando…',                    en: 'Adding…' },
   'categories.category.add_action':      { pt: 'Adicionar',                       en: 'Add' },
   'categories.title':                    { pt: 'Categorias',                      en: 'Categories' },
+  'categories.subtitle':                 { pt: 'Defina a hierarquia de classificação de três níveis: Categoria → Tipo → Item. Expanda qualquer nó para gerenciar seus grupos vinculados e atribuições de campos personalizados.', en: 'Define the three-level classification hierarchy: Category → Type → Item. Expand any node to manage its linked groups and custom field assignments.' },
   'categories.list.empty':               { pt: 'Nenhuma categoria ainda. Adicione uma para começar.', en: 'No categories yet. Add one to get started.' },
 
   // ── Custom Fields ────────────────────────────────────────────────
@@ -678,6 +680,7 @@ const translations = {
   'custom_fields.badge.active':          { pt: 'Ativo',                           en: 'Active' },
   'custom_fields.badge.inactive':        { pt: 'Inativo',                         en: 'Inactive' },
   'custom_fields.actions.deactivate':    { pt: 'Desativar',                       en: 'Deactivate' },
+  'custom_fields.actions.reactivate':    { pt: 'Reativar',                        en: 'Reactivate' },
   'custom_fields.list.empty':            { pt: 'Nenhum campo extra definido ainda.', en: 'No custom fields defined yet.' },
 
   // ── Canned Responses ─────────────────────────────────────────────
