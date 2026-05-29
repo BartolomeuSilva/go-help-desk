@@ -44,6 +44,8 @@ func (s *Store) Create(ctx context.Context, t ticket.Ticket) error {
 		TicketType:      nullTicketType(t.TicketType),
 		CreatedAt:       t.CreatedAt,
 		UpdatedAt:       t.UpdatedAt,
+		Source:          t.Source,
+		WhatsappPhone:   database.NullString(t.WhatsappPhone),
 	})
 }
 
@@ -262,14 +264,16 @@ func (s *Store) NextSeq(ctx context.Context) (int64, error) {
 
 func (s *Store) CreateReply(ctx context.Context, r ticket.Reply) error {
 	return s.q.CreateReply(ctx, dbgen.CreateReplyParams{
-		ID:             r.ID,
-		TicketID:       r.TicketID,
-		AuthorID:       database.NullUUID(r.AuthorID),
-		GuestToken:     database.NullString(r.GuestToken),
-		Body:           r.Body,
-		Internal:       r.Internal,
-		NotifyCustomer: r.NotifyCustomer,
-		CreatedAt:      r.CreatedAt,
+		ID:                r.ID,
+		TicketID:          r.TicketID,
+		AuthorID:          database.NullUUID(r.AuthorID),
+		GuestToken:        database.NullString(r.GuestToken),
+		Body:              r.Body,
+		Internal:          r.Internal,
+		NotifyCustomer:    r.NotifyCustomer,
+		CreatedAt:         r.CreatedAt,
+		Source:            r.Source,
+		ExternalMessageID: database.NullString(r.ExternalMessageID),
 	})
 }
 
@@ -281,15 +285,17 @@ func (s *Store) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]ticket.R
 	out := make([]ticket.Reply, len(rows))
 	for i, r := range rows {
 		out[i] = ticket.Reply{
-			ID:             r.ID,
-			TicketID:       r.TicketID,
-			AuthorID:       database.UUIDPtr(r.AuthorID),
-			AuthorName:     database.StringPtr(r.AuthorName),
-			GuestToken:     database.StringPtr(r.GuestToken),
-			Body:           r.Body,
-			Internal:       r.Internal,
-			NotifyCustomer: r.NotifyCustomer,
-			CreatedAt:      r.CreatedAt,
+			ID:                r.ID,
+			TicketID:          r.TicketID,
+			AuthorID:          database.UUIDPtr(r.AuthorID),
+			AuthorName:        database.StringPtr(r.AuthorName),
+			GuestToken:        database.StringPtr(r.GuestToken),
+			Body:              r.Body,
+			Internal:          r.Internal,
+			NotifyCustomer:    r.NotifyCustomer,
+			CreatedAt:         r.CreatedAt,
+			Source:            r.Source,
+			ExternalMessageID: database.StringPtr(r.ExternalMessageID),
 		}
 	}
 	return out, nil
@@ -510,6 +516,8 @@ func fromRow(r dbgen.Ticket) ticket.Ticket {
 		Rating:          database.IntPtr(r.Rating),
 		RatingComment:   database.StringPtr(r.RatingComment),
 		RatedAt:         database.TimePtr(r.RatedAt),
+		Source:          r.Source,
+		WhatsappPhone:   database.StringPtr(r.WhatsappPhone),
 	}
 }
 
@@ -548,12 +556,40 @@ func statusFromRow(r dbgen.Status) ticket.Status {
 		Active:    r.Active,
 	}
 }
-
-var ErrNotFound = errors.New("not found")
-
 func wrapNotFound(err error, kind, id string) error {
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w: %s %s", ErrNotFound, kind, id)
+		return fmt.Errorf("%w: %s %s", ticket.ErrNotFound, kind, id)
 	}
 	return fmt.Errorf("getting %s %s: %w", kind, id, err)
+}
+
+func (s *Store) GetActiveTicketByWhatsApp(ctx context.Context, phone string) (ticket.Ticket, error) {
+	row, err := s.q.GetActiveTicketByWhatsApp(ctx, database.NullString(&phone))
+	if err != nil {
+		return ticket.Ticket{}, wrapNotFound(err, "ticket", "whatsapp:"+phone)
+	}
+	return fromRow(row), nil
+}
+
+func (s *Store) GetReplyByExternalID(ctx context.Context, externalID string) (ticket.Reply, error) {
+	row, err := s.q.GetReplyByExternalID(ctx, database.NullString(&externalID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ticket.Reply{}, fmt.Errorf("%w: reply with external ID %s", ticket.ErrNotFound, externalID)
+		}
+		return ticket.Reply{}, fmt.Errorf("getting reply by external ID %s: %w", externalID, err)
+	}
+
+	return ticket.Reply{
+		ID:                row.ID,
+		TicketID:          row.TicketID,
+		AuthorID:          database.UUIDPtr(row.AuthorID),
+		GuestToken:        database.StringPtr(row.GuestToken),
+		Body:              row.Body,
+		Internal:          row.Internal,
+		NotifyCustomer:    row.NotifyCustomer,
+		CreatedAt:         row.CreatedAt,
+		Source:            row.Source,
+		ExternalMessageID: database.StringPtr(row.ExternalMessageID),
+	}, nil
 }

@@ -20,6 +20,15 @@ const (
 	KeySiteLogoURL            = "site_logo_url"
 	KeySiteLogoDarkURL        = "site_logo_dark_url"
 
+	// WhatsApp settings
+	KeyWhatsAppEnabled      = "whatsapp_enabled"
+	KeyWhatsAppAPIURL       = "whatsapp_api_url"
+	KeyWhatsAppAPIToken     = "whatsapp_api_token"
+	KeyWhatsAppInstanceName = "whatsapp_instance_name"
+	KeyWhatsAppChatbotEnabled = "whatsapp_chatbot_enabled"
+	KeyWhatsAppWelcomeMessage = "whatsapp_welcome_message"
+	KeyWhatsAppMenuConfig     = "whatsapp_menu_config"
+
 	KeyGeminiAPIKey           = "gemini_api_key"
 
 	// Email settings

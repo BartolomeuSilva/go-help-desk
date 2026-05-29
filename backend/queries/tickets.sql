@@ -7,8 +7,8 @@ INSERT INTO tickets (
     category_id, type_id, item_id, priority, status_id,
     assignee_user_id, assignee_group_id, reporter_user_id, guest_email,
     guest_name, guest_phone, ticket_type,
-    created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18);
+    created_at, updated_at, source, whatsapp_phone
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);
 
 -- name: GetTicketByID :one
 SELECT * FROM tickets WHERE id = $1;
@@ -84,8 +84,8 @@ ORDER BY resolved_at ASC
 LIMIT $2;
 
 -- name: CreateReply :exec
-INSERT INTO ticket_replies (id, ticket_id, author_id, guest_token, body, internal, notify_customer, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO ticket_replies (id, ticket_id, author_id, guest_token, body, internal, notify_customer, created_at, source, external_message_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 
 -- name: ListReplies :many
 SELECT r.*, u.display_name AS author_name
@@ -124,4 +124,16 @@ WHERE source_ticket_id = $1 OR target_ticket_id = $1;
 UPDATE tickets
 SET rating = $2, rating_comment = $3, rated_at = $4
 WHERE id = $1;
+
+-- name: GetActiveTicketByWhatsApp :one
+SELECT t.*
+FROM tickets t
+JOIN statuses s ON t.status_id = s.id
+WHERE t.whatsapp_phone = $1
+  AND s.name NOT IN ('Resolved', 'Closed')
+ORDER BY t.created_at DESC
+LIMIT 1;
+
+-- name: GetReplyByExternalID :one
+SELECT * FROM ticket_replies WHERE external_message_id = $1;
 

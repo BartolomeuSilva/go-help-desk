@@ -101,6 +101,8 @@ export interface Ticket {
   rating?: number
   rating_comment?: string
   rated_at?: string
+  source?: string
+  whatsapp_phone?: string
 }
 
 export interface Attachment {

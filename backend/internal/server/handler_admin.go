@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -24,7 +26,9 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/plugin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
+	"github.com/publiciallc/go-help-desk/backend/internal/integration/whatsapp"
 	authmw "github.com/publiciallc/go-help-desk/backend/internal/middleware"
+	"github.com/skip2/go-qrcode"
 )
 
 // ── Users ────────────────────────────────────────────────────────────────��───
@@ -1028,6 +1032,56 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleWhatsAppStatus(w http.ResponseWriter, r *http.Request) {
+	apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
+	if apiURL == "" || apiToken == "" || instanceName == "" {
+		JSON(w, http.StatusOK, map[string]string{"status": "unconfigured"})
+		return
+	}
+
+	client := whatsapp.NewClient(apiURL, apiToken, instanceName)
+	state, err := client.GetConnectionStatus(r.Context())
+	if err != nil {
+		slog.Error("whatsapp status check failed", "error", err)
+		JSON(w, http.StatusOK, map[string]string{"status": "error", "message": err.Error()})
+		return
+	}
+
+	JSON(w, http.StatusOK, map[string]string{"status": state})
+}
+
+func (s *Server) handleWhatsAppQRCode(w http.ResponseWriter, r *http.Request) {
+	apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
+	if apiURL == "" || apiToken == "" || instanceName == "" {
+		Error(w, http.StatusBadRequest, "bad_request", "whatsapp is not configured")
+		return
+	}
+
+	client := whatsapp.NewClient(apiURL, apiToken, instanceName)
+	code, err := client.GetQRCode(r.Context())
+	if err != nil {
+		slog.Error("whatsapp qrcode generation failed", "error", err)
+		Error(w, http.StatusInternalServerError, "api_error", err.Error())
+		return
+	}
+
+	var finalQRCode string
+	if strings.HasPrefix(code, "data:image/") {
+		finalQRCode = code
+	} else {
+		pngBytes, err := qrcode.Encode(code, qrcode.Medium, 256)
+		if err != nil {
+			slog.Error("failed to generate QR Code PNG from raw text", "error", err)
+			Error(w, http.StatusInternalServerError, "qr_error", "failed to generate QR Code image")
+			return
+		}
+		base64Data := base64.StdEncoding.EncodeToString(pngBytes)
+		finalQRCode = "data:image/png;base64," + base64Data
+	}
+
+	JSON(w, http.StatusOK, map[string]string{"qrcode": finalQRCode})
 }
 
 // ── Plugins ──────────────────────────────────────────────────────────────────

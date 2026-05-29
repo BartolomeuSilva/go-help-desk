@@ -703,7 +703,14 @@ export function TicketDetailPage() {
               <span>·</span>
               <span>{t('tickets.detail.opened_at')} {formatDate(ticket.created_at)}</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{ticket.subject}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              {ticket.source === 'whatsapp' && (
+                <svg className="h-6 w-6 text-[#25D366] shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.965C16.788 1.978 14.32 1.95 12.008 1.95c-5.442 0-9.866 4.372-9.87 9.802 0 1.706.467 3.376 1.353 4.851L2.484 21.5l5.003-1.309zM18.66 14.86c-.36-.18-2.14-1.055-2.47-1.176-.33-.12-.57-.18-.81.18-.24.36-.93 1.176-1.14 1.416-.21.24-.42.27-.78.09-3.48-1.745-4.815-3.055-5.69-4.575-.24-.42-.03-.63.15-.84.162-.187.36-.42.54-.63.18-.21.24-.36.36-.6.12-.24.06-.45-.03-.63-.09-.18-.81-1.95-1.11-2.67-.3-.72-.6-1.11-.81-1.11-.21 0-.45-.03-.69-.03-.24 0-.63.09-.96.45-.33.36-1.26 1.23-1.26 3 .0 1.77 1.29 3.48 1.47 3.72.18.24 2.535 3.87 6.14 5.425 2.145.925 3.015 1.085 4.1.925.685-.1 2.14-.875 2.44-1.725.3-.85.3-1.58.21-1.725-.09-.15-.33-.24-.69-.42z"/>
+                </svg>
+              )}
+              <span>{ticket.subject}</span>
+            </h1>
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium"
@@ -991,6 +998,28 @@ export function TicketDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-4">
+            {ticket.source === 'whatsapp' && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white flex items-center gap-1.5">
+                    <svg className="h-4 w-4 text-[#25D366] shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.965C16.788 1.978 14.32 1.95 12.008 1.95c-5.442 0-9.866 4.372-9.87 9.802 0 1.706.467 3.376 1.353 4.851L2.484 21.5l5.003-1.309zM18.66 14.86c-.36-.18-2.14-1.055-2.47-1.176-.33-.12-.57-.18-.81.18-.24.36-.93 1.176-1.14 1.416-.21.24-.42.27-.78.09-3.48-1.745-4.815-3.055-5.69-4.575-.24-.42-.03-.63.15-.84.162-.187.36-.42.54-.63.18-.21.24-.36.36-.6.12-.24.06-.45-.03-.63-.09-.18-.81-1.95-1.11-2.67-.3-.72-.6-1.11-.81-1.11-.21 0-.45-.03-.69-.03-.24 0-.63.09-.96.45-.33.36-1.26 1.23-1.26 3 .0 1.77 1.29 3.48 1.47 3.72.18.24 2.535 3.87 6.14 5.425 2.145.925 3.015 1.085 4.1.925.685-.1 2.14-.875 2.44-1.725.3-.85.3-1.58.21-1.725-.09-.15-.33-.24-.69-.42z"/>
+                    </svg>
+                    {t('tickets.detail.sidebar_whatsapp')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-white/70 dark:text-white/70">{t('tickets.detail.whatsapp_customer')}</span>
+                    <span className="text-right text-xs text-white">{ticket.guest_name || 'WhatsApp User'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/70 dark:text-white/70">{t('tickets.detail.whatsapp_phone')}</span>
+                    <span className="text-right text-xs text-white font-mono">{ticket.whatsapp_phone || ticket.guest_phone || ''}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {isStaffOrAdmin && (
               <Card>
                 <CardHeader className="pb-2">

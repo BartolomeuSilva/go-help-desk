@@ -239,6 +239,8 @@ type Ticket struct {
 	Rating          sql.NullInt32  `json:"rating"`
 	RatingComment   sql.NullString `json:"rating_comment"`
 	RatedAt         sql.NullTime   `json:"rated_at"`
+	Source          string         `json:"source"`
+	WhatsappPhone   sql.NullString `json:"whatsapp_phone"`
 }
 
 type TicketCustomFieldValue struct {
@@ -255,14 +257,16 @@ type TicketLink struct {
 }
 
 type TicketReply struct {
-	ID             uuid.UUID      `json:"id"`
-	TicketID       uuid.UUID      `json:"ticket_id"`
-	AuthorID       uuid.NullUUID  `json:"author_id"`
-	GuestToken     sql.NullString `json:"guest_token"`
-	Body           string         `json:"body"`
-	Internal       bool           `json:"internal"`
-	CreatedAt      time.Time      `json:"created_at"`
-	NotifyCustomer bool           `json:"notify_customer"`
+	ID                uuid.UUID      `json:"id"`
+	TicketID          uuid.UUID      `json:"ticket_id"`
+	AuthorID          uuid.NullUUID  `json:"author_id"`
+	GuestToken        sql.NullString `json:"guest_token"`
+	Body              string         `json:"body"`
+	Internal          bool           `json:"internal"`
+	CreatedAt         time.Time      `json:"created_at"`
+	NotifyCustomer    bool           `json:"notify_customer"`
+	Source            string         `json:"source"`
+	ExternalMessageID sql.NullString `json:"external_message_id"`
 }
 
 type TicketStatusHistory struct {
@@ -309,4 +313,12 @@ type WebhookConfig struct {
 	Secret    string    `json:"secret"`
 	Enabled   bool      `json:"enabled"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type WhatsappSession struct {
+	Phone          string       `json:"phone"`
+	InitialMessage string       `json:"initial_message"`
+	MediaUrl       string       `json:"media_url"`
+	MimeType       string       `json:"mime_type"`
+	CreatedAt      sql.NullTime `json:"created_at"`
 }

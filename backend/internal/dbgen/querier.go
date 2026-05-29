@@ -6,6 +6,7 @@ package dbgen
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 
 	uuid "github.com/google/uuid"
@@ -48,6 +49,7 @@ type Querier interface {
 	CreateType(ctx context.Context, arg CreateTypeParams) error
 	CreateUser(ctx context.Context, arg CreateUserParams) error
 	CreateWebhookConfig(ctx context.Context, arg CreateWebhookConfigParams) error
+	CreateWhatsAppSession(ctx context.Context, arg CreateWhatsAppSessionParams) error
 	DeleteAPIKey(ctx context.Context, id uuid.UUID) error
 	DeleteAttachment(ctx context.Context, id uuid.UUID) error
 	DeleteCannedResponse(ctx context.Context, id uuid.UUID) error
@@ -68,11 +70,13 @@ type Querier interface {
 	DeleteTicketLink(ctx context.Context, arg DeleteTicketLinkParams) error
 	DeleteType(ctx context.Context, id uuid.UUID) error
 	DeleteWebhookConfig(ctx context.Context, id uuid.UUID) error
+	DeleteWhatsAppSession(ctx context.Context, phone string) error
 	DisableUser(ctx context.Context, id uuid.UUID) error
 	EnableUser(ctx context.Context, id uuid.UUID) error
 	// Category-specific policy takes precedence over a global one (category_id IS NULL).
 	FindSLAPolicy(ctx context.Context, arg FindSLAPolicyParams) (SlaPolicy, error)
 	GetAPIKeyByHash(ctx context.Context, hashedToken string) (ApiKey, error)
+	GetActiveTicketByWhatsApp(ctx context.Context, whatsappPhone sql.NullString) (Ticket, error)
 	GetAgentCSATPerformance(ctx context.Context) ([]GetAgentCSATPerformanceRow, error)
 	GetAttachmentByID(ctx context.Context, id uuid.UUID) (Attachment, error)
 	GetCSATDistribution(ctx context.Context, arg GetCSATDistributionParams) ([]GetCSATDistributionRow, error)
@@ -94,6 +98,7 @@ type Querier interface {
 	GetPendingRegistrationByToken(ctx context.Context, token uuid.UUID) (PendingRegistration, error)
 	GetPlugin(ctx context.Context, id string) (Plugin, error)
 	GetRecentCSATComments(ctx context.Context, arg GetRecentCSATCommentsParams) ([]GetRecentCSATCommentsRow, error)
+	GetReplyByExternalID(ctx context.Context, externalMessageID sql.NullString) (TicketReply, error)
 	GetRole(ctx context.Context, name string) (Role, error)
 	GetSLAPolicy(ctx context.Context, id uuid.UUID) (SlaPolicy, error)
 	GetSLARecord(ctx context.Context, ticketID uuid.UUID) (SlaRecord, error)
@@ -109,6 +114,7 @@ type Querier interface {
 	GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserBySAMLSubject(ctx context.Context, samlSubject string) (User, error)
 	GetWebhookConfig(ctx context.Context, id uuid.UUID) (WebhookConfig, error)
+	GetWhatsAppSession(ctx context.Context, phone string) (GetWhatsAppSessionRow, error)
 	IncrementKBArticleViews(ctx context.Context, id uuid.UUID) error
 	ListAPIKeysByUser(ctx context.Context, userID uuid.UUID) ([]ApiKey, error)
 	ListActiveTags(ctx context.Context) ([]Tag, error)

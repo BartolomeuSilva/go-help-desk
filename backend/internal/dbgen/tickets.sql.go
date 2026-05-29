@@ -42,19 +42,21 @@ func (q *Queries) CreateAttachment(ctx context.Context, arg CreateAttachmentPara
 }
 
 const createReply = `-- name: CreateReply :exec
-INSERT INTO ticket_replies (id, ticket_id, author_id, guest_token, body, internal, notify_customer, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO ticket_replies (id, ticket_id, author_id, guest_token, body, internal, notify_customer, created_at, source, external_message_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 
 type CreateReplyParams struct {
-	ID             uuid.UUID      `json:"id"`
-	TicketID       uuid.UUID      `json:"ticket_id"`
-	AuthorID       uuid.NullUUID  `json:"author_id"`
-	GuestToken     sql.NullString `json:"guest_token"`
-	Body           string         `json:"body"`
-	Internal       bool           `json:"internal"`
-	NotifyCustomer bool           `json:"notify_customer"`
-	CreatedAt      time.Time      `json:"created_at"`
+	ID                uuid.UUID      `json:"id"`
+	TicketID          uuid.UUID      `json:"ticket_id"`
+	AuthorID          uuid.NullUUID  `json:"author_id"`
+	GuestToken        sql.NullString `json:"guest_token"`
+	Body              string         `json:"body"`
+	Internal          bool           `json:"internal"`
+	NotifyCustomer    bool           `json:"notify_customer"`
+	CreatedAt         time.Time      `json:"created_at"`
+	Source            string         `json:"source"`
+	ExternalMessageID sql.NullString `json:"external_message_id"`
 }
 
 func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) error {
@@ -67,6 +69,8 @@ func (q *Queries) CreateReply(ctx context.Context, arg CreateReplyParams) error 
 		arg.Internal,
 		arg.NotifyCustomer,
 		arg.CreatedAt,
+		arg.Source,
+		arg.ExternalMessageID,
 	)
 	return err
 }
@@ -77,8 +81,8 @@ INSERT INTO tickets (
     category_id, type_id, item_id, priority, status_id,
     assignee_user_id, assignee_group_id, reporter_user_id, guest_email,
     guest_name, guest_phone, ticket_type,
-    created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+    created_at, updated_at, source, whatsapp_phone
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 `
 
 type CreateTicketParams struct {
@@ -100,6 +104,8 @@ type CreateTicketParams struct {
 	TicketType      sql.NullString `json:"ticket_type"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
+	Source          string         `json:"source"`
+	WhatsappPhone   sql.NullString `json:"whatsapp_phone"`
 }
 
 func (q *Queries) CreateTicket(ctx context.Context, arg CreateTicketParams) error {
@@ -122,6 +128,8 @@ func (q *Queries) CreateTicket(ctx context.Context, arg CreateTicketParams) erro
 		arg.TicketType,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.Source,
+		arg.WhatsappPhone,
 	)
 	return err
 }
@@ -167,6 +175,51 @@ func (q *Queries) DeleteTicketLink(ctx context.Context, arg DeleteTicketLinkPara
 	return err
 }
 
+const getActiveTicketByWhatsApp = `-- name: GetActiveTicketByWhatsApp :one
+SELECT t.id, t.tracking_number, t.subject, t.description, t.category_id, t.type_id, t.item_id, t.priority, t.status_id, t.assignee_user_id, t.assignee_group_id, t.reporter_user_id, t.guest_email, t.resolution_notes, t.resolved_at, t.closed_at, t.created_at, t.updated_at, t.guest_name, t.guest_phone, t.tsv, t.ticket_type, t.rating, t.rating_comment, t.rated_at, t.source, t.whatsapp_phone
+FROM tickets t
+JOIN statuses s ON t.status_id = s.id
+WHERE t.whatsapp_phone = $1
+  AND s.name NOT IN ('Resolved', 'Closed')
+ORDER BY t.created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetActiveTicketByWhatsApp(ctx context.Context, whatsappPhone sql.NullString) (Ticket, error) {
+	row := q.db.QueryRowContext(ctx, getActiveTicketByWhatsApp, whatsappPhone)
+	var i Ticket
+	err := row.Scan(
+		&i.ID,
+		&i.TrackingNumber,
+		&i.Subject,
+		&i.Description,
+		&i.CategoryID,
+		&i.TypeID,
+		&i.ItemID,
+		&i.Priority,
+		&i.StatusID,
+		&i.AssigneeUserID,
+		&i.AssigneeGroupID,
+		&i.ReporterUserID,
+		&i.GuestEmail,
+		&i.ResolutionNotes,
+		&i.ResolvedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestName,
+		&i.GuestPhone,
+		&i.Tsv,
+		&i.TicketType,
+		&i.Rating,
+		&i.RatingComment,
+		&i.RatedAt,
+		&i.Source,
+		&i.WhatsappPhone,
+	)
+	return i, err
+}
+
 const getAttachmentByID = `-- name: GetAttachmentByID :one
 SELECT id, ticket_id, filename, mime_type, size_bytes, storage_path, created_at FROM attachments WHERE id = $1
 `
@@ -186,8 +239,30 @@ func (q *Queries) GetAttachmentByID(ctx context.Context, id uuid.UUID) (Attachme
 	return i, err
 }
 
+const getReplyByExternalID = `-- name: GetReplyByExternalID :one
+SELECT id, ticket_id, author_id, guest_token, body, internal, created_at, notify_customer, source, external_message_id FROM ticket_replies WHERE external_message_id = $1
+`
+
+func (q *Queries) GetReplyByExternalID(ctx context.Context, externalMessageID sql.NullString) (TicketReply, error) {
+	row := q.db.QueryRowContext(ctx, getReplyByExternalID, externalMessageID)
+	var i TicketReply
+	err := row.Scan(
+		&i.ID,
+		&i.TicketID,
+		&i.AuthorID,
+		&i.GuestToken,
+		&i.Body,
+		&i.Internal,
+		&i.CreatedAt,
+		&i.NotifyCustomer,
+		&i.Source,
+		&i.ExternalMessageID,
+	)
+	return i, err
+}
+
 const getTicketByID = `-- name: GetTicketByID :one
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE id = $1
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets WHERE id = $1
 `
 
 func (q *Queries) GetTicketByID(ctx context.Context, id uuid.UUID) (Ticket, error) {
@@ -219,12 +294,14 @@ func (q *Queries) GetTicketByID(ctx context.Context, id uuid.UUID) (Ticket, erro
 		&i.Rating,
 		&i.RatingComment,
 		&i.RatedAt,
+		&i.Source,
+		&i.WhatsappPhone,
 	)
 	return i, err
 }
 
 const getTicketByTrackingNumber = `-- name: GetTicketByTrackingNumber :one
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE tracking_number = $1
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets WHERE tracking_number = $1
 `
 
 func (q *Queries) GetTicketByTrackingNumber(ctx context.Context, trackingNumber string) (Ticket, error) {
@@ -256,12 +333,14 @@ func (q *Queries) GetTicketByTrackingNumber(ctx context.Context, trackingNumber 
 		&i.Rating,
 		&i.RatingComment,
 		&i.RatedAt,
+		&i.Source,
+		&i.WhatsappPhone,
 	)
 	return i, err
 }
 
 const listAllTickets = `-- name: ListAllTickets :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets ORDER BY created_at DESC LIMIT $1 OFFSET $2
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 
 type ListAllTicketsParams struct {
@@ -304,6 +383,8 @@ func (q *Queries) ListAllTickets(ctx context.Context, arg ListAllTicketsParams) 
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -354,7 +435,7 @@ func (q *Queries) ListAttachments(ctx context.Context, ticketID uuid.UUID) ([]At
 }
 
 const listReplies = `-- name: ListReplies :many
-SELECT r.id, r.ticket_id, r.author_id, r.guest_token, r.body, r.internal, r.created_at, r.notify_customer, u.display_name AS author_name
+SELECT r.id, r.ticket_id, r.author_id, r.guest_token, r.body, r.internal, r.created_at, r.notify_customer, r.source, r.external_message_id, u.display_name AS author_name
 FROM ticket_replies r
 LEFT JOIN users u ON r.author_id = u.id
 WHERE r.ticket_id = $1
@@ -362,15 +443,17 @@ ORDER BY r.created_at ASC
 `
 
 type ListRepliesRow struct {
-	ID             uuid.UUID      `json:"id"`
-	TicketID       uuid.UUID      `json:"ticket_id"`
-	AuthorID       uuid.NullUUID  `json:"author_id"`
-	GuestToken     sql.NullString `json:"guest_token"`
-	Body           string         `json:"body"`
-	Internal       bool           `json:"internal"`
-	CreatedAt      time.Time      `json:"created_at"`
-	NotifyCustomer bool           `json:"notify_customer"`
-	AuthorName     sql.NullString `json:"author_name"`
+	ID                uuid.UUID      `json:"id"`
+	TicketID          uuid.UUID      `json:"ticket_id"`
+	AuthorID          uuid.NullUUID  `json:"author_id"`
+	GuestToken        sql.NullString `json:"guest_token"`
+	Body              string         `json:"body"`
+	Internal          bool           `json:"internal"`
+	CreatedAt         time.Time      `json:"created_at"`
+	NotifyCustomer    bool           `json:"notify_customer"`
+	Source            string         `json:"source"`
+	ExternalMessageID sql.NullString `json:"external_message_id"`
+	AuthorName        sql.NullString `json:"author_name"`
 }
 
 func (q *Queries) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]ListRepliesRow, error) {
@@ -391,6 +474,8 @@ func (q *Queries) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]ListRe
 			&i.Internal,
 			&i.CreatedAt,
 			&i.NotifyCustomer,
+			&i.Source,
+			&i.ExternalMessageID,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err
@@ -407,7 +492,7 @@ func (q *Queries) ListReplies(ctx context.Context, ticketID uuid.UUID) ([]ListRe
 }
 
 const listResolvedTicketsBefore = `-- name: ListResolvedTicketsBefore :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets
 WHERE resolved_at IS NOT NULL AND resolved_at < $1 AND closed_at IS NULL
 ORDER BY resolved_at ASC
 LIMIT $2
@@ -453,6 +538,8 @@ func (q *Queries) ListResolvedTicketsBefore(ctx context.Context, arg ListResolve
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -496,7 +583,7 @@ func (q *Queries) ListTicketLinks(ctx context.Context, sourceTicketID uuid.UUID)
 }
 
 const listTicketsByAssigneeGroup = `-- name: ListTicketsByAssigneeGroup :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE assignee_group_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets WHERE assignee_group_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListTicketsByAssigneeGroupParams struct {
@@ -540,6 +627,8 @@ func (q *Queries) ListTicketsByAssigneeGroup(ctx context.Context, arg ListTicket
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -555,7 +644,7 @@ func (q *Queries) ListTicketsByAssigneeGroup(ctx context.Context, arg ListTicket
 }
 
 const listTicketsByAssigneeUser = `-- name: ListTicketsByAssigneeUser :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE assignee_user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets WHERE assignee_user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListTicketsByAssigneeUserParams struct {
@@ -599,6 +688,8 @@ func (q *Queries) ListTicketsByAssigneeUser(ctx context.Context, arg ListTickets
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -614,7 +705,7 @@ func (q *Queries) ListTicketsByAssigneeUser(ctx context.Context, arg ListTickets
 }
 
 const listTicketsByReporter = `-- name: ListTicketsByReporter :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE reporter_user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets WHERE reporter_user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListTicketsByReporterParams struct {
@@ -658,6 +749,8 @@ func (q *Queries) ListTicketsByReporter(ctx context.Context, arg ListTicketsByRe
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -673,7 +766,7 @@ func (q *Queries) ListTicketsByReporter(ctx context.Context, arg ListTicketsByRe
 }
 
 const listTicketsByStatus = `-- name: ListTicketsByStatus :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets WHERE status_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets WHERE status_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type ListTicketsByStatusParams struct {
@@ -717,6 +810,8 @@ func (q *Queries) ListTicketsByStatus(ctx context.Context, arg ListTicketsByStat
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -732,7 +827,7 @@ func (q *Queries) ListTicketsByStatus(ctx context.Context, arg ListTicketsByStat
 }
 
 const listUnassignedTickets = `-- name: ListUnassignedTickets :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets
 WHERE assignee_user_id IS NULL AND assignee_group_id IS NULL
 ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
@@ -777,6 +872,8 @@ func (q *Queries) ListUnassignedTickets(ctx context.Context, arg ListUnassignedT
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -803,7 +900,7 @@ func (q *Queries) NextTicketSeq(ctx context.Context) (int64, error) {
 }
 
 const searchAllTickets = `-- name: SearchAllTickets :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets
 WHERE (tracking_number ILIKE $3 OR tsv @@ websearch_to_tsquery('simple', $3))
 ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
@@ -849,6 +946,8 @@ func (q *Queries) SearchAllTickets(ctx context.Context, arg SearchAllTicketsPara
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -864,7 +963,7 @@ func (q *Queries) SearchAllTickets(ctx context.Context, arg SearchAllTicketsPara
 }
 
 const searchTicketsByAssigneeGroup = `-- name: SearchTicketsByAssigneeGroup :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets
 WHERE assignee_group_id = $1
   AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3
@@ -917,6 +1016,8 @@ func (q *Queries) SearchTicketsByAssigneeGroup(ctx context.Context, arg SearchTi
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -932,7 +1033,7 @@ func (q *Queries) SearchTicketsByAssigneeGroup(ctx context.Context, arg SearchTi
 }
 
 const searchTicketsByAssigneeUser = `-- name: SearchTicketsByAssigneeUser :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets
 WHERE assignee_user_id = $1
   AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3
@@ -985,6 +1086,8 @@ func (q *Queries) SearchTicketsByAssigneeUser(ctx context.Context, arg SearchTic
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -1000,7 +1103,7 @@ func (q *Queries) SearchTicketsByAssigneeUser(ctx context.Context, arg SearchTic
 }
 
 const searchTicketsByReporter = `-- name: SearchTicketsByReporter :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets
 WHERE reporter_user_id = $1
   AND (tracking_number ILIKE $4 OR tsv @@ websearch_to_tsquery('simple', $4))
 ORDER BY created_at DESC LIMIT $2 OFFSET $3
@@ -1053,6 +1156,8 @@ func (q *Queries) SearchTicketsByReporter(ctx context.Context, arg SearchTickets
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}
@@ -1068,7 +1173,7 @@ func (q *Queries) SearchTicketsByReporter(ctx context.Context, arg SearchTickets
 }
 
 const searchUnassignedTickets = `-- name: SearchUnassignedTickets :many
-SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at FROM tickets
+SELECT id, tracking_number, subject, description, category_id, type_id, item_id, priority, status_id, assignee_user_id, assignee_group_id, reporter_user_id, guest_email, resolution_notes, resolved_at, closed_at, created_at, updated_at, guest_name, guest_phone, tsv, ticket_type, rating, rating_comment, rated_at, source, whatsapp_phone FROM tickets
 WHERE assignee_user_id IS NULL AND assignee_group_id IS NULL
   AND (tracking_number ILIKE $3 OR tsv @@ websearch_to_tsquery('simple', $3))
 ORDER BY created_at DESC LIMIT $1 OFFSET $2
@@ -1115,6 +1220,8 @@ func (q *Queries) SearchUnassignedTickets(ctx context.Context, arg SearchUnassig
 			&i.Rating,
 			&i.RatingComment,
 			&i.RatedAt,
+			&i.Source,
+			&i.WhatsappPhone,
 		); err != nil {
 			return nil, err
 		}

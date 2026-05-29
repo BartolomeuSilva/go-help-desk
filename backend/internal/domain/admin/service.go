@@ -267,3 +267,30 @@ func (s *Service) ResendConfig(ctx context.Context) (apiKey, from string) {
 	from, _ = s.GetString(ctx, KeyEmailResendFrom)
 	return
 }
+
+// WhatsAppEnabled returns whether WhatsApp integration is enabled.
+func (s *Service) WhatsAppEnabled(ctx context.Context) bool {
+	v, _ := s.GetBool(ctx, KeyWhatsAppEnabled)
+	return v
+}
+
+// WhatsAppConfig returns the WhatsApp integration settings.
+func (s *Service) WhatsAppConfig(ctx context.Context) (apiURL, apiToken, instanceName string) {
+	apiURL, _ = s.GetString(ctx, KeyWhatsAppAPIURL)
+	apiToken, _ = s.GetString(ctx, KeyWhatsAppAPIToken)
+	instanceName, _ = s.GetString(ctx, KeyWhatsAppInstanceName)
+	return
+}
+
+// WhatsAppChatbotEnabled returns whether WhatsApp Chatbot is enabled.
+func (s *Service) WhatsAppChatbotEnabled(ctx context.Context) bool {
+	v, _ := s.GetBool(ctx, KeyWhatsAppChatbotEnabled)
+	return v
+}
+
+// WhatsAppChatbotConfig returns the welcome message and menu configuration JSON.
+func (s *Service) WhatsAppChatbotConfig(ctx context.Context) (welcomeMessage, menuConfig string) {
+	welcomeMessage, _ = s.GetString(ctx, KeyWhatsAppWelcomeMessage)
+	menuConfig, _ = s.GetString(ctx, KeyWhatsAppMenuConfig)
+	return
+}

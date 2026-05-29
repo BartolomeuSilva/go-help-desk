@@ -546,3 +546,16 @@ export async function deleteITSMDefault(input: {
   await api.delete('/admin/itsm/defaults', { data: input })
 }
 
+// ── WhatsApp ──────────────────────────────────────────────────────────────────
+
+export async function getWhatsAppStatus(): Promise<{ status: string; message?: string }> {
+  const res = await api.get<{ status: string; message?: string }>('/admin/settings/whatsapp/status')
+  return res.data
+}
+
+export async function getWhatsAppQRCode(): Promise<{ qrcode: string }> {
+  const res = await api.get<{ qrcode: string }>('/admin/settings/whatsapp/qrcode')
+  return res.data
+}
+
+

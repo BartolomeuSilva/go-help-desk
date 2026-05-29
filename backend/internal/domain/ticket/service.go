@@ -111,6 +111,8 @@ type CreateInput struct {
 	GuestEmail     *string
 	GuestName      string // required when GuestEmail is set
 	GuestPhone     string // optional
+	Source         string
+	WhatsappPhone  *string
 }
 
 // Create opens a new ticket, fires the created event, and optionally attaches
@@ -129,6 +131,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Ticket, error) {
 	}
 
 	now := time.Now()
+	source := "web"
+	if in.Source != "" {
+		source = in.Source
+	}
+
 	t := Ticket{
 		ID:             uuid.New(),
 		TrackingNumber: GenerateTrackingNumber(now.Year(), seq),
@@ -146,6 +153,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Ticket, error) {
 		TicketType:     in.TicketType,
 		CreatedAt:      now,
 		UpdatedAt:      now,
+		Source:         source,
+		WhatsappPhone:  in.WhatsappPhone,
 	}
 
 	if err := s.store.Create(ctx, t); err != nil {
@@ -241,7 +250,7 @@ func (s *Service) Assign(ctx context.Context, ticketID uuid.UUID, assigneeUserID
 // notifyCustomer controls whether a ticket-update email is sent to the
 // reporter. It is forced false for internal notes. reporterEmail is the
 // recipient address; callers are responsible for looking it up.
-func (s *Service) AddReply(ctx context.Context, ticketID uuid.UUID, body string, internal bool, notifyCustomer bool, reporterEmail string, actor Actor, reopenWindowDays int, reopenTargetStatusID uuid.UUID) (Reply, error) {
+func (s *Service) AddReply(ctx context.Context, ticketID uuid.UUID, body string, internal bool, notifyCustomer bool, reporterEmail string, actor Actor, reopenWindowDays int, reopenTargetStatusID uuid.UUID, source string, externalMessageID *string) (Reply, error) {
 	t, err := s.store.GetByID(ctx, ticketID)
 	if err != nil {
 		return Reply{}, err
@@ -263,14 +272,21 @@ func (s *Service) AddReply(ctx context.Context, ticketID uuid.UUID, body string,
 		reporterEmail = ""
 	}
 
+	replySource := "web"
+	if source != "" {
+		replySource = source
+	}
+
 	reply := Reply{
-		ID:             uuid.New(),
-		TicketID:       ticketID,
-		AuthorID:       actor.UserID,
-		Body:           body,
-		Internal:       internal,
-		NotifyCustomer: notifyCustomer,
-		CreatedAt:      time.Now(),
+		ID:                uuid.New(),
+		TicketID:          ticketID,
+		AuthorID:          actor.UserID,
+		Body:              body,
+		Internal:          internal,
+		NotifyCustomer:    notifyCustomer,
+		CreatedAt:         time.Now(),
+		Source:            replySource,
+		ExternalMessageID: externalMessageID,
 	}
 	if err := s.store.CreateReply(ctx, reply); err != nil {
 		return Reply{}, fmt.Errorf("creating reply: %w", err)
@@ -732,4 +748,29 @@ func (s *Service) ListAttachments(ctx context.Context, ticketID uuid.UUID) ([]At
 // responsible for deleting the file on disk.
 func (s *Service) DeleteAttachment(ctx context.Context, id uuid.UUID) error {
 	return s.store.DeleteAttachment(ctx, id)
+}
+
+// GetReplyByExternalID fetches a reply by its external ID.
+func (s *Service) GetReplyByExternalID(ctx context.Context, extID string) (Reply, error) {
+	return s.store.GetReplyByExternalID(ctx, extID)
+}
+
+// GetActiveTicketByWhatsApp fetches an active ticket for a WhatsApp phone number.
+func (s *Service) GetActiveTicketByWhatsApp(ctx context.Context, phone string) (Ticket, error) {
+	return s.store.GetActiveTicketByWhatsApp(ctx, phone)
+}
+
+// CreateWhatsAppSession registers a new temporary triage session.
+func (s *Service) CreateWhatsAppSession(ctx context.Context, phone string, initialMessage string, mediaURL string, mimeType string) error {
+	return s.store.CreateWhatsAppSession(ctx, phone, initialMessage, mediaURL, mimeType)
+}
+
+// GetWhatsAppSession retrieves a temporary session.
+func (s *Service) GetWhatsAppSession(ctx context.Context, phone string) (WhatsAppSession, error) {
+	return s.store.GetWhatsAppSession(ctx, phone)
+}
+
+// DeleteWhatsAppSession removes a temporary triage session.
+func (s *Service) DeleteWhatsAppSession(ctx context.Context, phone string) error {
+	return s.store.DeleteWhatsAppSession(ctx, phone)
 }

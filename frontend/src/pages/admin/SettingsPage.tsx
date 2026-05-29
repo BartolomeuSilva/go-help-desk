@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getSettings, updateSettings, getSAMLConfig, saveSAMLConfig, getSiteConfig, uploadLogo, deleteLogo, uploadLogoDark, deleteLogoDark, listStatuses, listCategories, listSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy } from '@/api/admin'
+import { getSettings, updateSettings, getSAMLConfig, saveSAMLConfig, getSiteConfig, uploadLogo, deleteLogo, uploadLogoDark, deleteLogoDark, listStatuses, listCategories, listSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy, getWhatsAppStatus, getWhatsAppQRCode } from '@/api/admin'
 import type { SLAPolicy } from '@/api/types'
 import { extractError } from '@/api/client'
 import { Layout } from '@/components/Layout'
@@ -216,7 +216,7 @@ function SAMLSection() {
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 
-type Tab = 'general' | 'branding' | 'auth' | 'email' | 'features'
+type Tab = 'general' | 'branding' | 'auth' | 'email' | 'features' | 'whatsapp'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'general',  label: 'General' },
@@ -224,6 +224,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'auth',     label: 'Authentication' },
   { id: 'email',    label: 'Email Settings' },
   { id: 'features', label: 'Features' },
+  { id: 'whatsapp', label: 'WhatsApp Integration' },
 ]
 
 // ── Tab panels ────────────────────────────────────────────────────────────────
@@ -1124,6 +1125,342 @@ function EmailPanel({
   )
 }
 
+function WhatsAppPanel({
+  str, bool, setStr, setBool,
+  onSave, isPending, error, saved,
+}: {
+  str: (k: string) => string
+  bool: (k: string) => boolean
+  setStr: (k: string, v: string) => void
+  setBool: (k: string, v: boolean) => void
+  onSave: () => void
+  isPending: boolean
+  error: string
+  saved: boolean
+}) {
+  const { t } = useT()
+  const enabled = bool('whatsapp_enabled')
+
+  const [status, setStatus] = useState<string>('loading')
+  const [qrCode, setQrCode] = useState<string>('')
+  const [checking, setChecking] = useState<boolean>(false)
+
+  const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: listCategories })
+  const activeCategories = categories.filter((c) => c.active)
+
+  const menuConfigStr = str('whatsapp_menu_config')
+
+  // Parse do JSON para um array editável
+  const rows: { option: string; categoryId: string }[] = (() => {
+    try {
+      const parsed = menuConfigStr ? JSON.parse(menuConfigStr) : {}
+      return Object.entries(parsed).map(([option, categoryId]) => ({
+        option,
+        categoryId: String(categoryId),
+      }))
+    } catch (e) {
+      return []
+    }
+  })()
+
+  const updateRows = (newRows: { option: string; categoryId: string }[]) => {
+    const obj: Record<string, string> = {}
+    newRows.forEach((r) => {
+      const opt = r.option.trim()
+      if (opt) {
+        obj[opt] = r.categoryId
+      }
+    })
+    setStr('whatsapp_menu_config', JSON.stringify(obj))
+  }
+
+  const handleAddRow = () => {
+    const defaultCatId = activeCategories[0]?.id || ''
+    let nextOpt = 1
+    while (rows.some((r) => r.option === String(nextOpt))) {
+      nextOpt++
+    }
+    const newRows = [...rows, { option: String(nextOpt), categoryId: defaultCatId }]
+    updateRows(newRows)
+  }
+
+  const handleRowChange = (index: number, field: 'option' | 'categoryId', value: string) => {
+    const newRows = [...rows]
+    newRows[index] = { ...newRows[index], [field]: value }
+    updateRows(newRows)
+  }
+
+  const handleRemoveRow = (index: number) => {
+    const newRows = rows.filter((_, i) => i !== index)
+    updateRows(newRows)
+  }
+
+  const checkStatus = async () => {
+    setChecking(true)
+    try {
+      const res = await getWhatsAppStatus()
+      setStatus(res.status)
+      if (res.status === 'open') {
+        setQrCode('')
+      }
+    } catch (err) {
+      console.error(err)
+      setStatus('error')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const loadQRCode = async () => {
+    try {
+      setStatus('connecting')
+      const res = await getWhatsAppQRCode()
+      setQrCode(res.qrcode)
+    } catch (err) {
+      console.error(err)
+      setStatus('error')
+    }
+  }
+
+  useEffect(() => {
+    checkStatus()
+  }, [])
+
+  // Poll connection status every 6 seconds if QR Code is active
+  useEffect(() => {
+    if (!qrCode) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await getWhatsAppStatus()
+        if (res.status === 'open') {
+          setStatus('open')
+          setQrCode('')
+          clearInterval(interval)
+        }
+      } catch (err) {
+        console.error(err)
+      }
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [qrCode])
+
+  return (
+    <div className="space-y-6">
+      <Section title={t('settings.whatsapp.title')}>
+        <SettingRow
+          label={t('settings.whatsapp.enabled')}
+          description={t('settings.whatsapp.subtitle')}
+        >
+          <Toggle checked={enabled} onChange={(v) => setBool('whatsapp_enabled', v)} />
+        </SettingRow>
+      </Section>
+
+      {enabled && (
+        <>
+          <Section title="API Configuration">
+            <SettingRow label={t('settings.whatsapp.api_url')}>
+              <Input
+                className="w-56 font-mono text-sm"
+                placeholder={t('settings.whatsapp.api_url_placeholder')}
+                value={str('whatsapp_api_url')}
+                onChange={(e) => setStr('whatsapp_api_url', e.target.value)}
+              />
+            </SettingRow>
+
+            <SettingRow label={t('settings.whatsapp.api_token')}>
+              <Input
+                type="password"
+                className="w-56 font-mono text-sm"
+                placeholder={t('settings.whatsapp.api_token_placeholder')}
+                value={str('whatsapp_api_token')}
+                onChange={(e) => setStr('whatsapp_api_token', e.target.value)}
+              />
+            </SettingRow>
+
+            <SettingRow label={t('settings.whatsapp.instance_name')}>
+              <Input
+                className="w-56 font-mono text-sm"
+                placeholder={t('settings.whatsapp.instance_name_placeholder')}
+                value={str('whatsapp_instance_name')}
+                onChange={(e) => setStr('whatsapp_instance_name', e.target.value)}
+              />
+            </SettingRow>
+          </Section>
+
+          <Section title="Device Pairing">
+            <SettingRow
+              label={t('settings.whatsapp.connection_status')}
+              description={
+                status === 'open'
+                  ? t('settings.whatsapp.pair_success')
+                  : status === 'connecting'
+                  ? t('settings.whatsapp.connecting')
+                  : t('settings.whatsapp.disconnected')
+              }
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className={cn(
+                    'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                    status === 'open'
+                      ? 'bg-green-100 text-green-800'
+                      : status === 'connecting'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-red-100 text-red-800'
+                  )}
+                >
+                  {status === 'open'
+                    ? t('settings.whatsapp.connected')
+                    : status === 'connecting'
+                    ? t('settings.whatsapp.connecting')
+                    : t('settings.whatsapp.disconnected')}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={checking}
+                  onClick={checkStatus}
+                >
+                  {t('settings.whatsapp.test_connection')}
+                </Button>
+              </div>
+            </SettingRow>
+
+            {status !== 'open' && (
+              <div className="flex flex-col items-center justify-center p-6 bg-gray-50 dark:bg-[#222] border-t dark:border-[#2a2a2a]">
+                {qrCode ? (
+                  <div className="flex flex-col items-center space-y-4 max-w-xs text-center">
+                    <p className="text-xs text-gray-500">
+                      {t('settings.whatsapp.pair_instruction')}
+                    </p>
+                    <div className="p-4 bg-white rounded-lg shadow-inner">
+                      <img src={qrCode} alt="WhatsApp QR Code" className="w-48 h-48" />
+                    </div>
+                  </div>
+                ) : (
+                  <Button onClick={loadQRCode}>
+                    {t('settings.whatsapp.get_qr')}
+                  </Button>
+                )}
+              </div>
+            )}
+          </Section>
+
+          <Section title={t('settings.whatsapp.chatbot_title')}>
+            <SettingRow
+              label={t('settings.whatsapp.chatbot_enabled')}
+              description={t('settings.whatsapp.chatbot_subtitle')}
+            >
+              <Toggle
+                checked={bool('whatsapp_chatbot_enabled')}
+                onChange={(v) => setBool('whatsapp_chatbot_enabled', v)}
+              />
+            </SettingRow>
+
+            {bool('whatsapp_chatbot_enabled') && (
+              <>
+                <div className="border-t px-5 py-4 space-y-2">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {t('settings.whatsapp.welcome_message')}
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="w-full rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2.5 text-sm"
+                    placeholder={t('settings.whatsapp.welcome_placeholder')}
+                    value={str('whatsapp_welcome_message')}
+                    onChange={(e) => setStr('whatsapp_welcome_message', e.target.value)}
+                  />
+                </div>
+
+                <div className="border-t px-5 py-4 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {t('settings.whatsapp.menu_mapping')}
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t('settings.whatsapp.menu_mapping_desc')}
+                    </p>
+                  </div>
+
+                  {rows.length > 0 ? (
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-gray-200 dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950">
+                          <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400">
+                            <th className="px-4 py-2.5 w-1/4">{t('settings.whatsapp.option_num')}</th>
+                            <th className="px-4 py-2.5 w-1/2">{t('settings.whatsapp.option_category')}</th>
+                            <th className="px-4 py-2.5 w-1/4"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-neutral-800">
+                          {rows.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-neutral-900/50">
+                              <td className="px-4 py-2">
+                                <Input
+                                  className="h-8 text-sm max-w-[80px] font-medium"
+                                  value={row.option}
+                                  onChange={(e) => handleRowChange(idx, 'option', e.target.value)}
+                                  placeholder="ex: 1"
+                                />
+                              </td>
+                              <td className="px-4 py-2">
+                                <Select
+                                  className="h-8 text-sm w-full"
+                                  value={row.categoryId}
+                                  onChange={(e) => handleRowChange(idx, 'categoryId', e.target.value)}
+                                >
+                                  <option value="">{t('settings.select')}</option>
+                                  {activeCategories.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>
+                                      {cat.name}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                  onClick={() => handleRemoveRow(idx)}
+                                >
+                                  {t('settings.whatsapp.remove_option')}
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center p-6 border border-dashed rounded-lg border-gray-200 dark:border-neutral-800 text-gray-500 dark:text-gray-400 text-sm">
+                      Nenhuma opção configurada. O chatbot não funcionará sem opções.
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddRow}
+                    >
+                      {t('settings.whatsapp.add_option')}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </Section>
+        </>
+      )}
+
+      <SaveBar onSave={onSave} isPending={isPending} error={error} saved={saved} />
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function SettingsPage() {
@@ -1224,6 +1561,7 @@ export function SettingsPage() {
           {activeTab === 'auth'     && <AuthPanel     {...panelProps} />}
           {activeTab === 'email'    && <EmailPanel    {...panelProps} />}
           {activeTab === 'features' && <FeaturesPanel {...panelProps} />}
+          {activeTab === 'whatsapp' && <WhatsAppPanel {...panelProps} />}
         </div>
       </div>
     </Layout>

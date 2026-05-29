@@ -132,6 +132,8 @@ type Ticket struct {
 	Rating          *int           `json:"rating,omitempty"`
 	RatingComment   *string        `json:"rating_comment,omitempty"`
 	RatedAt         *time.Time     `json:"rated_at,omitempty"`
+	Source          string         `json:"source"`
+	WhatsappPhone   *string        `json:"whatsapp_phone,omitempty"`
 }
 
 // Reply is a message on a ticket thread, from either a staff member or the
@@ -139,15 +141,17 @@ type Ticket struct {
 // NotifyCustomer controls whether a ticket-update email is sent to the reporter;
 // it is always false for internal notes.
 type Reply struct {
-	ID             uuid.UUID  `json:"id"`
-	TicketID       uuid.UUID  `json:"ticket_id"`
-	AuthorID       *uuid.UUID `json:"author_id,omitempty"`
-	AuthorName     *string    `json:"author_name,omitempty"`
-	GuestToken     *string    `json:"-"`
-	Body           string     `json:"body"`
-	Internal       bool       `json:"internal"`
-	NotifyCustomer bool       `json:"notify_customer"`
-	CreatedAt      time.Time  `json:"created_at"`
+	ID                uuid.UUID  `json:"id"`
+	TicketID          uuid.UUID  `json:"ticket_id"`
+	AuthorID          *uuid.UUID `json:"author_id,omitempty"`
+	AuthorName        *string    `json:"author_name,omitempty"`
+	GuestToken        *string    `json:"-"`
+	Body              string     `json:"body"`
+	Internal          bool       `json:"internal"`
+	NotifyCustomer    bool       `json:"notify_customer"`
+	CreatedAt         time.Time  `json:"created_at"`
+	Source            string     `json:"source"`
+	ExternalMessageID *string    `json:"external_message_id,omitempty"`
 }
 
 // Attachment stores file metadata. Bytes live on disk at StoragePath.

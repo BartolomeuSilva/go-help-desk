@@ -196,6 +196,8 @@ func (s *Server) adminRouter() *chi.Mux {
 		r.Delete("/logo", s.handleDeleteLogo)
 		r.Post("/logo-dark", s.handleUploadLogoDark)
 		r.Delete("/logo-dark", s.handleDeleteLogoDark)
+		r.Get("/whatsapp/status", s.handleWhatsAppStatus)
+		r.Get("/whatsapp/qrcode", s.handleWhatsAppQRCode)
 	})
 
 	r.Route("/reports", func(r chi.Router) {

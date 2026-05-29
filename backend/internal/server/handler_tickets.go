@@ -609,7 +609,7 @@ func (s *Server) handleAddReply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	actor := ticket.Actor{UserID: &a.UserID, Role: a.Role}
-	reply, err := s.tickets.AddReply(r.Context(), id, body.Body, body.Internal, notifyCustomer, reporterEmail, actor, reopenDays, reopenStatusID)
+	reply, err := s.tickets.AddReply(r.Context(), id, body.Body, body.Internal, notifyCustomer, reporterEmail, actor, reopenDays, reopenStatusID, "web", nil)
 	if err != nil {
 		handleError(w, err)
 		return

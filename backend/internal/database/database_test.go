@@ -294,7 +294,7 @@ func TestTicketStore_NotFound(t *testing.T) {
 
 	ts := ticketstore.New(q)
 	_, err := ts.GetByID(context.Background(), uuid.New())
-	require.ErrorIs(t, err, ticketstore.ErrNotFound)
+	require.ErrorIs(t, err, ticket.ErrNotFound)
 }
 
 // TestTicketStore_ScopedListsAndCounts covers the admin-scope list helpers

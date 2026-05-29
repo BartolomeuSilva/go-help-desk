@@ -13,6 +13,7 @@ type Store interface {
 	Create(ctx context.Context, t Ticket) error
 	GetByID(ctx context.Context, id uuid.UUID) (Ticket, error)
 	GetByTrackingNumber(ctx context.Context, tn TrackingNumber) (Ticket, error)
+	GetActiveTicketByWhatsApp(ctx context.Context, phone string) (Ticket, error)
 	Update(ctx context.Context, t Ticket) error
 	UpdateCTI(ctx context.Context, id, categoryID uuid.UUID, typeID, itemID *uuid.UUID) error
 	UpdateRating(ctx context.Context, id uuid.UUID, rating int, comment *string, ratedAt time.Time) error
@@ -39,6 +40,7 @@ type Store interface {
 	// Replies
 	CreateReply(ctx context.Context, r Reply) error
 	ListReplies(ctx context.Context, ticketID uuid.UUID) ([]Reply, error)
+	GetReplyByExternalID(ctx context.Context, externalID string) (Reply, error)
 
 	// Attachments
 	CreateAttachment(ctx context.Context, a Attachment) error
@@ -54,6 +56,19 @@ type Store interface {
 	// Status history
 	CreateStatusHistoryEntry(ctx context.Context, e StatusHistoryEntry) error
 	ListStatusHistory(ctx context.Context, ticketID uuid.UUID) ([]StatusHistoryEntry, error)
+
+	// WhatsApp Sessions
+	CreateWhatsAppSession(ctx context.Context, phone string, initialMessage string, mediaURL string, mimeType string) error
+	GetWhatsAppSession(ctx context.Context, phone string) (WhatsAppSession, error)
+	DeleteWhatsAppSession(ctx context.Context, phone string) error
+}
+
+// WhatsAppSession represents a temporary triage session.
+type WhatsAppSession struct {
+	Phone          string
+	InitialMessage string
+	MediaURL       string
+	MimeType       string
 }
 
 // StatusStore manages ticket statuses. Method names use a "Status" suffix to

@@ -96,7 +96,7 @@ func (d *EmailDispatcher) Dispatch(ctx context.Context, event notification.Event
 	}
 
 	templateName, subject, to, data, ok := d.eventToEmail(event)
-	if !ok || to == "" {
+	if !ok || to == "" || strings.HasSuffix(to, "@whatsapp.invalid") {
 		return nil
 	}
 
