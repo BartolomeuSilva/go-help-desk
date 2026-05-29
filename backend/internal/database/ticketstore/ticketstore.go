@@ -571,6 +571,22 @@ func (s *Store) GetActiveTicketByWhatsApp(ctx context.Context, phone string) (ti
 	return fromRow(row), nil
 }
 
+func (s *Store) GetUnratedTicketByWhatsApp(ctx context.Context, phone string) (ticket.Ticket, error) {
+	row, err := s.q.GetUnratedTicketByWhatsApp(ctx, database.NullString(&phone))
+	if err != nil {
+		return ticket.Ticket{}, wrapNotFound(err, "ticket", "whatsapp-unrated:"+phone)
+	}
+	return fromRow(row), nil
+}
+
+func (s *Store) GetLatestTicketByWhatsApp(ctx context.Context, phone string) (ticket.Ticket, error) {
+	row, err := s.q.GetLatestTicketByWhatsApp(ctx, database.NullString(&phone))
+	if err != nil {
+		return ticket.Ticket{}, wrapNotFound(err, "ticket", "whatsapp-latest:"+phone)
+	}
+	return fromRow(row), nil
+}
+
 func (s *Store) GetReplyByExternalID(ctx context.Context, externalID string) (ticket.Reply, error) {
 	row, err := s.q.GetReplyByExternalID(ctx, database.NullString(&externalID))
 	if err != nil {

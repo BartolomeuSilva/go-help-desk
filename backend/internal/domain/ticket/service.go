@@ -463,8 +463,8 @@ func (s *Service) Reopen(ctx context.Context, ticketID uuid.UUID, targetStatusID
 	if err != nil {
 		return Ticket{}, err
 	}
-	if t.StatusID != s.sys.closedID {
-		return Ticket{}, fmt.Errorf("ticket is not closed")
+	if t.StatusID != s.sys.closedID && t.StatusID != s.sys.resolvedID {
+		return Ticket{}, fmt.Errorf("ticket must be resolved or closed to be reopened")
 	}
 	before := ticketMap(t)
 	oldStatusID := t.StatusID
@@ -759,6 +759,16 @@ func (s *Service) GetReplyByExternalID(ctx context.Context, extID string) (Reply
 // GetActiveTicketByWhatsApp fetches an active ticket for a WhatsApp phone number.
 func (s *Service) GetActiveTicketByWhatsApp(ctx context.Context, phone string) (Ticket, error) {
 	return s.store.GetActiveTicketByWhatsApp(ctx, phone)
+}
+
+// GetUnratedTicketByWhatsApp fetches a resolved/closed unrated ticket for a WhatsApp phone number.
+func (s *Service) GetUnratedTicketByWhatsApp(ctx context.Context, phone string) (Ticket, error) {
+	return s.store.GetUnratedTicketByWhatsApp(ctx, phone)
+}
+
+// GetLatestTicketByWhatsApp fetches the most recent ticket for a WhatsApp phone number, regardless of status.
+func (s *Service) GetLatestTicketByWhatsApp(ctx context.Context, phone string) (Ticket, error) {
+	return s.store.GetLatestTicketByWhatsApp(ctx, phone)
 }
 
 // CreateWhatsAppSession registers a new temporary triage session.

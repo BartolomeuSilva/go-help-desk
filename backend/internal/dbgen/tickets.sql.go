@@ -239,6 +239,49 @@ func (q *Queries) GetAttachmentByID(ctx context.Context, id uuid.UUID) (Attachme
 	return i, err
 }
 
+const getLatestTicketByWhatsApp = `-- name: GetLatestTicketByWhatsApp :one
+SELECT t.id, t.tracking_number, t.subject, t.description, t.category_id, t.type_id, t.item_id, t.priority, t.status_id, t.assignee_user_id, t.assignee_group_id, t.reporter_user_id, t.guest_email, t.resolution_notes, t.resolved_at, t.closed_at, t.created_at, t.updated_at, t.guest_name, t.guest_phone, t.tsv, t.ticket_type, t.rating, t.rating_comment, t.rated_at, t.source, t.whatsapp_phone
+FROM tickets t
+WHERE t.whatsapp_phone = $1
+ORDER BY t.created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestTicketByWhatsApp(ctx context.Context, whatsappPhone sql.NullString) (Ticket, error) {
+	row := q.db.QueryRowContext(ctx, getLatestTicketByWhatsApp, whatsappPhone)
+	var i Ticket
+	err := row.Scan(
+		&i.ID,
+		&i.TrackingNumber,
+		&i.Subject,
+		&i.Description,
+		&i.CategoryID,
+		&i.TypeID,
+		&i.ItemID,
+		&i.Priority,
+		&i.StatusID,
+		&i.AssigneeUserID,
+		&i.AssigneeGroupID,
+		&i.ReporterUserID,
+		&i.GuestEmail,
+		&i.ResolutionNotes,
+		&i.ResolvedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestName,
+		&i.GuestPhone,
+		&i.Tsv,
+		&i.TicketType,
+		&i.Rating,
+		&i.RatingComment,
+		&i.RatedAt,
+		&i.Source,
+		&i.WhatsappPhone,
+	)
+	return i, err
+}
+
 const getReplyByExternalID = `-- name: GetReplyByExternalID :one
 SELECT id, ticket_id, author_id, guest_token, body, internal, created_at, notify_customer, source, external_message_id FROM ticket_replies WHERE external_message_id = $1
 `
@@ -306,6 +349,52 @@ SELECT id, tracking_number, subject, description, category_id, type_id, item_id,
 
 func (q *Queries) GetTicketByTrackingNumber(ctx context.Context, trackingNumber string) (Ticket, error) {
 	row := q.db.QueryRowContext(ctx, getTicketByTrackingNumber, trackingNumber)
+	var i Ticket
+	err := row.Scan(
+		&i.ID,
+		&i.TrackingNumber,
+		&i.Subject,
+		&i.Description,
+		&i.CategoryID,
+		&i.TypeID,
+		&i.ItemID,
+		&i.Priority,
+		&i.StatusID,
+		&i.AssigneeUserID,
+		&i.AssigneeGroupID,
+		&i.ReporterUserID,
+		&i.GuestEmail,
+		&i.ResolutionNotes,
+		&i.ResolvedAt,
+		&i.ClosedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.GuestName,
+		&i.GuestPhone,
+		&i.Tsv,
+		&i.TicketType,
+		&i.Rating,
+		&i.RatingComment,
+		&i.RatedAt,
+		&i.Source,
+		&i.WhatsappPhone,
+	)
+	return i, err
+}
+
+const getUnratedTicketByWhatsApp = `-- name: GetUnratedTicketByWhatsApp :one
+SELECT t.id, t.tracking_number, t.subject, t.description, t.category_id, t.type_id, t.item_id, t.priority, t.status_id, t.assignee_user_id, t.assignee_group_id, t.reporter_user_id, t.guest_email, t.resolution_notes, t.resolved_at, t.closed_at, t.created_at, t.updated_at, t.guest_name, t.guest_phone, t.tsv, t.ticket_type, t.rating, t.rating_comment, t.rated_at, t.source, t.whatsapp_phone
+FROM tickets t
+JOIN statuses s ON t.status_id = s.id
+WHERE t.whatsapp_phone = $1
+  AND s.name IN ('Resolved', 'Closed')
+  AND t.rating IS NULL
+ORDER BY t.created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetUnratedTicketByWhatsApp(ctx context.Context, whatsappPhone sql.NullString) (Ticket, error) {
+	row := q.db.QueryRowContext(ctx, getUnratedTicketByWhatsApp, whatsappPhone)
 	var i Ticket
 	err := row.Scan(
 		&i.ID,

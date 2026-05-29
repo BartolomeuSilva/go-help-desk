@@ -134,6 +134,23 @@ WHERE t.whatsapp_phone = $1
 ORDER BY t.created_at DESC
 LIMIT 1;
 
+-- name: GetUnratedTicketByWhatsApp :one
+SELECT t.*
+FROM tickets t
+JOIN statuses s ON t.status_id = s.id
+WHERE t.whatsapp_phone = $1
+  AND s.name IN ('Resolved', 'Closed')
+  AND t.rating IS NULL
+ORDER BY t.created_at DESC
+LIMIT 1;
+
+-- name: GetLatestTicketByWhatsApp :one
+SELECT t.*
+FROM tickets t
+WHERE t.whatsapp_phone = $1
+ORDER BY t.created_at DESC
+LIMIT 1;
+
 -- name: GetReplyByExternalID :one
 SELECT * FROM ticket_replies WHERE external_message_id = $1;
 

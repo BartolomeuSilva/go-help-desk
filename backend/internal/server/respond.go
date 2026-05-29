@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/publiciallc/go-help-desk/backend/internal/database/userstore"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
@@ -44,6 +45,17 @@ func handleError(w http.ResponseWriter, err error) {
 		Error(w, http.StatusNotFound, "not_found", err.Error())
 		return
 	}
+	
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "must be resolved or closed") ||
+		strings.Contains(errMsg, "already been rated") ||
+		strings.Contains(errMsg, "rating must be between") ||
+		strings.Contains(errMsg, "only the ticket reporter") ||
+		strings.Contains(errMsg, "only the guest reporter") {
+		Error(w, http.StatusBadRequest, "bad_request", errMsg)
+		return
+	}
+	
 	slog.Error("internal error", "error", err)
 	Error(w, http.StatusInternalServerError, "internal_error", "an internal error occurred")
 }

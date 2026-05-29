@@ -78,6 +78,8 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	slog.Info("whatsapp webhook received", "event", payload.Event, "fromMe", payload.Data.Key.FromMe, "remoteJid", payload.Data.Key.RemoteJid)
+
 	// Check if this is messages.upsert event
 	if payload.Event != "messages.upsert" {
 		JSON(w, http.StatusOK, map[string]string{"status": "ignored_event"})
@@ -158,20 +160,95 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 		pushName = "WhatsApp User"
 	}
 
-	// Check if we have an active ticket
-	activeTicket, err := s.tickets.GetActiveTicketByWhatsApp(r.Context(), phone)
-	hasActive := err == nil
+	// Check if we have an active ticket or a recent ticket
+	latestTicket, err := s.tickets.GetLatestTicketByWhatsApp(r.Context(), phone)
+	hasTicket := err == nil
 	if err != nil && !errors.Is(err, ticket.ErrNotFound) && !errors.Is(err, sql.ErrNoRows) {
-		slog.Error("failed to query active ticket by whatsapp", "phone", phone, "error", err)
-		Error(w, http.StatusInternalServerError, "db_error", "failed to check active ticket")
+		slog.Error("failed to query latest ticket by whatsapp", "phone", phone, "error", err)
+		Error(w, http.StatusInternalServerError, "db_error", "failed to check latest ticket")
 		return
 	}
 
+	var statusName string
+	if hasTicket {
+		statuses, err := s.tickets.ListStatuses(r.Context())
+		if err == nil {
+			for _, st := range statuses {
+				if st.ID == latestTicket.StatusID {
+					statusName = st.Name
+					break
+				}
+			}
+		} else {
+			slog.Error("failed to list statuses", "error", err)
+			Error(w, http.StatusInternalServerError, "db_error", "failed to list statuses")
+			return
+		}
+	}
+
+	hasActive := false
+	if hasTicket {
+		slog.Info("whatsapp webhook: found ticket", "ticket_id", latestTicket.ID, "statusName", statusName, "fromMe", payload.Data.Key.FromMe)
+		if statusName != ticket.StatusNameResolved && statusName != ticket.StatusNameClosed {
+			hasActive = true
+		} else if statusName == ticket.StatusNameResolved {
+			// Check if reopen window has expired
+			reopenDays := s.adminSvc.ReopenWindowDays(r.Context())
+			windowExpired := true
+			if latestTicket.ResolvedAt != nil {
+				deadline := latestTicket.ResolvedAt.AddDate(0, 0, reopenDays)
+				windowExpired = time.Now().After(deadline)
+			}
+			slog.Info("whatsapp webhook: resolved ticket reopen check", "ticket_id", latestTicket.ID, "reopenDays", reopenDays, "windowExpired", windowExpired, "resolvedAt", latestTicket.ResolvedAt)
+			
+			if !windowExpired {
+				if !payload.Data.Key.FromMe {
+					// Client message. Check if it's a rating response.
+					choice := strings.TrimSpace(bodyText)
+					isRatingChoice := choice == "1" || choice == "2" || choice == "3" || choice == "4" || choice == "5"
+					
+					isWaitingForRating := false
+					if isRatingChoice && latestTicket.Rating == nil {
+						// Verify that the last reply was indeed the rating request
+						replies, err := s.tickets.ListReplies(r.Context(), latestTicket.ID)
+						if err == nil && len(replies) > 0 {
+							lastReply := replies[len(replies)-1]
+							if strings.Contains(lastReply.Body, "1. Excelente") {
+								isWaitingForRating = true
+							}
+						}
+					}
+					
+					if isWaitingForRating {
+						slog.Info("whatsapp webhook: treating as rating response", "ticket_id", latestTicket.ID, "choice", choice)
+						// Treating as not active so we fall into the rating flow
+						hasActive = false
+					} else {
+						slog.Info("whatsapp webhook: treating as reopen trigger", "ticket_id", latestTicket.ID, "bodyText", bodyText)
+						// Normal message, treating as active to reopen it
+						hasActive = true
+					}
+				} else {
+					// Message from the company. Do not treat as active for reopen.
+					hasActive = false
+				}
+			} else {
+				// Window expired
+				hasActive = false
+			}
+		} else {
+			// Status is Closed
+			hasActive = false
+		}
+	}
+	slog.Info("whatsapp webhook: hasActive resolved", "hasActive", hasActive, "hasTicket", hasTicket, "phone", phone)
+
 	// 48 hours session check
-	if hasActive && time.Since(activeTicket.UpdatedAt) >= 48*time.Hour {
-		// Session expired, mark active ticket as resolved or closed? No, we just ignore it and create a new ticket.
+	if hasActive && time.Since(latestTicket.UpdatedAt) >= 48*time.Hour {
 		hasActive = false
 	}
+
+	activeTicket := latestTicket
 
 	if payload.Data.Key.FromMe {
 		// Message sent from the company's WhatsApp phone directly
@@ -278,6 +355,89 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 		} else {
 			// No active ticket or ticket is older than 48 hours.
+			choice := strings.TrimSpace(bodyText)
+			isRatingChoice := choice == "1" || choice == "2" || choice == "3" || choice == "4" || choice == "5"
+
+			if isRatingChoice && hasTicket && (statusName == ticket.StatusNameResolved || statusName == ticket.StatusNameClosed) && latestTicket.Rating == nil {
+				// We found a recently resolved or closed ticket for this number that is not yet rated!
+				// Let's verify that a rating request was actually sent (to prevent randomly typing "1" from rating a random ticket).
+				// We check if the last reply on the ticket contains the rating options: "1. Excelente".
+				replies, err := s.tickets.ListReplies(r.Context(), latestTicket.ID)
+				if err == nil && len(replies) > 0 {
+					lastReply := replies[len(replies)-1]
+					if strings.Contains(lastReply.Body, "1. Excelente") {
+						var ratingVal int
+						switch choice {
+						case "1":
+							ratingVal = 5
+						case "2":
+							ratingVal = 4
+						case "3":
+							ratingVal = 3
+						case "4":
+							ratingVal = 2
+						case "5":
+							ratingVal = 1
+						}
+
+						// Rate the ticket
+						comment := "Avaliado via WhatsApp"
+						actor := ticket.Actor{UserID: nil, Role: user.RoleUser}
+						_, err = s.tickets.Rate(r.Context(), latestTicket.ID, ticket.RateInput{
+							Rating:  ratingVal,
+							Comment: &comment,
+						}, actor)
+						if err == nil {
+							// Send thank you message
+							thanksMsg := "Obrigado por sua avaliação. Ela é importante para que nós possamos melhorar cada vez mais o atendimento."
+							apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
+							if apiURL != "" && apiToken != "" && instanceName != "" {
+								wsClient := whatsapp.NewClient(apiURL, apiToken, instanceName)
+								_ = wsClient.SendText(r.Context(), phone, thanksMsg)
+							}
+
+							// Record client's rating response and system thank you message as replies in the DB
+							actorUser := ticket.Actor{UserID: nil, Role: user.RoleUser}
+							_, _ = s.tickets.AddReply(
+								r.Context(),
+								latestTicket.ID,
+								bodyText,
+								false, // internal
+								false, // notifyCustomer
+								"",    // reporterEmail
+								actorUser,
+								0,          // reopenWindowDays (do not reopen when rating)
+								uuid.Nil,   // reopenTargetStatusID
+								"whatsapp",
+								nil,        // externalMsgID
+								false,      // sendAgentName
+							)
+
+							_, _ = s.tickets.AddReply(
+								r.Context(),
+								latestTicket.ID,
+								thanksMsg,
+								false, // internal
+								false, // notifyCustomer
+								"",    // reporterEmail
+								ticket.SystemActor,
+								0,          // reopenWindowDays
+								uuid.Nil,   // reopenTargetStatusID
+								"whatsapp",
+								nil,        // externalMsgID
+								false,      // sendAgentName
+							)
+
+							s.sseBroker.Broadcast(latestTicket.ID, "refresh", "")
+							JSON(w, http.StatusOK, map[string]string{"status": "rated"})
+							return
+						} else {
+							slog.Error("failed to rate ticket from whatsapp webhook", "ticket_id", latestTicket.ID, "error", err)
+						}
+					}
+				}
+			}
+
 			chatbotEnabled := s.adminSvc.WhatsAppChatbotEnabled(r.Context())
 			welcomeMessage, menuConfigJSON := s.adminSvc.WhatsAppChatbotConfig(r.Context())
 

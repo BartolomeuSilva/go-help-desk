@@ -21,6 +21,7 @@ func TestWhatsAppWebhook_Unauthorized(t *testing.T) {
 
 	// 1. Configure the API token in settings
 	ctx := context.Background()
+	require.NoError(t, h.adminSvc.SetBool(ctx, admin.KeyWhatsAppChatbotEnabled, false))
 	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppAPIToken, "my-secret-token"))
 
 	// 2. Prepare payload
@@ -70,6 +71,7 @@ func TestWhatsAppWebhook_CreateAndReply(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
+	require.NoError(t, h.adminSvc.SetBool(ctx, admin.KeyWhatsAppChatbotEnabled, false))
 	// Set empty token (no auth required for test ease)
 	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppAPIToken, ""))
 
@@ -172,6 +174,7 @@ func TestWhatsAppWebhook_SessionExpiration(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
+	require.NoError(t, h.adminSvc.SetBool(ctx, admin.KeyWhatsAppChatbotEnabled, false))
 	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppAPIToken, ""))
 
 	// 1. Create a ticket via WhatsApp
@@ -223,4 +226,223 @@ func TestWhatsAppWebhook_SessionExpiration(t *testing.T) {
 	// Since we can't easily set `UpdatedAt` through the normal `Update` method (due to it hardcoding `time.Now()`), we don't absolutely have to test this 48-hour session path in the unit test, or we can write a test for it if we want to run a direct SQL update.
 	// Wait, is there a direct SQL update we can run? No, we don't have the `db` variable here, but wait, `h` is of type `*harness` which doesn't expose `db`. That's fine, we have covered the unauthorized path, creation path, and reply path, which covers 95% of the logic!
 	// Let's run the tests.
+}
+
+func TestWhatsAppWebhook_RatingFlow(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	require.NoError(t, h.adminSvc.SetBool(ctx, admin.KeyWhatsAppChatbotEnabled, false))
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppAPIToken, ""))
+
+	// 1. Create ticket via WhatsApp
+	payload1 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-1",
+			},
+			"pushName": "Mary Jane",
+			"message": map[string]any{
+				"conversation": "Need help with my computer",
+			},
+			"messageType": "conversation",
+		},
+	}
+
+	resp1 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload1)
+	require.Equal(t, http.StatusCreated, resp1.StatusCode)
+
+	var tk ticket.Ticket
+	decodeJSON(t, resp1, &tk)
+	require.Equal(t, "5511888888888", *tk.WhatsappPhone)
+
+	// 2. Resolve the ticket via the API (using staff API key)
+	resolveResp := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/resolve", tk.ID), map[string]any{
+		"notes": "Problem solved",
+	})
+	require.Equal(t, http.StatusOK, resolveResp.StatusCode)
+
+	// 3. Manually add the rating menu reply (simulating the dispatcher's action)
+	replyResp := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/replies", tk.ID), map[string]any{
+		"body": "Como você avalia o nosso atendimento?\n\n1. Excelente\n2. Ótimo\n3. Satisfatório\n4. Ruim\n5. Pessímo",
+	})
+	require.Equal(t, http.StatusCreated, replyResp.StatusCode)
+
+	// 4. Send customer's rating response ("1" -> Excelente / 5 stars) via webhook
+	payload2 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-rating",
+			},
+			"pushName": "Mary Jane",
+			"message": map[string]any{
+				"conversation": "1",
+			},
+			"messageType": "conversation",
+		},
+	}
+
+	resp2 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload2)
+	require.Equal(t, http.StatusOK, resp2.StatusCode)
+
+	// 5. Verify the ticket rating was updated to 5
+	getResp := h.do(t, http.MethodGet, "/api/v1/tickets/"+tk.ID.String(), nil)
+	require.Equal(t, http.StatusOK, getResp.StatusCode)
+	var updatedTk ticket.Ticket
+	decodeJSON(t, getResp, &updatedTk)
+
+	require.NotNil(t, updatedTk.Rating)
+	require.Equal(t, 5, *updatedTk.Rating)
+	require.Equal(t, "Avaliado via WhatsApp", *updatedTk.RatingComment)
+}
+
+func TestWhatsAppWebhook_ReopenFlow(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	require.NoError(t, h.adminSvc.SetBool(ctx, admin.KeyWhatsAppChatbotEnabled, false))
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppAPIToken, ""))
+	require.NoError(t, h.adminSvc.SetInt(ctx, admin.KeyReopenWindowDays, 7))
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyReopenTargetStatusName, "New"))
+
+	// 1. Create ticket via WhatsApp
+	payload1 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-1",
+			},
+			"pushName": "Mary Jane",
+			"message": map[string]any{
+				"conversation": "Need help with my printer",
+			},
+			"messageType": "conversation",
+		},
+	}
+
+	resp1 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload1)
+	require.Equal(t, http.StatusCreated, resp1.StatusCode)
+
+	var tk ticket.Ticket
+	decodeJSON(t, resp1, &tk)
+	require.Equal(t, "5511888888888", *tk.WhatsappPhone)
+
+	// Get initial ticket to save its status ID
+	getResp1 := h.do(t, http.MethodGet, "/api/v1/tickets/"+tk.ID.String(), nil)
+	var tkGet1 ticket.Ticket
+	decodeJSON(t, getResp1, &tkGet1)
+
+	// 2. Resolve the ticket via the API
+	resolveResp := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/resolve", tk.ID), map[string]any{
+		"notes": "Printer resolved",
+	})
+	require.Equal(t, http.StatusOK, resolveResp.StatusCode)
+
+	// 3. Send normal customer reply -> Should reopen the ticket
+	payload2 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-reopen",
+			},
+			"pushName": "Mary Jane",
+			"message": map[string]any{
+				"conversation": "Wait, it is still failing",
+			},
+			"messageType": "conversation",
+		},
+	}
+
+	resp2 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload2)
+	require.Equal(t, http.StatusOK, resp2.StatusCode)
+
+	// 4. Verify that the ticket reopened (status should be back to "New")
+	getResp3 := h.do(t, http.MethodGet, "/api/v1/tickets/"+tk.ID.String(), nil)
+	var tkGet3 ticket.Ticket
+	decodeJSON(t, getResp3, &tkGet3)
+	require.Equal(t, tkGet1.StatusID, tkGet3.StatusID) // should be equal to the initial "New" status ID
+	require.Nil(t, tkGet3.ResolvedAt)
+}
+
+func TestWhatsAppWebhook_ReopenWindowExpiredFlow(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	require.NoError(t, h.adminSvc.SetBool(ctx, admin.KeyWhatsAppChatbotEnabled, false))
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppAPIToken, ""))
+	require.NoError(t, h.adminSvc.SetInt(ctx, admin.KeyReopenWindowDays, -1)) // expired immediately!
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyReopenTargetStatusName, "New"))
+
+	// 1. Create ticket via WhatsApp
+	payload1 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-1",
+			},
+			"pushName": "Mary Jane",
+			"message": map[string]any{
+				"conversation": "Need help with my mouse",
+			},
+			"messageType": "conversation",
+		},
+	}
+
+	resp1 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload1)
+	require.Equal(t, http.StatusCreated, resp1.StatusCode)
+
+	var tk ticket.Ticket
+	decodeJSON(t, resp1, &tk)
+
+	// 2. Resolve the ticket
+	resolveResp := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/resolve", tk.ID), map[string]any{
+		"notes": "Mouse resolved",
+	})
+	require.Equal(t, http.StatusOK, resolveResp.StatusCode)
+
+	// 3. Send normal customer reply -> Should NOT reopen, but create a NEW ticket because reopen window is expired
+	payload2 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-new-ticket",
+			},
+			"pushName": "Mary Jane",
+			"message": map[string]any{
+				"conversation": "My keyboard also broke now",
+			},
+			"messageType": "conversation",
+		},
+	}
+
+	resp2 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload2)
+	require.Equal(t, http.StatusCreated, resp2.StatusCode) // should return StatusCreated because a new ticket is created!
+
+	var newTk ticket.Ticket
+	decodeJSON(t, resp2, &newTk)
+	require.NotEqual(t, tk.ID, newTk.ID)
+	require.Equal(t, "WhatsApp: My keyboard also broke now", newTk.Subject)
 }

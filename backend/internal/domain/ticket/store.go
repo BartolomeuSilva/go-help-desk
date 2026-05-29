@@ -14,6 +14,8 @@ type Store interface {
 	GetByID(ctx context.Context, id uuid.UUID) (Ticket, error)
 	GetByTrackingNumber(ctx context.Context, tn TrackingNumber) (Ticket, error)
 	GetActiveTicketByWhatsApp(ctx context.Context, phone string) (Ticket, error)
+	GetUnratedTicketByWhatsApp(ctx context.Context, phone string) (Ticket, error)
+	GetLatestTicketByWhatsApp(ctx context.Context, phone string) (Ticket, error)
 	Update(ctx context.Context, t Ticket) error
 	UpdateCTI(ctx context.Context, id, categoryID uuid.UUID, typeID, itemID *uuid.UUID) error
 	UpdateRating(ctx context.Context, id uuid.UUID, rating int, comment *string, ratedAt time.Time) error

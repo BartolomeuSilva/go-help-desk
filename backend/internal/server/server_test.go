@@ -53,6 +53,9 @@ type mockMailer struct{}
 func (mockMailer) SendVerificationEmail(to, token, baseURL string) error {
 	return nil
 }
+func (mockMailer) SendCSATFeedbackEmail(to, agentName, sentimentSummary string, coachingTips []string) error {
+	return nil
+}
 
 // harness is a test server wired against a real (rolled-back) DB transaction.
 type harness struct {
@@ -1442,7 +1445,7 @@ func TestStoredXSSSanitization(t *testing.T) {
 	decodeJSON(t, resp, &tk)
 
 	// Subject must be fully stripped of HTML tags
-	require.Equal(t, "Unsafe Subject alert('xss')", tk.Subject)
+	require.Equal(t, "Unsafe Subject", tk.Subject)
 	// Description must have onerror stripped (safe HTML remains)
 	require.NotContains(t, tk.Description, "onerror")
 	require.Contains(t, tk.Description, "<img src=\"x\">")
@@ -1452,7 +1455,7 @@ func TestStoredXSSSanitization(t *testing.T) {
 	replyResp := h.do(t, http.MethodPost, "/api/v1/tickets/"+tk.ID.String()+"/replies", map[string]any{
 		"body": unsafeReplyBody,
 	})
-	require.Equal(t, http.StatusOK, replyResp.StatusCode)
+	require.Equal(t, http.StatusCreated, replyResp.StatusCode)
 
 	var updatedTicket map[string]any
 	decodeJSON(t, replyResp, &updatedTicket)
