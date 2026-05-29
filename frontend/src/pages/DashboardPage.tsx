@@ -11,7 +11,7 @@ import { PlusIcon } from 'lucide-react'
 
 export function DashboardPage() {
   const { user } = useAuthStore()
-  const { t } = useT()
+  const { t, tStatus } = useT()
   const { data: statuses, isLoading } = useQuery({
     queryKey: ['statuses'],
     queryFn: listStatuses,
@@ -42,7 +42,7 @@ export function DashboardPage() {
             {statuses?.filter((s) => s.active).map((s) => (
               <Card key={s.id} className="border-l-4" style={{ borderLeftColor: s.color }}>
                 <CardHeader className="pb-1">
-                  <CardTitle className="text-sm font-medium text-gray-500">{s.name}</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-500">{tStatus(s.name)}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-3xl font-bold text-gray-900">{s.ticket_count}</p>

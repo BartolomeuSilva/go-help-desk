@@ -195,3 +195,40 @@ func (s *Server) handleServeAvatar(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=86400") // cache por 1 dia
 	http.ServeFile(w, r, diskPath)
 }
+
+// PATCH /api/v1/me
+func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
+	a := authmw.GetActor(r)
+	if a == nil {
+		Error(w, http.StatusUnauthorized, "unauthorized", "login required")
+		return
+	}
+
+	var body struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := DecodeJSON(r, &body); err != nil {
+		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
+		return
+	}
+
+	displayName := strings.TrimSpace(body.DisplayName)
+	if displayName == "" {
+		Error(w, http.StatusBadRequest, "bad_request", "display_name is required")
+		return
+	}
+
+	u, err := s.users.GetByID(r.Context(), a.UserID)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	u.DisplayName = displayName
+	if err := s.users.Update(r.Context(), u); err != nil {
+		handleError(w, err)
+		return
+	}
+
+	JSON(w, http.StatusOK, u)
+}

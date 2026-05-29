@@ -13,5 +13,14 @@ export function useT() {
     return translate(key, lang)
   }
 
-  return { t, lang }
+  function tStatus(name: string): string {
+    const lower = name.toLowerCase().trim()
+    const key = `status.${lower.replace(' ', '_')}`
+    if (key === 'status.new' || key === 'status.open' || key === 'status.in_progress' || key === 'status.pending' || key === 'status.resolved' || key === 'status.closed') {
+      return translate(key as TranslationKey, lang)
+    }
+    return name
+  }
+
+  return { t, lang, tStatus }
 }

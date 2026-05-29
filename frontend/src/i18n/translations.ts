@@ -62,6 +62,14 @@ const translations = {
   'dashboard.new_ticket':     { pt: 'Novo Ticket',        en: 'New Ticket' },
   'dashboard.view_all':       { pt: 'Ver todos os tickets', en: 'View all tickets' },
 
+  // ── Statuses ───────────────────────────────────────────────────
+  'status.new':               { pt: 'Novo',              en: 'New' },
+  'status.open':              { pt: 'Aberto',            en: 'Open' },
+  'status.in_progress':       { pt: 'Em Progresso',      en: 'In Progress' },
+  'status.pending':           { pt: 'Pendente',          en: 'Pending' },
+  'status.resolved':          { pt: 'Resolvido',         en: 'Resolved' },
+  'status.closed':            { pt: 'Fechado',           en: 'Closed' },
+
   // ── Guest Ticket Form ──────────────────────────────────────────
   'guest.title':               { pt: 'Enviar uma solicitação',          en: 'Submit a request' },
   'guest.subtitle':            { pt: 'Preencha o formulário abaixo e entraremos em contato em breve.', en: 'Fill out the form below and we will get back to you shortly.' },
@@ -954,6 +962,9 @@ const translations = {
   'plugins.delete.confirm_action':        { pt: 'Desinstalar',                          en: 'Uninstall' },
   // ── Profile Page ─────────────────────────────────────────────
   'profile.title':                  { pt: 'Meu Perfil',                           en: 'My Profile' },
+  'profile.display_name':           { pt: 'Nome de Exibição',                     en: 'Display Name' },
+  'profile.update_profile':         { pt: 'Atualizar Nome',                      en: 'Update Name' },
+  'profile.update_success':         { pt: 'Nome de exibição atualizado com sucesso!', en: 'Display name updated successfully!' },
   'profile.change_password':        { pt: 'Alterar Senha',                        en: 'Change Password' },
   'profile.new_password':           { pt: 'Nova Senha',                           en: 'New Password' },
   'profile.confirm_password':       { pt: 'Confirmar Nova Senha',                 en: 'Confirm New Password' },

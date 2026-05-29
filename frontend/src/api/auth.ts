@@ -72,3 +72,8 @@ export async function uploadAvatar(file: File): Promise<{ avatar_url: string }> 
   })
   return res.data
 }
+
+export async function updateProfile(displayName: string): Promise<User> {
+  const res = await api.patch<User>('/me', { display_name: displayName })
+  return res.data
+}

@@ -121,7 +121,7 @@ export function CSATReportPage() {
     <Layout>
       <div className="space-y-8">
         {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{t('csat.title')}</h1>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -129,12 +129,12 @@ export function CSATReportPage() {
             </p>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 self-start">
+          <div className="flex flex-wrap items-end justify-end gap-3 sm:gap-4 border-b border-gray-100 dark:border-[#2a2a2a] pb-4">
             {/* Seletor de Filtro de Atendente */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('csat.filter_agent')}</span>
+            <div className="flex flex-col gap-1 w-[calc(50%-0.5rem)] sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+              <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('csat.filter_agent')}</span>
               <Select
-                className="w-48 text-sm"
+                className="w-full sm:w-48 text-sm"
                 value={selectedAgentId}
                 onChange={(e) => {
                   setSelectedAgentId(e.target.value)
@@ -152,10 +152,10 @@ export function CSATReportPage() {
             </div>
 
             {/* Seletor de Filtro de Cliente */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('csat.filter_customer')}</span>
+            <div className="flex flex-col gap-1 w-[calc(50%-0.5rem)] sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+              <span className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('csat.filter_customer')}</span>
               <Select
-                className="w-48 text-sm"
+                className="w-full sm:w-48 text-sm"
                 value={selectedClientId}
                 onChange={(e) => {
                   setSelectedClientId(e.target.value)
@@ -176,7 +176,7 @@ export function CSATReportPage() {
               onClick={handleRefresh}
               variant="outline"
               disabled={isRefetching}
-              className="flex items-center gap-2 border-gray-200 dark:border-[#2a2a2a] hover:bg-gray-100 dark:hover:bg-[#1a1a1a]"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 border-gray-200 dark:border-[#2a2a2a] hover:bg-gray-100 dark:hover:bg-[#1a1a1a] cursor-pointer text-sm py-2 h-10"
             >
               <RefreshCw className={cn('h-4 w-4 text-gray-500', isRefetching && 'animate-spin')} />
               {isRefetching ? t('csat.updating') : t('csat.update_data')}

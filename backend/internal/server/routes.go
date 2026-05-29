@@ -304,6 +304,7 @@ func (s *Server) meRouter() *chi.Mux {
 	r.Group(func(r chi.Router) {
 		r.Use(authmw.RequireMFA)
 		r.Get("/", s.handleGetMe)
+		r.Patch("/", s.handleUpdateMe)
 		r.Patch("/password", s.handleChangePassword)
 		r.Post("/avatar", s.handleUploadAvatar)
 	})

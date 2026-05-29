@@ -20,10 +20,9 @@ function priorityVariant(p: string) {
 }
 
 export function TicketListPage() {
-  const { t } = useT()
+  const { t, tStatus } = useT()
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const isStaffOrAdmin = user?.role === 'staff' || user?.role === 'admin'
   const isAdmin = user?.role === 'admin'
 
   const [query, setQuery] = useState('')
@@ -150,25 +149,6 @@ export function TicketListPage() {
             />
             {t('tickets.list.include_closed')}
           </label>
-          {isStaffOrAdmin && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={async () => {
-                const q = query.trim()
-                if (!q) return
-                try {
-                  const { getTicket } = await import('@/api/tickets')
-                  const t = await getTicket(q)
-                  navigate({ to: '/tickets/$id', params: { id: t.id } })
-                } catch {
-                  // not a valid tracking number / UUID — fall through to search results
-                }
-              }}
-            >
-              {t('tickets.list.jump')}
-            </Button>
-          )}
         </div>
 
         {/* Results */}
@@ -223,7 +203,7 @@ export function TicketListPage() {
                               style={{ borderColor: status.color, color: status.color }}
                             >
                               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: status.color }} />
-                              {status.name}
+                              {tStatus(status.name)}
                             </span>
                           ) : '—'}
                         </td>
@@ -293,7 +273,7 @@ export function TicketListPage() {
                           style={{ borderColor: status.color, color: status.color }}
                         >
                           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: status.color }} />
-                          {status.name}
+                          {tStatus(status.name)}
                         </span>
                       ) : (
                         <span className="text-gray-400 dark:text-gray-500">—</span>

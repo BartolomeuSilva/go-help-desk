@@ -2,13 +2,21 @@ import { useState, useRef } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { useT } from '@/i18n'
 import { Layout } from '@/components/Layout'
-import { updatePassword, uploadAvatar } from '@/api/auth'
+import { updatePassword, uploadAvatar, updateProfile } from '@/api/auth'
 import { extractError } from '@/api/client'
-import { Camera, Lock, CheckCircle, ShieldAlert, Loader2 } from 'lucide-react'
+import { Camera, Lock, CheckCircle, ShieldAlert, Loader2, User as UserIcon } from 'lucide-react'
 
 export function ProfilePage() {
   const { user, setUser } = useAuthStore()
   const { t } = useT()
+
+  if (!user) return null
+
+  // Profile data state
+  const [displayName, setDisplayName] = useState(user.display_name)
+  const [profileError, setProfileError] = useState('')
+  const [profileSuccess, setProfileSuccess] = useState('')
+  const [profileLoading, setProfileLoading] = useState(false)
 
   // Password state
   const [newPassword, setNewPassword] = useState('')
@@ -23,7 +31,6 @@ export function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
 
-  if (!user) return null
 
   // Generate Initials
   const getInitials = (name: string) => {
@@ -60,6 +67,29 @@ export function ProfilePage() {
       setPassError(extractError(err))
     } finally {
       setPassLoading(false)
+    }
+  }
+
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setProfileError('')
+    setProfileSuccess('')
+
+    const name = displayName.trim()
+    if (!name) {
+      setProfileError('Display Name is required')
+      return
+    }
+
+    setProfileLoading(true)
+    try {
+      const updatedUser = await updateProfile(name)
+      setUser(updatedUser)
+      setProfileSuccess(t('profile.update_success'))
+    } catch (err) {
+      setProfileError(extractError(err))
+    } finally {
+      setProfileLoading(false)
     }
   }
 
@@ -126,7 +156,7 @@ export function ProfilePage() {
         </div>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
           
           {/* Avatar Settings */}
           <div className="md:col-span-1 border border-gray-200 dark:border-neutral-800 bg-white/40 dark:bg-[#121212]/40 backdrop-blur-md p-6 rounded-xl flex flex-col items-center">
@@ -192,66 +222,143 @@ export function ProfilePage() {
             )}
           </div>
 
-          {/* Password Settings */}
-          <div className="md:col-span-2 border border-gray-200 dark:border-neutral-800 bg-white/40 dark:bg-[#121212]/40 backdrop-blur-md p-6 rounded-xl">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-neutral-400 mb-6 flex items-center gap-2">
-              <Lock className="h-4 w-4 text-blue-600 dark:text-yellow-400" />
-              {t('profile.change_password')}
-            </h2>
+          {/* Right Area: Profile Info & Password Settings */}
+          <div className="md:col-span-2 space-y-6">
 
-            <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
-                  {t('profile.new_password')}
-                </label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full px-3 py-2 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 rounded-lg outline-none text-sm text-gray-800 dark:text-white transition-all duration-200"
-                />
-              </div>
+            {/* Profile Info Settings */}
+            <div className="border border-gray-200 dark:border-neutral-800 bg-white/40 dark:bg-[#121212]/40 backdrop-blur-md p-6 rounded-xl">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-neutral-400 mb-6 flex items-center gap-2">
+                <UserIcon className="h-4 w-4 text-blue-600 dark:text-yellow-400" />
+                {t('user_detail.profile')}
+              </h2>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
-                  {t('profile.confirm_password')}
-                </label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="w-full px-3 py-2 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 rounded-lg outline-none text-sm text-gray-800 dark:text-white transition-all duration-200"
-                />
-              </div>
-
-              {/* Feedbacks */}
-              {passError && (
-                <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">
-                  <ShieldAlert className="h-4 w-4 shrink-0" />
-                  <span>{passError}</span>
+              <form onSubmit={handleProfileSubmit} className="space-y-4 max-w-md">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                    {t('profile.display_name')}
+                  </label>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 rounded-lg outline-none text-sm text-gray-800 dark:text-white transition-all duration-200"
+                  />
                 </div>
-              )}
 
-              {passSuccess && (
-                <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-2 rounded-lg border border-green-500/20">
-                  <CheckCircle className="h-4 w-4 shrink-0" />
-                  <span>{passSuccess}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-400 dark:text-neutral-500 uppercase tracking-wider">
+                      E-mail
+                    </label>
+                    <input
+                      type="text"
+                      value={user.email}
+                      disabled
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-neutral-950/40 border border-gray-100 dark:border-neutral-900 rounded-lg text-sm text-gray-400 dark:text-neutral-500 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-400 dark:text-neutral-500 uppercase tracking-wider">
+                      Role
+                    </label>
+                    <input
+                      type="text"
+                      value={user.role}
+                      disabled
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-neutral-950/40 border border-gray-100 dark:border-neutral-900 rounded-lg text-sm text-gray-400 dark:text-neutral-500 cursor-not-allowed capitalize font-semibold"
+                    />
+                  </div>
                 </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={passLoading || !newPassword || !confirmPassword}
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-yellow-400 dark:hover:bg-yellow-500 text-white dark:text-neutral-950 font-semibold py-2 px-4 rounded-lg shadow-lg hover:shadow-blue-500/10 dark:hover:shadow-yellow-500/15 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {passLoading && <Loader2 className="h-4 w-4 animate-spin text-current" />}
-                <span>{t('profile.update_password')}</span>
-              </button>
-            </form>
+                {/* Feedbacks */}
+                {profileError && (
+                  <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                    <span>{profileError}</span>
+                  </div>
+                )}
+
+                {profileSuccess && (
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-2 rounded-lg border border-green-500/20">
+                    <CheckCircle className="h-4 w-4 shrink-0" />
+                    <span>{profileSuccess}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={profileLoading || displayName.trim() === user.display_name}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-yellow-400 dark:hover:bg-yellow-500 text-white dark:text-neutral-950 font-semibold py-2 px-4 rounded-lg shadow-lg hover:shadow-blue-500/10 dark:hover:shadow-yellow-500/15 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {profileLoading && <Loader2 className="h-4 w-4 animate-spin text-current" />}
+                  <span>{t('profile.update_profile')}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Password Settings */}
+            <div className="border border-gray-200 dark:border-neutral-800 bg-white/40 dark:bg-[#121212]/40 backdrop-blur-md p-6 rounded-xl">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-neutral-400 mb-6 flex items-center gap-2">
+                <Lock className="h-4 w-4 text-blue-600 dark:text-yellow-400" />
+                {t('profile.change_password')}
+              </h2>
+
+              <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                    {t('profile.new_password')}
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full px-3 py-2 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 rounded-lg outline-none text-sm text-gray-800 dark:text-white transition-all duration-200"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 dark:text-neutral-400 uppercase tracking-wider">
+                    {t('profile.confirm_password')}
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    className="w-full px-3 py-2 bg-white dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 rounded-lg outline-none text-sm text-gray-800 dark:text-white transition-all duration-200"
+                  />
+                </div>
+
+                {/* Feedbacks */}
+                {passError && (
+                  <div className="flex items-center gap-2 text-xs text-red-600 dark:text-red-400 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">
+                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                    <span>{passError}</span>
+                  </div>
+                )}
+
+                {passSuccess && (
+                  <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-2 rounded-lg border border-green-500/20">
+                    <CheckCircle className="h-4 w-4 shrink-0" />
+                    <span>{passSuccess}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={passLoading || !newPassword || !confirmPassword}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-yellow-400 dark:hover:bg-yellow-500 text-white dark:text-neutral-950 font-semibold py-2 px-4 rounded-lg shadow-lg hover:shadow-blue-500/10 dark:hover:shadow-yellow-500/15 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {passLoading && <Loader2 className="h-4 w-4 animate-spin text-current" />}
+                  <span>{t('profile.update_password')}</span>
+                </button>
+              </form>
+            </div>
           </div>
 
         </div>

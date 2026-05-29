@@ -419,7 +419,7 @@ function RatingForm({ ticketId }: { ticketId: string }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function TicketDetailPage() {
-  const { t } = useT()
+  const { t, tStatus } = useT()
   const { id } = useParams({ from: '/tickets/$id' })
   const { user } = useAuthStore()
   const qc = useQueryClient()
@@ -735,7 +735,7 @@ export function TicketDetailPage() {
                 style={{ borderColor: statusColor, color: statusColor }}
               >
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: statusColor }} />
-                {statusName}
+                {tStatus(statusName)}
               </span>
               <Badge variant={priorityVariant(ticket.priority) as never}>
                 {t(`ticket.priority_${ticket.priority}` as any)}
@@ -881,11 +881,11 @@ export function TicketDetailPage() {
                       {h.from_status_id ? (
                         <>
                           <span style={{ color: h.from_status_color || undefined }} className="font-medium">
-                            {h.from_status_name}
+                            {tStatus(h.from_status_name)}
                           </span>
                           {' → '}
                           <span style={{ color: h.to_status_color || undefined }} className="font-medium">
-                            {h.to_status_name}
+                            {tStatus(h.to_status_name)}
                           </span>
                           {h.changed_by_name ? ` · ${h.changed_by_name}` : ` · ${t('tickets.detail.timeline_system')}`}
                         </>
@@ -893,7 +893,7 @@ export function TicketDetailPage() {
                         <>
                           {t('tickets.detail.timeline_opened_as')}{' '}
                           <span style={{ color: h.to_status_color || undefined }} className="font-medium">
-                            {h.to_status_name}
+                            {tStatus(h.to_status_name)}
                           </span>
                         </>
                       )}
