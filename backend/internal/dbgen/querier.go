@@ -200,6 +200,7 @@ type Querier interface {
 	UpsertCustomFieldValue(ctx context.Context, arg UpsertCustomFieldValueParams) error
 	UpsertDefaultTicketType(ctx context.Context, arg UpsertDefaultTicketTypeParams) error
 	UpsertPendingRegistration(ctx context.Context, arg UpsertPendingRegistrationParams) (PendingRegistration, error)
+	UserUpdateAvatar(ctx context.Context, arg UserUpdateAvatarParams) error
 }
 
 var _ Querier = (*Queries)(nil)

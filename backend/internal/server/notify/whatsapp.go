@@ -9,6 +9,7 @@ import (
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/notification"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
 	"github.com/publiciallc/go-help-desk/backend/internal/integration/whatsapp"
 )
 
@@ -18,14 +19,16 @@ type WhatsAppDispatcher struct {
 	cfg      *config.Config
 	adminSvc *admin.Service
 	store    ticket.Store
+	userSvc  *user.Service
 }
 
 // NewWhatsAppDispatcher returns a new WhatsAppDispatcher.
-func NewWhatsAppDispatcher(cfg *config.Config, adminSvc *admin.Service, store ticket.Store) *WhatsAppDispatcher {
+func NewWhatsAppDispatcher(cfg *config.Config, adminSvc *admin.Service, store ticket.Store, userSvc *user.Service) *WhatsAppDispatcher {
 	return &WhatsAppDispatcher{
 		cfg:      cfg,
 		adminSvc: adminSvc,
 		store:    store,
+		userSvc:  userSvc,
 	}
 }
 
@@ -58,6 +61,14 @@ func (d *WhatsAppDispatcher) Dispatch(ctx context.Context, event notification.Ev
 	replyBody, _ := event.Payload["ReplyBody"].(string)
 	if replyBody == "" {
 		return nil
+	}
+
+	// Prepend the agent's name if SendAgentName is true
+	sendAgentName, _ := event.Payload["SendAgentName"].(bool)
+	if sendAgentName && event.ActorID != nil && d.userSvc != nil {
+		if u, err := d.userSvc.GetByID(ctx, *event.ActorID); err == nil && u.DisplayName != "" {
+			replyBody = "*" + u.DisplayName + ":*\n" + replyBody
+		}
 	}
 
 	apiURL, apiToken, instanceName := d.adminSvc.WhatsAppConfig(ctx)

@@ -204,6 +204,7 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			uuid.Nil,   // reopenTargetStatusID
 			"whatsapp", // source
 			&externalMsgID,
+			false,      // sendAgentName
 		)
 		if err != nil {
 			slog.Error("failed to save outbound whatsapp message as reply", "ticket_id", activeTicket.ID, "error", err)
@@ -258,6 +259,7 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 				reopenStatusID,
 				"whatsapp",
 				&externalMsgID,
+				false, // sendAgentName
 			)
 			if err != nil {
 				slog.Error("failed to save customer whatsapp message as reply", "ticket_id", activeTicket.ID, "error", err)

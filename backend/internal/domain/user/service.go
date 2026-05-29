@@ -237,6 +237,11 @@ func (s *Service) Update(ctx context.Context, u User) error {
 	return s.store.Update(ctx, u)
 }
 
+// UpdateAvatar updates only the user's avatar URL.
+func (s *Service) UpdateAvatar(ctx context.Context, id uuid.UUID, url string) error {
+	return s.store.UpdateAvatar(ctx, id, url)
+}
+
 // GetByIDAdmin returns the user with the given ID, including disabled users.
 func (s *Service) GetByIDAdmin(ctx context.Context, id uuid.UUID) (User, error) {
 	return s.store.GetByIDAdmin(ctx, id)

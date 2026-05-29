@@ -1,0 +1,79 @@
+version: "3.8"
+services:
+  evolution_api:
+    image: evoapicloud/evolution-api:latest
+    user: root # Recomendado para evitar problemas de permissão nos volumes da Hostinger
+    networks:
+      - network_public
+    volumes:
+      - evolution_data:/evolution/instances
+    environment:
+      - DEL_INSTANCE=false
+      - SERVER_URL=https://evo.ichatbot.com.br
+      - AUTHENTICATION_API_KEY=global_ZWT0UKUC7OMQ8W84IAH00OJ004AD73S
+
+      # Database
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://postgres:BCczry11Kj9QvStP@postgres:5432/evolution?schema=public
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - DATABASE_SAVE_DATA_LABELS=true
+      - DATABASE_SAVE_DATA_HISTORIC=true
+      - WEBHOOK_EVENTS_LABELS_ASSOCIATION=true
+      - WEBHOOK_EVENTS_LABELS_EDIT=true
+
+
+      # RabbitMQ
+      - RABBITMQ_ENABLED=false
+
+      # Redis
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://:BCczry11KjTyUzR98T@redis:6379/1
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - CACHE_REDIS_SAVE_INSTANCES=false
+
+      # WhatsApp Session
+      # REMOVIDO: CONFIG_SESSION_PHONE_VERSION (causava erro 400 e instabilidade)
+      - CONFIG_SESSION_PHONE_CLIENT=Evolution API
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1034111545-alpha
+
+      # MinIO / S3
+      - S3_ENABLED=true
+      - S3_ACCESS_KEY=bartolomeu
+      - S3_SECRET_KEY=BCczry11KjT99
+      - S3_BUCKET=evolution
+      - S3_PORT=443
+      - S3_ENDPOINT=storage.ichatbot.com.br
+      - S3_USE_SSL=true
+
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1.5GB
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=network_public"
+        - "traefik.http.routers.evolution-api.rule=Host(`evo.ichatbot.com.br`)"
+        - "traefik.http.routers.evolution-api.entrypoints=websecure"
+        - "traefik.http.routers.evolution-api.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.evolution-api.loadbalancer.server.port=8080"
+
+networks:
+  network_public:
+    external: true
+
+volumes:
+  evolution_data:
+    name: evolution_v2_data
+    external: true

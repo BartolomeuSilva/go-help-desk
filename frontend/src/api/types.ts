@@ -7,6 +7,7 @@ export interface User {
   email: string
   display_name: string
   role: Role
+  avatar_url?: string
   mfa_enabled: boolean
   created_at: string
   updated_at: string
@@ -19,6 +20,7 @@ export interface AdminUser {
   email: string
   display_name: string
   role: Role
+  avatar_url?: string
   disabled: boolean
   auth_type: AuthType
   has_password: boolean

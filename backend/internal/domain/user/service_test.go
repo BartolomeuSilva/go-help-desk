@@ -194,6 +194,18 @@ func (f *fakeUserStore) AdminSetPassword(_ context.Context, id uuid.UUID, hash s
 	return nil
 }
 
+func (f *fakeUserStore) UpdateAvatar(_ context.Context, id uuid.UUID, url string) error {
+	u, ok := f.byID[id]
+	if !ok {
+		return errors.New("not found")
+	}
+	u.AvatarURL = url
+	f.byID[id] = u
+	f.byEmail[u.Email] = u
+	return nil
+}
+
+
 func (f *fakeUserStore) CreateRole(_ context.Context, r user.RoleDetails) error {
 	f.roles[r.Name] = r
 	return nil

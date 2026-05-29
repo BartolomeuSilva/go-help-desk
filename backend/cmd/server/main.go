@@ -154,7 +154,7 @@ func run() error {
 		return fmt.Errorf("initialising email dispatcher: %w", err)
 	}
 	webhookDisp := notify.NewWebhookDispatcher(authStore)
-	whatsappDisp := notify.NewWhatsAppDispatcher(cfg, adminSvc, tStore)
+	whatsappDisp := notify.NewWhatsAppDispatcher(cfg, adminSvc, tStore, userSvc)
 	dispatcher := notify.NewMulti(emailDisp, webhookDisp, whatsappDisp, pluginRegistry)
 
 	// ── Registration service ──────────────────────────────────────────────────

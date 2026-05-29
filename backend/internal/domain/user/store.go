@@ -24,6 +24,7 @@ type Store interface {
 	Count(ctx context.Context) (int64, error)
 	ClearMFA(ctx context.Context, id uuid.UUID) error
 	AdminSetPassword(ctx context.Context, id uuid.UUID, hash string) error
+	UpdateAvatar(ctx context.Context, id uuid.UUID, url string) error
 
 	CreateRole(ctx context.Context, r RoleDetails) error
 	GetRole(ctx context.Context, name string) (RoleDetails, error)

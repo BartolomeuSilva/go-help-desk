@@ -222,6 +222,7 @@ func (s *Server) buildRouter() *chi.Mux {
 		r.Get("/site", s.handleGetSiteConfig)
 		r.Get("/logo", s.handleServeLogo)
 		r.Get("/logo-dark", s.handleServeLogoDark)
+		r.Get("/users/{id}/avatar", s.handleServeAvatar)
 		r.Get("/setup/status", s.handleSetupStatus)
 		r.Post("/setup", s.handleSetup)
 		r.Get("/tickets/{id}/events-public", s.handleTicketEventsPublic)

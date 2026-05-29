@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/auth'
 import { LoginPage } from '@/pages/LoginPage'
 import { SetupPage } from '@/pages/SetupPage'
 import { DashboardPage } from '@/pages/DashboardPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 import { TicketListPage } from '@/pages/TicketListPage'
 import { NewTicketPage } from '@/pages/NewTicketPage'
 import { TicketDetailPage } from '@/pages/TicketDetailPage'
@@ -73,6 +74,13 @@ const dashboardRoute = createRoute({
   path: '/dashboard',
   beforeLoad: requireAuth,
   component: DashboardPage,
+})
+
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/profile',
+  beforeLoad: requireAuth,
+  component: ProfilePage,
 })
 
 const ticketsRoute = createRoute({
@@ -259,6 +267,7 @@ export const router = createRouter({
     signupRoute,
     verifyEmailRoute,
     dashboardRoute,
+    profileRoute,
     submitRoute,
     ticketsRoute,
     newTicketRoute,

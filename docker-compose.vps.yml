@@ -1,0 +1,85 @@
+networks:
+  network_public:
+    external: true
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-helpdesk}
+      POSTGRES_USER: ${POSTGRES_USER:-helpdesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password_change_me}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - network_public
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-helpdesk} -d $${POSTGRES_DB:-helpdesk}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  clamav:
+    image: clamav/clamav:stable
+    volumes:
+      - clamav_data:/var/lib/clamav
+    networks:
+      - network_public
+    healthcheck:
+      test: ["CMD-SHELL", "clamdcheck.sh >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+
+  app:
+    image: ${DOCKERHUB_IMAGE:-gohelpdesk/app:latest}
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-helpdesk}:${POSTGRES_PASSWORD:-postgres_password_change_me}@db:5432/${POSTGRES_DB:-helpdesk}?sslmode=disable
+      BASE_URL: https://gohelpdesk.g5d.com.br
+      SESSION_SECRET: ${SESSION_SECRET:-session_secret_change_me}
+      JWT_SECRET: ${JWT_SECRET:-jwt_secret_change_me}
+      HTTP_PORT: 8080
+      CLAMAV_ADDR: tcp://clamav:3310
+      # SMTP Config
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      # Feature Flags
+      GUEST_SUBMISSION_ENABLED: ${GUEST_SUBMISSION_ENABLED:-false}
+      SLA_ENABLED: ${SLA_ENABLED:-false}
+      MFA_ENABLED: ${MFA_ENABLED:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - attachments_data:/data/attachments
+    networks:
+      - network_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1.5GB
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=network_public"
+        - "traefik.http.routers.gohelpdesk.rule=Host(`gohelpdesk.g5d.com.br`)"
+        - "traefik.http.routers.gohelpdesk.entrypoints=websecure"
+        - "traefik.http.routers.gohelpdesk.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.gohelpdesk.loadbalancer.server.port=8080"
+
+volumes:
+  db_data:
+    driver: local
+  clamav_data:
+    driver: local
+  attachments_data:
+    driver: local

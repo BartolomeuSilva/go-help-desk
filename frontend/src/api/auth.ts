@@ -57,3 +57,18 @@ export async function verifyEmail(token: string): Promise<LoginResponse> {
   const res = await api.post<LoginResponse>('/auth/verify-email', { token })
   return res.data
 }
+
+export async function updatePassword(password: string): Promise<void> {
+  await api.patch('/me/password', { password })
+}
+
+export async function uploadAvatar(file: File): Promise<{ avatar_url: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await api.post<{ avatar_url: string }>('/me/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+  return res.data
+}

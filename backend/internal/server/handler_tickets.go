@@ -551,6 +551,7 @@ func (s *Server) handleAddReply(w http.ResponseWriter, r *http.Request) {
 		Body           string `json:"body"`
 		Internal       bool   `json:"internal"`
 		NotifyCustomer *bool  `json:"notify_customer"` // nil → defaults to true
+		SendAgentName  bool   `json:"send_agent_name"`
 	}
 	if err := DecodeJSON(r, &body); err != nil {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
@@ -609,7 +610,7 @@ func (s *Server) handleAddReply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	actor := ticket.Actor{UserID: &a.UserID, Role: a.Role}
-	reply, err := s.tickets.AddReply(r.Context(), id, body.Body, body.Internal, notifyCustomer, reporterEmail, actor, reopenDays, reopenStatusID, "web", nil)
+	reply, err := s.tickets.AddReply(r.Context(), id, body.Body, body.Internal, notifyCustomer, reporterEmail, actor, reopenDays, reopenStatusID, "web", nil, body.SendAgentName)
 	if err != nil {
 		handleError(w, err)
 		return

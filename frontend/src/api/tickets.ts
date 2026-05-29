@@ -76,12 +76,14 @@ export async function addReply(
   ticketId: string,
   body: string,
   internal = false,
-  notifyCustomer = true
+  notifyCustomer = true,
+  sendAgentName = false
 ): Promise<Reply> {
   const res = await api.post<Reply>(`/tickets/${ticketId}/replies`, {
     body,
     internal,
     notify_customer: notifyCustomer,
+    send_agent_name: sendAgentName,
   })
   return res.data
 }

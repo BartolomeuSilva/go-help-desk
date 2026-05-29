@@ -46,3 +46,6 @@ UPDATE users SET mfa_secret = '', mfa_enabled = false, updated_at = now() WHERE 
 
 -- name: AdminSetPassword :exec
 UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1;
+
+-- name: UserUpdateAvatar :exec
+UPDATE users SET avatar_url = $2, updated_at = now() WHERE id = $1 AND deleted_at IS NULL;

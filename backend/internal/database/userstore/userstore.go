@@ -139,6 +139,10 @@ func (s *Store) Count(ctx context.Context) (int64, error) {
 	return s.q.CountUsers(ctx)
 }
 
+func (s *Store) UpdateAvatar(ctx context.Context, id uuid.UUID, url string) error {
+	return s.q.UserUpdateAvatar(ctx, dbgen.UserUpdateAvatarParams{ID: id, AvatarUrl: url})
+}
+
 // fromRow converts a dbgen.User to domain user.User.
 func fromRow(r dbgen.User) user.User {
 	return user.User{
@@ -146,6 +150,7 @@ func fromRow(r dbgen.User) user.User {
 		Email:        r.Email,
 		DisplayName:  r.DisplayName,
 		Role:         user.Role(r.Role),
+		AvatarURL:    r.AvatarUrl,
 		PasswordHash: r.PasswordHash,
 		MFASecret:    r.MfaSecret,
 		MFAEnabled:   r.MfaEnabled,

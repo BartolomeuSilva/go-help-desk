@@ -286,7 +286,7 @@ export function LoginPage() {
                   required
                   autoComplete="email"
                   placeholder="seu-email@dominio.com"
-                  className="pl-10 pr-3 py-2 bg-white/50 dark:bg-neutral-900/50 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 backdrop-blur-sm rounded-lg transition-all duration-200 outline-none w-full text-sm text-gray-800 dark:text-gray-100"
+                  className="pl-10 pr-3 py-2 bg-white/50 dark:bg-neutral-900/50 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 backdrop-blur-sm rounded-lg transition-all duration-200 outline-none w-full text-sm text-gray-800 dark:text-white"
                 />
               </div>
             </div>
@@ -305,7 +305,7 @@ export function LoginPage() {
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="pl-10 pr-3 py-2 bg-white/50 dark:bg-neutral-900/50 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 backdrop-blur-sm rounded-lg transition-all duration-200 outline-none w-full text-sm text-gray-800 dark:text-gray-100"
+                  className="pl-10 pr-3 py-2 bg-white/50 dark:bg-neutral-900/50 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 backdrop-blur-sm rounded-lg transition-all duration-200 outline-none w-full text-sm text-gray-800 dark:text-white"
                 />
               </div>
             </div>
@@ -361,7 +361,7 @@ export function LoginPage() {
                   required
                   autoComplete="one-time-code"
                   placeholder="000000"
-                  className="pl-10 pr-3 py-2 bg-white/50 dark:bg-neutral-900/50 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 backdrop-blur-sm rounded-lg transition-all duration-200 outline-none w-full text-sm text-center tracking-[0.3em] font-mono text-gray-800 dark:text-gray-100"
+                  className="pl-10 pr-3 py-2 bg-white/50 dark:bg-neutral-900/50 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 backdrop-blur-sm rounded-lg transition-all duration-200 outline-none w-full text-sm text-center tracking-[0.3em] font-mono text-gray-800 dark:text-white"
                 />
               </div>
             </div>
@@ -429,7 +429,7 @@ export function LoginPage() {
                   required
                   autoComplete="one-time-code"
                   placeholder="000000"
-                  className="pl-10 pr-3 py-2 bg-white/50 dark:bg-neutral-900/50 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 backdrop-blur-sm rounded-lg transition-all duration-200 outline-none w-full text-sm text-center tracking-[0.3em] font-mono text-gray-800 dark:text-gray-100"
+                  className="pl-10 pr-3 py-2 bg-white/50 dark:bg-neutral-900/50 border border-gray-200 dark:border-neutral-800 focus:border-blue-500 dark:focus:border-yellow-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-yellow-400/20 backdrop-blur-sm rounded-lg transition-all duration-200 outline-none w-full text-sm text-center tracking-[0.3em] font-mono text-gray-800 dark:text-white"
                 />
               </div>
             </div>

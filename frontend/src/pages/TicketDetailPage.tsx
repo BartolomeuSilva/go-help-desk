@@ -427,9 +427,18 @@ export function TicketDetailPage() {
   const [replyBody, setReplyBody] = useState('')
   const [replyInternal, setReplyInternal] = useState(false)
   const [replyNotify, setReplyNotify] = useState(true)
+  const [sendAgentName, setSendAgentName] = useState(() => {
+    const stored = localStorage.getItem('gohd_send_agent_name')
+    return stored === null ? true : stored === 'true'
+  })
   const [replyFiles, setReplyFiles] = useState<File[]>([])
   const [replyUploadStates, setReplyUploadStates] = useState<Record<string, UploadState> | undefined>()
   const [replyError, setReplyError] = useState('')
+
+  const handleSendAgentNameChange = (checked: boolean) => {
+    setSendAgentName(checked)
+    localStorage.setItem('gohd_send_agent_name', String(checked))
+  }
   const [sseStatus, setSseStatus] = useState<'connecting' | 'connected' | 'error'>('connecting')
   const [sseError, setSseError] = useState<string | null>(null)
   const [previewImageIndex, setPreviewImageIndex] = useState<number | null>(null)
@@ -632,7 +641,7 @@ export function TicketDetailPage() {
   const statusColor = statuses.find((s) => s.id === ticket?.status_id)?.color
 
   const replyMutation = useMutation({
-    mutationFn: () => addReply(id, replyBody, replyInternal, replyNotify),
+    mutationFn: () => addReply(id, replyBody, replyInternal, replyNotify, sendAgentName),
     onSuccess: async () => {
       setReplyBody('')
       setReplyError('')
@@ -669,6 +678,15 @@ export function TicketDetailPage() {
     },
     onError: (err) => setReplyError(extractError(err)),
   })
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (!replyMutation.isPending && !replyUploadStates && replyBody.trim()) {
+        replyMutation.mutate()
+      }
+    }
+  }
 
   const resolveMutation = useMutation({
     mutationFn: () => resolveTicket(id),
@@ -933,6 +951,7 @@ export function TicketDetailPage() {
                     value={replyBody}
                     onChange={(e) => setReplyBody(e.target.value)}
                     disabled={!!replyUploadStates}
+                    onKeyDown={handleKeyDown}
                   />
 
                   {isStaffOrAdmin && (
@@ -954,16 +973,29 @@ export function TicketDetailPage() {
                         </label>
 
                         {!replyInternal && (
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={replyNotify}
-                              onChange={(e) => setReplyNotify(e.target.checked)}
-                              className="h-4 w-4 rounded border-gray-300"
-                              disabled={!!replyUploadStates}
-                            />
-                            {t('tickets.detail.reply_notify')}
-                          </label>
+                          <>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={replyNotify}
+                                onChange={(e) => setReplyNotify(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300"
+                                disabled={!!replyUploadStates}
+                              />
+                              {t('tickets.detail.reply_notify')}
+                            </label>
+
+                            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={sendAgentName}
+                                onChange={(e) => handleSendAgentNameChange(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300"
+                                disabled={!!replyUploadStates}
+                              />
+                              {t('tickets.detail.send_agent_name')}
+                            </label>
+                          </>
                         )}
                       </div>
 

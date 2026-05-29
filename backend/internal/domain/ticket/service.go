@@ -250,7 +250,7 @@ func (s *Service) Assign(ctx context.Context, ticketID uuid.UUID, assigneeUserID
 // notifyCustomer controls whether a ticket-update email is sent to the
 // reporter. It is forced false for internal notes. reporterEmail is the
 // recipient address; callers are responsible for looking it up.
-func (s *Service) AddReply(ctx context.Context, ticketID uuid.UUID, body string, internal bool, notifyCustomer bool, reporterEmail string, actor Actor, reopenWindowDays int, reopenTargetStatusID uuid.UUID, source string, externalMessageID *string) (Reply, error) {
+func (s *Service) AddReply(ctx context.Context, ticketID uuid.UUID, body string, internal bool, notifyCustomer bool, reporterEmail string, actor Actor, reopenWindowDays int, reopenTargetStatusID uuid.UUID, source string, externalMessageID *string, sendAgentName bool) (Reply, error) {
 	t, err := s.store.GetByID(ctx, ticketID)
 	if err != nil {
 		return Reply{}, err
@@ -324,6 +324,7 @@ func (s *Service) AddReply(ctx context.Context, ticketID uuid.UUID, body string,
 			"TrackingNumber": string(t.TrackingNumber),
 			"Subject":        t.Subject,
 			"ReplyBody":      body,
+			"SendAgentName":   sendAgentName,
 		},
 		OccurredAt: time.Now(),
 	})

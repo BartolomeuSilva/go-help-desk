@@ -174,6 +174,7 @@ const translations = {
   'tickets.detail.reply_placeholder':        { pt: 'Digite sua resposta…',             en: 'Type your reply…' },
   'tickets.detail.reply_internal':           { pt: 'Nota interna (invisível para o cliente)', en: 'Internal note (not visible to customer)' },
   'tickets.detail.reply_notify':             { pt: 'Enviar notificação por e-mail para o cliente', en: 'Send ticket update email to customer' },
+  'tickets.detail.send_agent_name':          { pt: 'Enviar meu nome na resposta',      en: 'Send my name in the reply' },
   'tickets.detail.reply_submit_staff':       { pt: 'Registrar Andamento',              en: 'Save entry' },
   'tickets.detail.reply_submit':             { pt: 'Enviar Resposta',                  en: 'Send reply' },
   'tickets.detail.sidebar_assignee':         { pt: 'Responsável',                      en: 'Assignee' },
@@ -951,6 +952,20 @@ const translations = {
   'plugins.delete.confirm_title':         { pt: 'Desinstalar plugin "{name}"?',         en: 'Uninstall plugin "{name}"?' },
   'plugins.delete.confirm_desc':          { pt: 'Isso removerá permanentemente o binário e as configurações do plugin do banco de dados e do disco.', en: 'This will permanently delete the plugin binary and configurations from the database and disk.' },
   'plugins.delete.confirm_action':        { pt: 'Desinstalar',                          en: 'Uninstall' },
+  // ── Profile Page ─────────────────────────────────────────────
+  'profile.title':                  { pt: 'Meu Perfil',                           en: 'My Profile' },
+  'profile.change_password':        { pt: 'Alterar Senha',                        en: 'Change Password' },
+  'profile.new_password':           { pt: 'Nova Senha',                           en: 'New Password' },
+  'profile.confirm_password':       { pt: 'Confirmar Nova Senha',                 en: 'Confirm New Password' },
+  'profile.password_min':           { pt: 'A senha deve ter pelo menos 8 caracteres', en: 'Password must be at least 8 characters' },
+  'profile.password_match':         { pt: 'As senhas não coincidem',              en: 'Passwords do not match' },
+  'profile.password_success':       { pt: 'Senha alterada com sucesso!',          en: 'Password updated successfully!' },
+  'profile.avatar_title':           { pt: 'Foto de Perfil',                       en: 'Profile Picture' },
+  'profile.avatar_instruction':     { pt: 'Arraste uma foto ou clique para fazer upload (PNG, JPG, max 2MB)', en: 'Drag a photo or click to upload (PNG, JPG, max 2MB)' },
+  'profile.avatar_success':         { pt: 'Foto de perfil atualizada com sucesso!', en: 'Profile picture updated successfully!' },
+  'profile.avatar_error':           { pt: 'Erro ao enviar a foto de perfil',      en: 'Error uploading profile picture' },
+  'profile.save':                   { pt: 'Salvar Alterações',                    en: 'Save Changes' },
+  'profile.update_password':        { pt: 'Atualizar Senha',                      en: 'Update Password' },
 } satisfies Record<string, TranslationEntry>
 
 export type TranslationKey = keyof typeof translations

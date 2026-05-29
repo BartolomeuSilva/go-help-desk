@@ -63,6 +63,24 @@ export function Layout({ children }: LayoutProps) {
   const { lang, setLang } = useLanguageStore()
   const { t } = useT()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+
+  const getInitials = (name: string) => {
+    if (!name) return '?'
+    const parts = name.trim().split(/\s+/)
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    }
+    return name.slice(0, 2).toUpperCase()
+  }
+
+  useEffect(() => {
+    const closeDropdown = () => setUserDropdownOpen(false)
+    if (userDropdownOpen) {
+      window.addEventListener('click', closeDropdown)
+    }
+    return () => window.removeEventListener('click', closeDropdown)
+  }, [userDropdownOpen])
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -143,60 +161,9 @@ export function Layout({ children }: LayoutProps) {
         )}
       </nav>
 
-      {/* User, Language & Theme Controls */}
+      {/* User & Logout Controls */}
       <div className="border-t border-gray-200 dark:border-[#2a2a2a] p-3 space-y-2 shrink-0">
         <div className="px-3 text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</div>
-
-        {/* Language selector */}
-        <div className="flex items-center justify-between px-3 py-1">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('nav.language')}</span>
-          <div className="flex items-center gap-1">
-            <button
-              id="lang-pt"
-              onClick={() => setLang('pt')}
-              title="Português (Brasil)"
-              className={cn(
-                'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all cursor-pointer',
-                lang === 'pt'
-                  ? 'bg-[#faff69] text-black'
-                  : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-[#1a1a1a]'
-              )}
-            >
-              🇧🇷 PT
-            </button>
-            <button
-              id="lang-en"
-              onClick={() => setLang('en')}
-              title="English (United States)"
-              className={cn(
-                'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all cursor-pointer',
-                lang === 'en'
-                  ? 'bg-[#faff69] text-black'
-                  : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-[#1a1a1a]'
-              )}
-            >
-              🇺🇸 EN
-            </button>
-          </div>
-        </div>
-
-        {/* Theme selector */}
-        <div className="flex items-center justify-between px-3 py-1">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('nav.theme')}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-md hover:bg-gray-100 dark:hover:bg-[#1a1a1a] cursor-pointer"
-            onClick={toggleTheme}
-            title="Toggle theme"
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-4 w-4 text-[#faff69]" />
-            ) : (
-              <Moon className="h-4 w-4 text-gray-600" />
-            )}
-          </Button>
-        </div>
 
         <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white cursor-pointer" onClick={handleLogout}>
           <LogOutIcon className="h-4 w-4" />
@@ -223,7 +190,42 @@ export function Layout({ children }: LayoutProps) {
             <span className="text-md font-semibold text-gray-900 dark:text-white truncate">{siteName}</span>
           )}
         </div>
-        <div className="w-9" />
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Theme Toggle (Mobile) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-md hover:bg-gray-100 dark:hover:bg-[#1a1a1a] cursor-pointer"
+            onClick={toggleTheme}
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-4 w-4 text-[#faff69]" />
+            ) : (
+              <Moon className="h-4 w-4 text-gray-600" />
+            )}
+          </Button>
+
+          {/* Language Toggle (Mobile) */}
+          <button
+            onClick={() => setLang(lang === 'pt' ? 'en' : 'pt')}
+            title="Toggle language"
+            className="flex h-8 items-center justify-center rounded-md px-1.5 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-[#1a1a1a] text-gray-600 dark:text-[#cccccc] transition-all cursor-pointer"
+          >
+            {lang === 'pt' ? '🇧🇷 PT' : '🇺🇸 EN'}
+          </button>
+
+          {/* Avatar (Mobile) */}
+          <Link to="/profile" className="rounded-full border border-gray-200 dark:border-neutral-800 p-0.5 ml-1">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt={user.display_name} className="h-7 w-7 rounded-full object-cover" />
+            ) : (
+              <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold bg-gradient-to-br from-blue-500 to-indigo-600 dark:from-yellow-400 dark:to-yellow-600 text-white dark:text-neutral-950">
+                {getInitials(user?.display_name ?? '')}
+              </div>
+            )}
+          </Link>
+        </div>
       </header>
 
       {/* Mobile Drawer Backdrop */}
@@ -266,10 +268,111 @@ export function Layout({ children }: LayoutProps) {
           {sidebarContent}
         </aside>
 
-        {/* Main */}
-        <main className="flex-1 overflow-auto bg-gray-50 dark:bg-[#0a0a0a]">
-          <div className="mx-auto max-w-5xl p-4 md:p-6">{children}</div>
-        </main>
+        {/* Right Area: Top Navbar + Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Desktop Top Navbar */}
+          <header className="hidden md:flex h-14 items-center justify-between border-b border-gray-200 dark:border-[#2a2a2a] bg-white dark:bg-[#0a0a0a] px-6 shrink-0 z-10">
+            <div className="text-sm font-medium text-gray-500 dark:text-neutral-400">
+              {/* Espaço reservado para contexto se necessário */}
+            </div>
+
+            <div className="flex items-center gap-4">
+              {/* Language Selector */}
+              <div className="flex items-center gap-1 border-r border-gray-200 dark:border-neutral-800 dark:border-opacity-40 pr-4">
+                <button
+                  id="lang-pt"
+                  onClick={() => setLang('pt')}
+                  title="Português (Brasil)"
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-all cursor-pointer',
+                    lang === 'pt'
+                      ? 'bg-blue-50 text-blue-700 dark:bg-neutral-900 dark:text-[#faff69]'
+                      : 'text-gray-500 hover:bg-gray-100 dark:text-[#888888] dark:hover:bg-[#1a1a1a] dark:hover:text-white'
+                  )}
+                >
+                  🇧🇷 PT
+                </button>
+                <button
+                  id="lang-en"
+                  onClick={() => setLang('en')}
+                  title="English (United States)"
+                  className={cn(
+                    'flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-all cursor-pointer',
+                    lang === 'en'
+                      ? 'bg-blue-50 text-blue-700 dark:bg-neutral-900 dark:text-[#faff69]'
+                      : 'text-gray-500 hover:bg-gray-100 dark:text-[#888888] dark:hover:bg-[#1a1a1a] dark:hover:text-white'
+                  )}
+                >
+                  🇺🇸 EN
+                </button>
+              </div>
+
+              {/* Theme Toggle */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-md hover:bg-gray-100 dark:hover:bg-[#1a1a1a] cursor-pointer"
+                onClick={toggleTheme}
+                title="Toggle theme"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-4 w-4 text-[#faff69]" />
+                ) : (
+                  <Moon className="h-4 w-4 text-gray-600" />
+                )}
+              </Button>
+
+              {/* User Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setUserDropdownOpen(!userDropdownOpen); }}
+                  className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-neutral-800 p-0.5 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-all cursor-pointer outline-none"
+                >
+                  {user?.avatar_url ? (
+                    <img src={user.avatar_url} alt={user.display_name} className="h-8 w-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold bg-gradient-to-br from-blue-500 to-indigo-600 dark:from-yellow-400 dark:to-yellow-600 text-white dark:text-neutral-950">
+                      {getInitials(user?.display_name ?? '')}
+                    </div>
+                  )}
+                </button>
+
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-gray-200 dark:border-neutral-800 bg-white dark:bg-[#121212] shadow-xl z-50 overflow-hidden divide-y divide-gray-100 dark:divide-neutral-800 animate-in fade-in slide-in-from-top-1 duration-100">
+                    <div className="px-4 py-3 text-xs text-gray-500 dark:text-neutral-400">
+                      <p className="font-semibold text-gray-900 dark:text-white truncate">{user?.display_name}</p>
+                      <p className="truncate mt-0.5">{user?.email}</p>
+                    </div>
+                    <div className="py-1">
+                      <Link
+                        to="/profile"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
+                        onClick={() => setUserDropdownOpen(false)}
+                      >
+                        <HomeIcon className="h-4 w-4 text-gray-400" />
+                        <span>{t('profile.title')}</span>
+                      </Link>
+                    </div>
+                    <div className="py-1">
+                      <button
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer text-left"
+                      >
+                        <LogOutIcon className="h-4 w-4" />
+                        <span>{t('nav.sign_out')}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+
+          {/* Main */}
+          <main className="flex-1 overflow-auto bg-gray-50 dark:bg-[#0a0a0a]">
+            <div className="mx-auto max-w-5xl p-4 md:p-6">{children}</div>
+          </main>
+        </div>
       </div>
 
       {/* Mobile Bottom Tab Bar */}

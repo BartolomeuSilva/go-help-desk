@@ -304,6 +304,7 @@ type User struct {
 	UpdatedAt    time.Time    `json:"updated_at"`
 	DeletedAt    sql.NullTime `json:"deleted_at"`
 	Disabled     bool         `json:"disabled"`
+	AvatarUrl    string       `json:"avatar_url"`
 }
 
 type WebhookConfig struct {

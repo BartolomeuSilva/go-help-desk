@@ -25,6 +25,7 @@ type User struct {
 	Email        string     `json:"email"`
 	DisplayName  string     `json:"display_name"`
 	Role         Role       `json:"role"`
+	AvatarURL    string     `json:"avatar_url"`
 	PasswordHash string     `json:"-"`
 	MFASecret    string     `json:"-"`
 	MFAEnabled   bool       `json:"mfa_enabled"`

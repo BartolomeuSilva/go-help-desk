@@ -99,7 +99,7 @@ func (q *Queries) EnableUser(ctx context.Context, id uuid.UUID) error {
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled FROM users WHERE email = $1 AND deleted_at IS NULL
+SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled, avatar_url FROM users WHERE email = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -118,12 +118,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.Disabled,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled FROM users WHERE id = $1 AND deleted_at IS NULL
+SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled, avatar_url FROM users WHERE id = $1 AND deleted_at IS NULL
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -142,12 +143,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.Disabled,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const getUserByIDAdmin = `-- name: GetUserByIDAdmin :one
-SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled FROM users WHERE id = $1
+SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled, avatar_url FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (User, error) {
@@ -166,12 +168,13 @@ func (q *Queries) GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (User, err
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.Disabled,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const getUserBySAMLSubject = `-- name: GetUserBySAMLSubject :one
-SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled FROM users WHERE saml_subject = $1 AND saml_subject != '' AND deleted_at IS NULL
+SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled, avatar_url FROM users WHERE saml_subject = $1 AND saml_subject != '' AND deleted_at IS NULL
 `
 
 func (q *Queries) GetUserBySAMLSubject(ctx context.Context, samlSubject string) (User, error) {
@@ -190,12 +193,13 @@ func (q *Queries) GetUserBySAMLSubject(ctx context.Context, samlSubject string) 
 		&i.UpdatedAt,
 		&i.DeletedAt,
 		&i.Disabled,
+		&i.AvatarUrl,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled FROM users WHERE deleted_at IS NULL AND disabled = FALSE ORDER BY created_at DESC LIMIT $1 OFFSET $2
+SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled, avatar_url FROM users WHERE deleted_at IS NULL AND disabled = FALSE ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 
 type ListUsersParams struct {
@@ -225,6 +229,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.Disabled,
+			&i.AvatarUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -240,7 +245,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 }
 
 const listUsersAdmin = `-- name: ListUsersAdmin :many
-SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT $1 OFFSET $2
+SELECT id, email, display_name, role, password_hash, mfa_secret, mfa_enabled, saml_subject, created_at, updated_at, deleted_at, disabled, avatar_url FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT $1 OFFSET $2
 `
 
 type ListUsersAdminParams struct {
@@ -270,6 +275,7 @@ func (q *Queries) ListUsersAdmin(ctx context.Context, arg ListUsersAdminParams) 
 			&i.UpdatedAt,
 			&i.DeletedAt,
 			&i.Disabled,
+			&i.AvatarUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -333,5 +339,19 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.SamlSubject,
 		arg.UpdatedAt,
 	)
+	return err
+}
+
+const userUpdateAvatar = `-- name: UserUpdateAvatar :exec
+UPDATE users SET avatar_url = $2, updated_at = now() WHERE id = $1 AND deleted_at IS NULL
+`
+
+type UserUpdateAvatarParams struct {
+	ID        uuid.UUID `json:"id"`
+	AvatarUrl string    `json:"avatar_url"`
+}
+
+func (q *Queries) UserUpdateAvatar(ctx context.Context, arg UserUpdateAvatarParams) error {
+	_, err := q.db.ExecContext(ctx, userUpdateAvatar, arg.ID, arg.AvatarUrl)
 	return err
 }
