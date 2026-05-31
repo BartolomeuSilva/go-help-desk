@@ -1,91 +1,85 @@
 networks:
-  backend:
-    driver: bridge
-  antivirus:
-    driver: bridge  # separate from backend so clamav cannot reach the database
+  network_public:
+    external: true
 
 services:
   db:
     image: postgres:17-alpine
-    restart: unless-stopped
     environment:
-      POSTGRES_DB: helpdesk
-      POSTGRES_USER: helpdesk
-      POSTGRES_PASSWORD: helpdesk
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-helpdesk}
+      POSTGRES_USER: ${POSTGRES_USER:-helpdesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password_change_me}
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - network_public
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U helpdesk"]
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-helpdesk} -d $${POSTGRES_DB:-helpdesk}" ]
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - backend
-
-  test:
-    build:
-      context: ..
-      dockerfile: backend/Dockerfile
-      target: gobuilder
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      TEST_DATABASE_URL: postgres://helpdesk:helpdesk@db:5432/helpdesk?sslmode=disable
-    working_dir: /build
-    command: go test ./...
-    profiles:
-      - test
-    networks:
-      - backend
 
   clamav:
     image: clamav/clamav:stable
-    restart: unless-stopped
     volumes:
-      - ./data/clamav:/var/lib/clamav  # persist signature database across restarts
+      - clamav_data:/var/lib/clamav
+    networks:
+      - network_public
     healthcheck:
-      test: ["CMD-SHELL", "clamdcheck.sh >/dev/null 2>&1 || exit 1"]
+      test: [ "CMD-SHELL", "clamdcheck.sh >/dev/null 2>&1 || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 180s  # freshclam downloads the full signature DB on first run (~300 MB)
-    networks:
-      - antivirus
+      start_period: 180s
 
   app:
-    build:
-      context: ..
-      dockerfile: backend/Dockerfile
-    restart: unless-stopped
+    image: ${DOCKERHUB_IMAGE:-gohelpdesk/app:latest}
     depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
+      - db
     environment:
-      DATABASE_URL: postgres://helpdesk:helpdesk@db:5432/helpdesk?sslmode=disable
-      BASE_URL: ${BASE_URL:-http://localhost:8080}
-      SESSION_SECRET: ${SESSION_SECRET}
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://${POSTGRES_USER:-helpdesk}:${POSTGRES_PASSWORD:-postgres_password_change_me}@db:5432/${POSTGRES_DB:-helpdesk}?sslmode=disable
+      BASE_URL: https://gohelpdesk.ichatbot.com.br
+      SESSION_SECRET: ${SESSION_SECRET:-session_secret_change_me}
+      JWT_SECRET: ${JWT_SECRET:-jwt_secret_change_me}
       HTTP_PORT: 8080
-      # ClamAV — wired to the internal antivirus network; non-fatal if unavailable
       CLAMAV_ADDR: tcp://clamav:3310
-      # Optional — set in .env to enable email notifications
+      # SMTP Config
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
-      # Optional — set in .env to enable features
+      # Feature Flags
       GUEST_SUBMISSION_ENABLED: ${GUEST_SUBMISSION_ENABLED:-false}
       SLA_ENABLED: ${SLA_ENABLED:-false}
       MFA_ENABLED: ${MFA_ENABLED:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
-      - ./data/attachments:/data/attachments
+      - attachments_data:/data/attachments
     networks:
-      - backend
-      - antivirus
+      - network_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1.5GB
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=network_public"
+        - "traefik.http.routers.gohelpdesk.rule=Host(`gohelpdesk.ichatbot.com.br`)"
+        - "traefik.http.routers.gohelpdesk.entrypoints=websecure"
+        - "traefik.http.routers.gohelpdesk.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.gohelpdesk.loadbalancer.server.port=8080"
+
+volumes:
+  db_data:
+    driver: local
+  clamav_data:
+    driver: local
+  attachments_data:
+    driver: local

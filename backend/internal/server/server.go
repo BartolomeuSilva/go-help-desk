@@ -227,6 +227,7 @@ func (s *Server) buildRouter() *chi.Mux {
 		r.Post("/setup", s.handleSetup)
 		r.Get("/tickets/{id}/events-public", s.handleTicketEventsPublic)
 		r.Post("/webhooks/whatsapp", s.handleWhatsAppWebhook)
+		r.Post("/webhooks/whatsapp/{event}", s.handleWhatsAppWebhook)
 
 		r.Mount("/auth", s.authRouter())
 		r.Mount("/tickets", s.ticketRouter())

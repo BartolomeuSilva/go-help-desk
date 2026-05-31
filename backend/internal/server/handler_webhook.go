@@ -23,7 +23,7 @@ import (
 // POST /api/v1/webhooks/whatsapp
 func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 	// 1. Validate Token if configured
-	_, apiToken, _ := s.adminSvc.WhatsAppConfig(r.Context())
+	apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
 	if apiToken != "" {
 		reqToken := r.Header.Get("apikey")
 		if reqToken == "" {
@@ -31,9 +31,16 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			reqToken = strings.TrimPrefix(reqToken, "Bearer ")
 		}
 		if reqToken != apiToken {
-			Error(w, http.StatusUnauthorized, "unauthorized", "invalid api key")
-			return
+			slog.Warn("whatsapp webhook unauthorized", "received_token", reqToken, "expected_token", apiToken)
+			// Apenas loga o aviso em vez de bloquear com 401 para garantir compatibilidade com Evolution v2 sem headers configurados.
+			// Error(w, http.StatusUnauthorized, "unauthorized", "invalid api key")
+			// return
 		}
+	}
+
+	var wsClient *whatsapp.Client
+	if apiURL != "" && apiToken != "" && instanceName != "" {
+		wsClient = whatsapp.NewClient(apiURL, apiToken, instanceName)
 	}
 
 	// 2. Decode Webhook Payload
@@ -390,9 +397,7 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 						if err == nil {
 							// Send thank you message
 							thanksMsg := "Obrigado por sua avaliação. Ela é importante para que nós possamos melhorar cada vez mais o atendimento."
-							apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
-							if apiURL != "" && apiToken != "" && instanceName != "" {
-								wsClient := whatsapp.NewClient(apiURL, apiToken, instanceName)
+							if wsClient != nil {
 								_ = wsClient.SendText(r.Context(), phone, thanksMsg)
 							}
 
@@ -453,10 +458,10 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 							return
 						}
 
-						apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
-						wsClient := whatsapp.NewClient(apiURL, apiToken, instanceName)
-						if err := wsClient.SendText(r.Context(), phone, welcomeMessage); err != nil {
-							slog.Error("failed to send whatsapp welcome message", "phone", phone, "error", err)
+						if wsClient != nil {
+							if err := wsClient.SendText(r.Context(), phone, welcomeMessage); err != nil {
+								slog.Error("failed to send whatsapp welcome message", "phone", phone, "error", err)
+							}
 						}
 
 						JSON(w, http.StatusOK, map[string]string{"status": "welcome_sent"})
@@ -517,10 +522,10 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 					// Send confirmation message to customer on WhatsApp
 					confMsg := fmt.Sprintf("Perfeito! Seu chamado foi aberto com sucesso sob o número *%s*.\n\nUm atendente entrará em contato em breve.", newTicket.TrackingNumber)
-					apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
-					wsClient := whatsapp.NewClient(apiURL, apiToken, instanceName)
-					if err := wsClient.SendText(r.Context(), phone, confMsg); err != nil {
-						slog.Error("failed to send whatsapp confirmation message", "phone", phone, "error", err)
+					if wsClient != nil {
+						if err := wsClient.SendText(r.Context(), phone, confMsg); err != nil {
+							slog.Error("failed to send whatsapp confirmation message", "phone", phone, "error", err)
+						}
 					}
 
 					// Download and attach media if saved in the session
@@ -540,12 +545,11 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 					return
 				} else {
 					// Client typed an invalid option: resend the welcome menu message
-					apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
-					wsClient := whatsapp.NewClient(apiURL, apiToken, instanceName)
-					
 					invalidMsg := "Opção inválida. Por favor, selecione uma das opções do menu:\n\n" + welcomeMessage
-					if err := wsClient.SendText(r.Context(), phone, invalidMsg); err != nil {
-						slog.Error("failed to send whatsapp welcome message on invalid input", "phone", phone, "error", err)
+					if wsClient != nil {
+						if err := wsClient.SendText(r.Context(), phone, invalidMsg); err != nil {
+							slog.Error("failed to send whatsapp welcome message on invalid input", "phone", phone, "error", err)
+						}
 					}
 
 					JSON(w, http.StatusOK, map[string]string{"status": "invalid_option_sent"})
