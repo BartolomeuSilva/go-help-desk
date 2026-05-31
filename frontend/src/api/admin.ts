@@ -548,8 +548,8 @@ export async function deleteITSMDefault(input: {
 
 // ── WhatsApp ──────────────────────────────────────────────────────────────────
 
-export async function getWhatsAppStatus(): Promise<{ status: string; message?: string }> {
-  const res = await api.get<{ status: string; message?: string }>('/admin/settings/whatsapp/status')
+export async function getWhatsAppStatus(): Promise<{ status: string; number?: string; message?: string }> {
+  const res = await api.get<{ status: string; number?: string; message?: string }>('/admin/settings/whatsapp/status')
   return res.data
 }
 

@@ -174,6 +174,59 @@ func (c *Client) GetConnectionStatus(ctx context.Context) (string, error) {
 	return res.Instance.State, nil
 }
 
+// ConnectionInfo holds status and number for the WhatsApp instance connection.
+type ConnectionInfo struct {
+	State  string `json:"state"`
+	Number string `json:"number"`
+}
+
+// GetConnectionInfo retrieves both connection state and the registered phone number.
+func (c *Client) GetConnectionInfo(ctx context.Context) (ConnectionInfo, error) {
+	var info ConnectionInfo
+	if c.apiURL == "" || c.apiToken == "" || c.instanceName == "" {
+		info.State = "disconnected"
+		return info, nil
+	}
+
+	state, err := c.GetConnectionStatus(ctx)
+	if err != nil {
+		return info, err
+	}
+	info.State = state
+
+	if state == "open" {
+		url := fmt.Sprintf("%s/instance/fetchInstances", c.apiURL)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return info, fmt.Errorf("creating fetchInstances request: %w", err)
+		}
+		req.Header.Set("apikey", c.apiToken)
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return info, fmt.Errorf("calling fetchInstances API: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			var instances []struct {
+				Name   string `json:"name"`
+				Number string `json:"number"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&instances); err == nil {
+				for _, inst := range instances {
+					if inst.Name == c.instanceName {
+						info.Number = inst.Number
+						break
+					}
+				}
+			}
+		}
+	}
+
+	return info, nil
+}
+
 // GetQRCode fetches the Base64 QR Code string to pair the device.
 func (c *Client) GetQRCode(ctx context.Context) (string, error) {
 	if c.apiURL == "" || c.apiToken == "" || c.instanceName == "" {

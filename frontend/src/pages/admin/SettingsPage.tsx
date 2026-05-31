@@ -1142,6 +1142,7 @@ function WhatsAppPanel({
   const enabled = bool('whatsapp_enabled')
 
   const [status, setStatus] = useState<string>('loading')
+  const [whatsappNumber, setWhatsappNumber] = useState<string>('')
   const [qrCode, setQrCode] = useState<string>('')
   const [checking, setChecking] = useState<boolean>(false)
 
@@ -1200,12 +1201,14 @@ function WhatsAppPanel({
     try {
       const res = await getWhatsAppStatus()
       setStatus(res.status)
+      setWhatsappNumber(res.number || '')
       if (res.status === 'open') {
         setQrCode('')
       }
     } catch (err) {
       console.error(err)
       setStatus('error')
+      setWhatsappNumber('')
     } finally {
       setChecking(false)
     }
@@ -1234,6 +1237,7 @@ function WhatsAppPanel({
         const res = await getWhatsAppStatus()
         if (res.status === 'open') {
           setStatus('open')
+          setWhatsappNumber(res.number || '')
           setQrCode('')
           clearInterval(interval)
         }
@@ -1315,6 +1319,12 @@ function WhatsAppPanel({
                     ? t('settings.whatsapp.connecting')
                     : t('settings.whatsapp.disconnected')}
                 </span>
+
+                {status === 'open' && whatsappNumber && (
+                  <span className="text-sm font-semibold text-white bg-gray-500 dark:bg-neutral-700 px-2 py-0.5 rounded font-mono">
+                    {whatsappNumber}
+                  </span>
+                )}
 
                 <Button
                   variant="outline"

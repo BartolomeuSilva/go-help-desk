@@ -1042,14 +1042,17 @@ func (s *Server) handleWhatsAppStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := whatsapp.NewClient(apiURL, apiToken, instanceName)
-	state, err := client.GetConnectionStatus(r.Context())
+	info, err := client.GetConnectionInfo(r.Context())
 	if err != nil {
 		slog.Error("whatsapp status check failed", "error", err)
 		JSON(w, http.StatusOK, map[string]string{"status": "error", "message": err.Error()})
 		return
 	}
 
-	JSON(w, http.StatusOK, map[string]string{"status": state})
+	JSON(w, http.StatusOK, map[string]string{
+		"status": info.State,
+		"number": info.Number,
+	})
 }
 
 func (s *Server) handleWhatsAppQRCode(w http.ResponseWriter, r *http.Request) {
