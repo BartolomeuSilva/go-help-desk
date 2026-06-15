@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script de Deploy do Go Help Desk para a VPS via Docker Hub
-# Configurado para: https://gohelpdesk.g5d.com.br
+# Configurado para: https://gohelpdesk.ichatbot.com.br
 
 # Cores para a saída
 GREEN='\033[0;32m'
@@ -78,7 +78,7 @@ FULL_IMAGE_NAME="${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo -e "${BLUE}Configuração:${NC}"
 echo -e "  Imagem Docker Hub: ${GREEN}${FULL_IMAGE_NAME}${NC}"
-echo -e "  Subdomínio VPS:    ${GREEN}https://gohelpdesk.g5d.com.br${NC}"
+echo -e "  Subdomínio VPS:    ${GREEN}https://gohelpdesk.ichatbot.com.br${NC}"
 if [ "$DRY_RUN" = true ]; then
     echo -e "  Modo:              ${YELLOW}Simulação (Dry Run)${NC}"
 fi

@@ -14,7 +14,7 @@ services:
     networks:
       - network_public
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-helpdesk} -d $${POSTGRES_DB:-helpdesk}"]
+      test: ["CMD", "pg_isready", "-U", "helpdesk", "-d", "helpdesk"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -38,7 +38,7 @@ services:
       - db
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-helpdesk}:${POSTGRES_PASSWORD:-postgres_password_change_me}@db:5432/${POSTGRES_DB:-helpdesk}?sslmode=disable
-      BASE_URL: https://gohelpdesk.g5d.com.br
+      BASE_URL: https://gohelpdesk.ichatbot.com.br
       SESSION_SECRET: ${SESSION_SECRET:-session_secret_change_me}
       JWT_SECRET: ${JWT_SECRET:-jwt_secret_change_me}
       HTTP_PORT: 8080
@@ -71,7 +71,7 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=network_public"
-        - "traefik.http.routers.gohelpdesk.rule=Host(`gohelpdesk.g5d.com.br`)"
+        - "traefik.http.routers.gohelpdesk.rule=Host(`gohelpdesk.ichatbot.com.br`)"
         - "traefik.http.routers.gohelpdesk.entrypoints=websecure"
         - "traefik.http.routers.gohelpdesk.tls.certresolver=letsencryptresolver"
         - "traefik.http.services.gohelpdesk.loadbalancer.server.port=8080"

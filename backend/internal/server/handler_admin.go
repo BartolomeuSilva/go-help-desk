@@ -1074,6 +1074,10 @@ func (s *Server) handleWhatsAppQRCode(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(code, "data:image/") {
 		finalQRCode = code
 	} else {
+		if code == "" {
+			Error(w, http.StatusBadRequest, "bad_request", "no QR code returned. Check if the instance is already connected or try logging out.")
+			return
+		}
 		pngBytes, err := qrcode.Encode(code, qrcode.Medium, 256)
 		if err != nil {
 			slog.Error("failed to generate QR Code PNG from raw text", "error", err)

@@ -209,14 +209,33 @@ func (c *Client) GetConnectionInfo(ctx context.Context) (ConnectionInfo, error) 
 		defer resp.Body.Close()
 
 		if resp.StatusCode == http.StatusOK {
-			var instances []struct {
-				Name   string `json:"name"`
-				Number string `json:"number"`
+			type rawInstance struct {
+				Name     string `json:"name"`
+				Number   string `json:"number"`
+				Instance *struct {
+					InstanceName string `json:"instanceName"`
+				} `json:"instance"`
+				Owner string `json:"owner"`
+				Phone *struct {
+					User string `json:"user"`
+				} `json:"phone"`
 			}
+			var instances []rawInstance
 			if err := json.NewDecoder(resp.Body).Decode(&instances); err == nil {
 				for _, inst := range instances {
-					if inst.Name == c.instanceName {
-						info.Number = inst.Number
+					name := inst.Name
+					if name == "" && inst.Instance != nil {
+						name = inst.Instance.InstanceName
+					}
+					if name == c.instanceName {
+						number := inst.Number
+						if number == "" && inst.Phone != nil {
+							number = inst.Phone.User
+						}
+						if number == "" && inst.Owner != "" {
+							number = strings.Split(inst.Owner, "@")[0]
+						}
+						info.Number = number
 						break
 					}
 				}
@@ -254,11 +273,18 @@ func (c *Client) GetQRCode(ctx context.Context) (string, error) {
 	}
 
 	var res struct {
-		Code string `json:"code"` // Base64 image payload (e.g. data:image/png;base64,...)
+		Code   string `json:"code"`
+		QRCode *struct {
+			Base64 string `json:"base64"`
+		} `json:"qrcode"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return "", fmt.Errorf("decoding connect response: %w", err)
+	}
+
+	if res.QRCode != nil && res.QRCode.Base64 != "" {
+		return res.QRCode.Base64, nil
 	}
 
 	return res.Code, nil
