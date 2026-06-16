@@ -37,6 +37,13 @@ const translations = {
   'nav.theme':           { pt: 'Tema',               en: 'Theme' },
   'nav.language':        { pt: 'Idioma',             en: 'Language' },
 
+  // ── Notifications ────────────────────────────────────────────
+  'notifications.title':        { pt: 'Notificações',                    en: 'Notifications' },
+  'notifications.empty':        { pt: 'Nenhuma notificação',             en: 'No notifications' },
+  'notifications.mark_all_read':{ pt: 'Marcar todas como lidas',         en: 'Mark all as read' },
+  'notifications.clear':        { pt: 'Limpar',                          en: 'Clear' },
+  'notifications.new_message':  { pt: 'Nova mensagem',                   en: 'New message' },
+
   // ── Auth / Login ─────────────────────────────────────────────
   'auth.sign_in_title':       { pt: 'Entrar no Go Help Desk',          en: 'Sign in to Go Help Desk' },
   'auth.email':               { pt: 'E-mail',                          en: 'Email' },

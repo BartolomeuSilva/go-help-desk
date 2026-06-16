@@ -262,7 +262,7 @@ export function CSATReportPage() {
             {/* Resumo do Sentimento */}
             <div className="md:col-span-7 space-y-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-blue-600/80 dark:text-[#faff69]/80">{t('csat.ai_sentiment_title')}</h3>
-              <p className="text-sm leading-relaxed" style={{ color: '#d7d0d0' }}>
+              <p className="text-sm leading-relaxed text-gray-700">
                 {ai_sentiment_summary}
               </p>
             </div>
@@ -273,7 +273,7 @@ export function CSATReportPage() {
               {ai_coaching_tips.length > 0 ? (
                 <ul className="space-y-3">
                   {ai_coaching_tips.map((tip, idx) => (
-                    <li key={idx} className="flex gap-2 text-sm items-start" style={{ color: '#d7d0d0' }}>
+                    <li key={idx} className="flex gap-2 text-sm items-start text-gray-700">
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 text-xs font-bold text-blue-700 dark:text-blue-300 tabular-nums">
                         {idx + 1}
                       </span>
@@ -377,7 +377,7 @@ export function CSATReportPage() {
                           <span className="text-xs text-gray-500 dark:text-gray-400">{agent.user_email}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center font-medium text-gray-700 dark:text-gray-300 tabular-nums">
+                      <td className="px-6 py-4 text-center font-medium text-gray-700 tabular-nums">
                         {agent.rated_tickets_count}
                       </td>
                       <td className="px-6 py-4">

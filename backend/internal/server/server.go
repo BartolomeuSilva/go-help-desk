@@ -99,6 +99,9 @@ type Server struct {
 	authStore        AuthStoreIface
 
 	sseBroker *SSEBroker
+	// userBroker delivers per-user notification events (keyed by user ID) so the
+	// SPA can show in-app notifications on any page, not just a ticket's detail view.
+	userBroker *SSEBroker
 	loginRateLimiter *authmw.LoginRateLimiter
 
 	// samlMu guards samlHandler. The handler is nil when SAML is not configured.
@@ -149,6 +152,7 @@ func New(
 		kb:               kbService,
 		db:               itsmStore,
 		sseBroker:        NewSSEBroker(),
+		userBroker:       NewSSEBroker(),
 		loginRateLimiter: authmw.NewLoginRateLimiter(5, 15*time.Minute),
 	}
 	s.router = s.buildRouter()
@@ -239,6 +243,8 @@ func (s *Server) buildRouter() *chi.Mux {
 		r.Get("/categories/{id}/types/{typeId}/items", s.handleListPublicItems)
 		// Statuses are needed by all authenticated users for display (ticket list, detail, dashboard).
 		r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff, user.RoleUser)).Get("/statuses", s.handleListStatuses)
+			// Per-user notification stream (SSE) — in-app notifications on any page.
+			r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff, user.RoleUser)).Get("/notifications/stream", s.handleNotificationStream)
 		r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff)).Get("/canned-responses", s.handleListCannedResponses)
 
 		// Knowledge Base public/staff routes (visibility handled dynamically in service)

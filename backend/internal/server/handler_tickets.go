@@ -345,11 +345,17 @@ func (s *Server) handleCreateTicket(w http.ResponseWriter, r *http.Request) {
 
 	if !isGuest {
 		in.ReporterUserID = &a.UserID
+		// Resolve the reporter's email so they get the "ticket received"
+		// confirmation. A lookup failure is non-fatal — we just skip the email.
+		if u, err := s.users.GetByID(r.Context(), a.UserID); err == nil {
+			in.ReporterEmail = u.Email
+		}
 	} else {
 		email := body.GuestEmail
 		in.GuestEmail = &email
 		in.GuestName = strings.TrimSpace(body.GuestName)
 		in.GuestPhone = strings.TrimSpace(body.GuestPhone)
+		in.ReporterEmail = email
 	}
 
 	t, err := s.tickets.Create(r.Context(), in)
@@ -616,6 +622,13 @@ func (s *Server) handleAddReply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sseBroker.Broadcast(id, "refresh", "")
+
+	// Push an in-app notification to the other participants of the ticket so it
+	// surfaces on any page, not just the ticket's detail view.
+	if t, err := s.tickets.GetByID(r.Context(), id); err == nil {
+		s.broadcastReplyNotification(r.Context(), t, reply, a.Role != user.RoleUser)
+	}
+
 	JSON(w, http.StatusCreated, reply)
 }
 

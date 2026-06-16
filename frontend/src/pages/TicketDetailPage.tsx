@@ -353,7 +353,7 @@ function RatingForm({ ticketId }: { ticketId: string }) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white">
           Avalie o Atendimento
         </CardTitle>
       </CardHeader>
@@ -380,7 +380,7 @@ function RatingForm({ ticketId }: { ticketId: string }) {
               </button>
             ))}
             {rating > 0 && (
-              <span className="ml-2 text-sm font-semibold text-white">
+              <span className="ml-2 text-sm font-semibold text-gray-900 dark:text-white">
                 {rating} / 5
               </span>
             )}
@@ -837,7 +837,7 @@ export function TicketDetailPage() {
                   } else if (isSupport) {
                     cardClass = 'border border-[#e6e85e] bg-[#faff69] dark:border-[#b8ba00]/40 dark:bg-[#faff69]/10'
                     accentClass = 'border-l-4 border-l-[#b8ba00] dark:border-l-[#faff69]'
-                    textClass = 'text-[#ffffff]'
+                    textClass = 'text-gray-900 dark:text-[#faff69]'
                     badgeEl = (
                       <span className="rounded bg-black dark:bg-black px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase tracking-wide">
                         {t('tickets.detail.timeline_support')}
@@ -846,7 +846,7 @@ export function TicketDetailPage() {
                   } else {
                     cardClass = 'border border-emerald-100 bg-emerald-50/40 dark:border-emerald-900/30 dark:bg-emerald-950/10'
                     accentClass = 'border-l-4 border-l-emerald-400 dark:border-l-emerald-500'
-                    textClass = 'text-[#ffffff]'
+                    textClass = 'text-gray-900 dark:text-emerald-50'
                     badgeEl = (
                       <span className="rounded bg-emerald-100 dark:bg-emerald-950/60 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
                         {t('tickets.detail.timeline_customer')}
@@ -1033,7 +1033,7 @@ export function TicketDetailPage() {
             {ticket.source === 'whatsapp' && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white flex items-center gap-1.5">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white flex items-center gap-1.5">
                     <svg className="h-4 w-4 text-[#25D366] shrink-0" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.965C16.788 1.978 14.32 1.95 12.008 1.95c-5.442 0-9.866 4.372-9.87 9.802 0 1.706.467 3.376 1.353 4.851L2.484 21.5l5.003-1.309zM18.66 14.86c-.36-.18-2.14-1.055-2.47-1.176-.33-.12-.57-.18-.81.18-.24.36-.93 1.176-1.14 1.416-.21.24-.42.27-.78.09-3.48-1.745-4.815-3.055-5.69-4.575-.24-.42-.03-.63.15-.84.162-.187.36-.42.54-.63.18-.21.24-.36.36-.6.12-.24.06-.45-.03-.63-.09-.18-.81-1.95-1.11-2.67-.3-.72-.6-1.11-.81-1.11-.21 0-.45-.03-.69-.03-.24 0-.63.09-.96.45-.33.36-1.26 1.23-1.26 3 .0 1.77 1.29 3.48 1.47 3.72.18.24 2.535 3.87 6.14 5.425 2.145.925 3.015 1.085 4.1.925.685-.1 2.14-.875 2.44-1.725.3-.85.3-1.58.21-1.725-.09-.15-.33-.24-.69-.42z"/>
                     </svg>
@@ -1042,12 +1042,12 @@ export function TicketDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-white/70 dark:text-white/70">{t('tickets.detail.whatsapp_customer')}</span>
-                    <span className="text-right text-xs text-white">{ticket.guest_name || 'WhatsApp User'}</span>
+                    <span className="text-gray-500 dark:text-white/70">{t('tickets.detail.whatsapp_customer')}</span>
+                    <span className="text-right text-xs text-gray-900 dark:text-white">{ticket.guest_name || 'WhatsApp User'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-white/70 dark:text-white/70">{t('tickets.detail.whatsapp_phone')}</span>
-                    <span className="text-right text-xs text-white font-mono">{ticket.whatsapp_phone || ticket.guest_phone || ''}</span>
+                    <span className="text-gray-500 dark:text-white/70">{t('tickets.detail.whatsapp_phone')}</span>
+                    <span className="text-right text-xs text-gray-900 dark:text-white font-mono">{ticket.whatsapp_phone || ticket.guest_phone || ''}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -1055,7 +1055,7 @@ export function TicketDetailPage() {
             {isStaffOrAdmin && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white">
                     {t('tickets.detail.sidebar_assignee')}
                   </CardTitle>
                 </CardHeader>
@@ -1075,13 +1075,13 @@ export function TicketDetailPage() {
             {ticket.sla && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white">
                     {t('tickets.detail.sidebar_sla_status')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-white/70 dark:text-white/70">{t('tickets.list.header_status')}</span>
+                    <span className="text-gray-500 dark:text-white/70">{t('tickets.list.header_status')}</span>
                     <span
                       className={
                         'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ' +
@@ -1167,7 +1167,7 @@ export function TicketDetailPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white">
                   {t('tickets.detail.sidebar_tags')}
                 </CardTitle>
               </CardHeader>
@@ -1179,7 +1179,7 @@ export function TicketDetailPage() {
             {attachments.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white">
                     {t('tickets.detail.sidebar_attachments')}
                   </CardTitle>
                 </CardHeader>
@@ -1217,7 +1217,7 @@ export function TicketDetailPage() {
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white">
                     {t('tickets.detail.sidebar_classification')}
                   </CardTitle>
                   {isStaffOrAdmin && !ctiEdit && (
@@ -1296,19 +1296,19 @@ export function TicketDetailPage() {
                 ) : (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-white/70 dark:text-white/70">{t('ticket.category')}</span>
-                      <span className="text-right text-xs font-medium text-white">{categoryName ?? '—'}</span>
+                      <span className="text-gray-500 dark:text-white/70">{t('ticket.category')}</span>
+                      <span className="text-right text-xs font-medium text-gray-900 dark:text-white">{categoryName ?? '—'}</span>
                     </div>
                     {ticket.type_id && (
                       <div className="flex justify-between">
-                        <span className="text-white/70 dark:text-white/70">{t('ticket.type')}</span>
-                        <span className="text-right text-xs text-white">{typeName ?? '—'}</span>
+                        <span className="text-gray-500 dark:text-white/70">{t('ticket.type')}</span>
+                        <span className="text-right text-xs text-gray-900 dark:text-white">{typeName ?? '—'}</span>
                       </div>
                     )}
                     {ticket.item_id && (
                       <div className="flex justify-between">
-                        <span className="text-white/70 dark:text-white/70">{t('ticket.item')}</span>
-                        <span className="text-right text-xs text-white">{itemName ?? '—'}</span>
+                        <span className="text-gray-500 dark:text-white/70">{t('ticket.item')}</span>
+                        <span className="text-right text-xs text-gray-900 dark:text-white">{itemName ?? '—'}</span>
                       </div>
                     )}
                   </>
@@ -1319,7 +1319,7 @@ export function TicketDetailPage() {
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white">
                     {t('tickets.detail.sidebar_details')}
                   </CardTitle>
                   {isStaffOrAdmin && itsmEnabled && !detailsEdit && (
@@ -1370,28 +1370,28 @@ export function TicketDetailPage() {
                   <>
                     {itsmEnabled && (
                       <div className="flex justify-between items-center">
-                        <span className="text-white/70 dark:text-white/70">{t('ticket.ticket_type')}</span>
+                        <span className="text-gray-500 dark:text-white/70">{t('ticket.ticket_type')}</span>
                         {ticket.ticket_type ? (
                           <Badge variant={ticketTypeVariant(ticket.ticket_type) as never}>
                             {t(`itsm.${ticket.ticket_type}` as any)}
                           </Badge>
                         ) : (
-                          <span className="text-right text-xs text-white">—</span>
+                          <span className="text-right text-xs text-gray-900 dark:text-white">—</span>
                         )}
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-white/70 dark:text-white/70">{t('ticket.priority')}</span>
+                      <span className="text-gray-500 dark:text-white/70">{t('ticket.priority')}</span>
                       <Badge variant={priorityVariant(ticket.priority) as never}>{t(`ticket.priority_${ticket.priority}` as any)}</Badge>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-white/70 dark:text-white/70">{t('tickets.detail.created')}</span>
-                      <span className="text-right text-xs text-white">{formatDate(ticket.created_at)}</span>
+                      <span className="text-gray-500 dark:text-white/70">{t('tickets.detail.created')}</span>
+                      <span className="text-right text-xs text-gray-900 dark:text-white">{formatDate(ticket.created_at)}</span>
                     </div>
                     {ticket.resolved_at && (
                       <div className="flex justify-between">
-                        <span className="text-white/70 dark:text-white/70">{t('tickets.detail.resolved')}</span>
-                        <span className="text-right text-xs text-white">{formatDate(ticket.resolved_at)}</span>
+                        <span className="text-gray-500 dark:text-white/70">{t('tickets.detail.resolved')}</span>
+                        <span className="text-right text-xs text-gray-900 dark:text-white">{formatDate(ticket.resolved_at)}</span>
                       </div>
                     )}
                   </>
@@ -1403,7 +1403,7 @@ export function TicketDetailPage() {
             {(ticket.rating !== undefined && ticket.rating !== null) ? (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-white dark:text-white">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-white">
                     Feedback do Cliente
                   </CardTitle>
                 </CardHeader>
@@ -1420,7 +1420,7 @@ export function TicketDetailPage() {
                         )}
                       />
                     ))}
-                    <span className="ml-2 text-sm font-semibold text-white">
+                    <span className="ml-2 text-sm font-semibold text-gray-900 dark:text-white">
                       {ticket.rating} / 5
                     </span>
                   </div>

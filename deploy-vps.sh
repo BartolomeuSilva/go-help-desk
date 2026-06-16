@@ -15,7 +15,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "${SCRIPT_DIR}"
 
 # Variáveis padrão
-DOCKERHUB_USER=""
+DOCKERHUB_USER="bartolomeusilva"
 IMAGE_TAG="latest"
 DRY_RUN=false
 PUSH_ONLY=false
@@ -34,7 +34,7 @@ show_help() {
     echo ""
     echo "Exemplos:"
     echo "  $0 -u meuusuario"
-    echo "  $0 -u meuusuario -t v1.0.0"
+    echo "  $0 -u meuusuario -t v1.0.1"
     echo "  $0 --user meuusuario --dry-run"
 }
 
@@ -100,7 +100,12 @@ fi
 # 1. Compilação da Imagem Docker (Build)
 if [ "$PUSH_ONLY" = false ]; then
     echo -e "${BLUE}Compilando imagem Docker localmente...${NC}"
-    BUILD_CMD="docker build -t ${FULL_IMAGE_NAME} -f backend/Dockerfile ."
+    # Use a tag semântica como versão do app; "latest" mantém o default do version.go.
+    BUILD_ARGS=""
+    if [ "$IMAGE_TAG" != "latest" ]; then
+        BUILD_ARGS="--build-arg APP_VERSION=${IMAGE_TAG}"
+    fi
+    BUILD_CMD="docker build ${BUILD_ARGS} -t ${FULL_IMAGE_NAME} -f backend/Dockerfile ."
     
     if [ "$DRY_RUN" = true ]; then
         echo -e "${YELLOW}[Simulação] Executando:${NC} ${BUILD_CMD}"
@@ -143,7 +148,7 @@ echo -e "2. Vá em ${GREEN}Stacks${NC} -> ${GREEN}Add stack${NC}."
 echo -e "3. Defina um nome para a Stack (ex: 'go-help-desk')."
 echo -e "4. No editor web, cole o conteúdo do arquivo ${YELLOW}docker-compose.vps.yml${NC}."
 echo -e "5. Em ${BLUE}Environment variables${NC} da stack, adicione as seguintes variáveis:"
-echo -e "   - ${GREEN}DOCKERHUB_IMAGE${NC}=${FULL_IMAGE_NAME}"
+echo -e "   - ${GREEN}DOCKERHUB_IMAGE${NC}=${IMAGE_TAG}"
 echo -e "   - ${GREEN}POSTGRES_PASSWORD${NC}=<defina-uma-senha-forte-do-banco>"
 echo -e "   - ${GREEN}SESSION_SECRET${NC}=$(openssl rand -base64 32 2>/dev/null || echo 'gerar-chave-com-openssl')"
 echo -e "   - ${GREEN}JWT_SECRET${NC}=$(openssl rand -base64 32 2>/dev/null || echo 'gerar-chave-com-openssl')"

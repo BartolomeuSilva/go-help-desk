@@ -33,7 +33,7 @@ services:
       start_period: 180s
 
   app:
-    image: ${DOCKERHUB_IMAGE:-gohelpdesk/app:latest}
+    image: bartolomeusilva/go-help-desk:${DOCKERHUB_IMAGE:-1.0.10}
     depends_on:
       - db
     environment:

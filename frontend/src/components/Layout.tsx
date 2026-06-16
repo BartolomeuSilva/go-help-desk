@@ -7,6 +7,8 @@ import { useT } from '@/i18n'
 import { logout } from '@/api/auth'
 import { getSiteConfig } from '@/api/admin'
 import { Button } from '@/components/ui/button'
+import { NotificationBell } from '@/components/NotificationBell'
+import { useNotificationStream } from '@/hooks/useNotificationStream'
 import { TicketIcon, UsersIcon, SettingsIcon, LogOutIcon, HomeIcon, FolderIcon, CircleDotIcon, ShieldIcon, UsersRoundIcon, TagIcon, SlidersIcon, PuzzleIcon, MessageSquare, Sun, Moon, BookOpen, HelpCircle, BarChart3, Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -64,6 +66,9 @@ export function Layout({ children }: LayoutProps) {
   const { t } = useT()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+
+  // Subscribe to the global notification stream for the whole session.
+  useNotificationStream(!!user)
 
   const getInitials = (name: string) => {
     if (!name) return '?'
@@ -191,6 +196,9 @@ export function Layout({ children }: LayoutProps) {
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* Notifications (Mobile) */}
+          <NotificationBell size="sm" />
+
           {/* Theme Toggle (Mobile) */}
           <Button
             variant="ghost"
@@ -306,6 +314,9 @@ export function Layout({ children }: LayoutProps) {
                   🇺🇸 EN
                 </button>
               </div>
+
+              {/* Notifications */}
+              <NotificationBell />
 
               {/* Theme Toggle */}
               <Button

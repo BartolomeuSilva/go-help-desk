@@ -112,18 +112,23 @@ func (d *EmailDispatcher) eventToEmail(event notification.Event) (templateName, 
 	payload := sanitizePayload(event.Payload)
 	switch event.Type {
 	case notification.EventTicketCreated:
-		guestEmail, _ := payload["guest_email"].(string)
-		if guestEmail == "" {
-			guestEmail, _ = payload["GuestEmail"].(string)
+		// Prefer the explicit recipient (registered reporter or guest) resolved by
+		// the caller; fall back to the guest email for older payloads.
+		recipient, _ := payload["reporter_email"].(string)
+		if recipient == "" {
+			recipient, _ = payload["guest_email"].(string)
+		}
+		if recipient == "" {
+			recipient, _ = payload["GuestEmail"].(string)
 		}
 		tracking, _ := payload["TrackingNumber"].(string)
 		subj, _ := payload["Subject"].(string)
-		if guestEmail == "" {
+		if recipient == "" {
 			return "", "", "", nil, false
 		}
 		return "ticket_created.tmpl",
 			fmt.Sprintf("[%s] %s", tracking, subj),
-			guestEmail, payload, true
+			recipient, payload, true
 	case notification.EventTicketReplied:
 		reporterEmail, _ := payload["reporter_email"].(string)
 		if reporterEmail == "" {

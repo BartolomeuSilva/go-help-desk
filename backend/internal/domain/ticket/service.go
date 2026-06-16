@@ -113,6 +113,11 @@ type CreateInput struct {
 	GuestPhone     string // optional
 	Source         string
 	WhatsappPhone  *string
+
+	// ReporterEmail is the address to notify about the new ticket. The caller
+	// resolves it (the guest's email, or the registered reporter's email) so the
+	// domain layer needs no user lookup. Empty when no email should be sent.
+	ReporterEmail string
 }
 
 // Create opens a new ticket, fires the created event, and optionally attaches
@@ -168,10 +173,22 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Ticket, error) {
 		_ = s.sla.AttachPolicy(ctx, t) // SLA failure is non-fatal
 	}
 
+	createdPayload := map[string]any{
+		"TrackingNumber": string(t.TrackingNumber),
+		"Subject":        t.Subject,
+		"Priority":       string(t.Priority),
+	}
+	if t.GuestEmail != nil {
+		createdPayload["guest_email"] = *t.GuestEmail
+	}
+	if in.ReporterEmail != "" {
+		createdPayload["reporter_email"] = in.ReporterEmail
+	}
 	_ = s.dispatcher.Dispatch(ctx, notification.Event{
 		Type:       notification.EventTicketCreated,
 		TicketID:   t.ID,
 		ActorID:    in.ReporterUserID,
+		Payload:    createdPayload,
 		OccurredAt: now,
 	})
 
