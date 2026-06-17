@@ -5,10 +5,13 @@ package notify
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"mime/quotedprintable"
 	"net/http"
 	"net/mail"
@@ -17,7 +20,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/publiciallc/go-help-desk/backend/internal/config"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/notification"
 )
@@ -27,20 +29,21 @@ var templateFS embed.FS
 
 var smtpSendMail = smtp.SendMail
 
-// EmailDispatcher sends email notifications on ticket events.
+// EmailDispatcher sends email notifications on ticket events. Email is
+// configured exclusively through the admin settings (the in-app UI); there is
+// no environment-variable fallback.
 type EmailDispatcher struct {
-	cfg       *config.Config
 	adminSvc  *admin.Service
 	templates *template.Template
 }
 
 // NewEmailDispatcher loads templates and returns an EmailDispatcher.
-func NewEmailDispatcher(cfg *config.Config, adminSvc *admin.Service) (*EmailDispatcher, error) {
+func NewEmailDispatcher(adminSvc *admin.Service) (*EmailDispatcher, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/*.tmpl")
 	if err != nil {
 		return nil, fmt.Errorf("parsing email templates: %w", err)
 	}
-	return &EmailDispatcher{cfg: cfg, adminSvc: adminSvc, templates: tmpl}, nil
+	return &EmailDispatcher{adminSvc: adminSvc, templates: tmpl}, nil
 }
 
 // sanitizeHeader strips CR and LF so user-controlled values interpolated into
@@ -68,24 +71,23 @@ func sanitizePayload(payload map[string]any) map[string]any {
 	return out
 }
 
-// EmailEnabled returns true when SMTP/Resend is configured via DB settings or fallback variables.
+// EmailEnabled returns true when a provider is configured via the admin
+// settings. Email is disabled when no admin service is wired or the provider
+// is set to "disabled".
 func (d *EmailDispatcher) EmailEnabled(ctx context.Context) bool {
 	if d.adminSvc == nil {
-		return d.cfg.EmailEnabled()
-	}
-	provider := d.adminSvc.EmailProvider(ctx)
-	if provider == "disabled" {
 		return false
 	}
-	if provider == "smtp" {
+	switch d.adminSvc.EmailProvider(ctx) {
+	case "smtp":
 		host, _, _, _, from := d.adminSvc.SMTPConfig(ctx)
 		return host != "" && from != ""
-	}
-	if provider == "resend" {
+	case "resend":
 		apiKey, from := d.adminSvc.ResendConfig(ctx)
 		return apiKey != "" && from != ""
+	default:
+		return false
 	}
-	return d.cfg.EmailEnabled()
 }
 
 // Dispatch sends an email for supported event types. Unsupported events are
@@ -160,6 +162,53 @@ func (d *EmailDispatcher) SendVerificationEmail(to, token, baseURL string) error
 	return d.send(ctx, to, "Verify your email address", buf.Bytes())
 }
 
+// buildMessage assembles an RFC 5322 plain-text MIME message. It always sets
+// the Date and Message-ID headers: their absence is one of the strongest spam
+// signals for receiving mail servers, and many relays (and outbound spam
+// filters) reject messages that omit them. The Message-ID is scoped to the
+// sender's domain so it aligns with SPF/DKIM expectations.
+func buildMessage(from, to, subject string, body []byte) ([]byte, error) {
+	fromAddr, err := mail.ParseAddress(from)
+	if err != nil {
+		return nil, fmt.Errorf("invalid sender address: %w", err)
+	}
+	toAddr, err := mail.ParseAddress(to)
+	if err != nil {
+		return nil, fmt.Errorf("invalid recipient address: %w", err)
+	}
+
+	domain := "localhost"
+	if at := strings.LastIndex(fromAddr.Address, "@"); at >= 0 && at < len(fromAddr.Address)-1 {
+		domain = fromAddr.Address[at+1:]
+	}
+	var rnd [16]byte
+	if _, err := rand.Read(rnd[:]); err != nil {
+		return nil, fmt.Errorf("generating message id: %w", err)
+	}
+	messageID := fmt.Sprintf("<%s@%s>", hex.EncodeToString(rnd[:]), domain)
+
+	var msg bytes.Buffer
+	fmt.Fprintf(&msg, "From: %s\r\n", fromAddr.String())
+	fmt.Fprintf(&msg, "To: %s\r\n", toAddr.String())
+	fmt.Fprintf(&msg, "Subject: %s\r\n", sanitizeHeader(subject))
+	fmt.Fprintf(&msg, "Date: %s\r\n", time.Now().Format(time.RFC1123Z))
+	fmt.Fprintf(&msg, "Message-ID: %s\r\n", messageID)
+	msg.WriteString("MIME-Version: 1.0\r\n")
+	msg.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
+	msg.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
+	msg.WriteString("\r\n")
+
+	qp := quotedprintable.NewWriter(&msg)
+	if _, err := qp.Write(body); err != nil {
+		return nil, fmt.Errorf("encoding body: %w", err)
+	}
+	if err := qp.Close(); err != nil {
+		return nil, fmt.Errorf("closing encoder: %w", err)
+	}
+
+	return msg.Bytes(), nil
+}
+
 // send builds a MIME message and hands it to the configured email provider (SMTP or Resend)
 // in the background. Address parsing is performed synchronously to report immediate formatting errors.
 func (d *EmailDispatcher) send(ctx context.Context, to, subject string, body []byte) error {
@@ -173,27 +222,15 @@ func (d *EmailDispatcher) send(ctx context.Context, to, subject string, body []b
 		provider = d.adminSvc.EmailProvider(ctx)
 	}
 
-	// Default fallback to environment variables SMTP if not explicitly disabled or configured in DB
-	if provider == "disabled" && d.cfg.EmailEnabled() {
-		provider = "smtp"
-	}
-
 	var apiKey, from string
 	var host, user, password string
 	var port int
 
-	if provider == "resend" {
+	switch provider {
+	case "resend":
 		apiKey, from = d.adminSvc.ResendConfig(ctx)
-	} else if provider == "smtp" {
-		if d.adminSvc != nil && d.adminSvc.EmailProvider(ctx) == "smtp" {
-			host, port, user, password, from = d.adminSvc.SMTPConfig(ctx)
-		} else {
-			host = d.cfg.SMTPHost
-			port = d.cfg.SMTPPort
-			user = d.cfg.SMTPUser
-			password = d.cfg.SMTPPassword
-			from = d.cfg.SMTPFrom
-		}
+	case "smtp":
+		host, port, user, password, from = d.adminSvc.SMTPConfig(ctx)
 	}
 
 	fromAddr, err := mail.ParseAddress(from)
@@ -201,24 +238,10 @@ func (d *EmailDispatcher) send(ctx context.Context, to, subject string, body []b
 		return fmt.Errorf("invalid sender address: %w", err)
 	}
 
-	var msg bytes.Buffer
-	fmt.Fprintf(&msg, "From: %s\r\n", fromAddr.String())
-	fmt.Fprintf(&msg, "To: %s\r\n", toAddr.String())
-	fmt.Fprintf(&msg, "Subject: %s\r\n", sanitizeHeader(subject))
-	msg.WriteString("MIME-Version: 1.0\r\n")
-	msg.WriteString("Content-Type: text/plain; charset=utf-8\r\n")
-	msg.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
-	msg.WriteString("\r\n")
-
-	qp := quotedprintable.NewWriter(&msg)
-	if _, err := qp.Write(body); err != nil {
-		return fmt.Errorf("encoding body: %w", err)
+	msgBytes, err := buildMessage(from, to, subject, body)
+	if err != nil {
+		return err
 	}
-	if err := qp.Close(); err != nil {
-		return fmt.Errorf("closing encoder: %w", err)
-	}
-
-	msgBytes := msg.Bytes()
 
 	// Perform the actual network operation asynchronously to avoid blocking HTTP request threads
 	go func() {
@@ -243,9 +266,16 @@ func (d *EmailDispatcher) send(ctx context.Context, to, subject string, body []b
 		}
 
 		if sendErr != nil {
-			// Log background error to help debugging, but do not crash the goroutine
-			fmt.Printf("Background email send error: %v\n", sendErr)
+			// Log the failure but never crash the goroutine. The HTTP request
+			// has already returned, so this log is the only signal that an
+			// email failed to deliver.
+			slog.Error("email dispatcher: failed to send message",
+				"provider", provider,
+				"recipient", toAddr.Address,
+				"error", sendErr)
+			return
 		}
+		slog.Info("email dispatcher: message sent", "provider", provider, "recipient", toAddr.Address)
 	}()
 
 	return nil

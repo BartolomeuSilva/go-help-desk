@@ -69,11 +69,6 @@ Environment variables control infrastructure; feature flags (SAML, MFA, SLA, gue
 | `SESSION_SECRET` | yes | — | Random secret ≥ 32 chars |
 | `JWT_SECRET` | yes | — | Random secret ≥ 32 chars |
 | `HTTP_PORT` | | `8080` | Listen port |
-| `SMTP_HOST` | | — | Enables email notifications when set |
-| `SMTP_PORT` | | `587` | |
-| `SMTP_USER` | | — | |
-| `SMTP_PASSWORD` | | — | |
-| `SMTP_FROM` | | — | |
 | `ATTACHMENT_DIR` | | `/data/attachments` | Attachment storage path |
 | `CLAMAV_ADDR` | | `tcp://clamav:3310`* | ClamAV daemon address. The Docker Compose setup runs ClamAV automatically and wires this up. For bare-metal / Kubernetes installs, set this to your own daemon address; leave it unset to disable scanning. |
 | `APP_ENV` | | `production` | Set to `development` for verbose logging |

@@ -2,13 +2,48 @@ package notify
 
 import (
 	"context"
+	"fmt"
 	"net/smtp"
 	"strings"
 	"testing"
 
-	"github.com/publiciallc/go-help-desk/backend/internal/config"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/notification"
 )
+
+// mapStore is an in-memory admin.Store for tests.
+type mapStore map[string][]byte
+
+func (m mapStore) Get(_ context.Context, key string) ([]byte, error) {
+	v, ok := m[key]
+	if !ok {
+		return nil, fmt.Errorf("setting %q not found", key)
+	}
+	return v, nil
+}
+func (m mapStore) Set(_ context.Context, key string, value []byte) error {
+	m[key] = value
+	return nil
+}
+func (m mapStore) List(_ context.Context) (map[string][]byte, error) { return m, nil }
+
+// smtpAdminSvc returns an admin.Service configured for SMTP with the given
+// sender address, backed by an in-memory store.
+func smtpAdminSvc(t *testing.T, from string) *admin.Service {
+	t.Helper()
+	svc := admin.NewService(mapStore{})
+	ctx := context.Background()
+	for key, val := range map[string]string{
+		admin.KeyEmailProvider: "smtp",
+		admin.KeyEmailSMTPHost: "localhost",
+		admin.KeyEmailSMTPFrom: from,
+	} {
+		if err := svc.SetString(ctx, key, val); err != nil {
+			t.Fatalf("seeding setting %q: %v", key, err)
+		}
+	}
+	return svc
+}
 
 func TestSendRejectsHeaderInjection(t *testing.T) {
 	// Intercept and mock smtp.SendMail to prevent dialing a real server during tests
@@ -64,11 +99,7 @@ func TestSendRejectsHeaderInjection(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			d := &EmailDispatcher{cfg: &config.Config{
-				SMTPHost: "localhost",
-				SMTPPort: 25,
-				SMTPFrom: tc.from,
-			}}
+			d := &EmailDispatcher{adminSvc: smtpAdminSvc(t, tc.from)}
 			err := d.send(context.Background(), tc.to, "test subject", []byte("body"))
 			if !tc.wantError {
 				if err != nil {
@@ -83,6 +114,38 @@ func TestSendRejectsHeaderInjection(t *testing.T) {
 				t.Fatalf("expected error to contain %q, got %q", tc.wantErr, err.Error())
 			}
 		})
+	}
+}
+
+func TestBuildMessageIncludesDateAndMessageID(t *testing.T) {
+	msg, err := buildMessage("Support <support@example.com>", "user@example.org", "Re: [HD-1] Hello", []byte("a reply"))
+	if err != nil {
+		t.Fatalf("buildMessage returned error: %v", err)
+	}
+	headers := string(msg)
+
+	if !strings.Contains(headers, "\r\nDate: ") && !strings.HasPrefix(headers, "Date: ") {
+		t.Errorf("message missing Date header:\n%s", headers)
+	}
+	// Message-ID must be present and scoped to the sender's domain so receiving
+	// servers accept it; its absence is a strong spam signal.
+	if !strings.Contains(headers, "Message-ID: <") {
+		t.Errorf("message missing Message-ID header:\n%s", headers)
+	}
+	if !strings.Contains(headers, "@example.com>") {
+		t.Errorf("Message-ID not scoped to sender domain:\n%s", headers)
+	}
+	if !strings.Contains(headers, "From: ") || !strings.Contains(headers, "Subject: Re: [HD-1] Hello") {
+		t.Errorf("message missing core headers:\n%s", headers)
+	}
+}
+
+func TestBuildMessageRejectsBadAddresses(t *testing.T) {
+	if _, err := buildMessage("not-an-address", "user@example.org", "s", []byte("b")); err == nil {
+		t.Errorf("expected error for invalid sender address")
+	}
+	if _, err := buildMessage("support@example.com", "bad", "s", []byte("b")); err == nil {
+		t.Errorf("expected error for invalid recipient address")
 	}
 }
 

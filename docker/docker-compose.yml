@@ -43,12 +43,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-jwt_secret_change_me}
       HTTP_PORT: 8080
       CLAMAV_ADDR: tcp://clamav:3310
-      # SMTP Config
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM: ${SMTP_FROM:-}
+      # Email (SMTP/Resend) is configured in the app: Admin → Settings → Email.
       # Feature Flags
       GUEST_SUBMISSION_ENABLED: ${GUEST_SUBMISSION_ENABLED:-false}
       SLA_ENABLED: ${SLA_ENABLED:-false}

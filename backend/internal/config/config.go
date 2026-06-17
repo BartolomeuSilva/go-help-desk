@@ -15,12 +15,9 @@ type Config struct {
 	SessionSecret string `envconfig:"SESSION_SECRET" required:"true"`
 	JWTSecret     string `envconfig:"JWT_SECRET" required:"true"`
 
-	// Email (optional — notifications disabled if not set)
-	SMTPHost     string `envconfig:"SMTP_HOST"`
-	SMTPPort     int    `envconfig:"SMTP_PORT" default:"587"`
-	SMTPUser     string `envconfig:"SMTP_USER"`
-	SMTPPassword string `envconfig:"SMTP_PASSWORD"`
-	SMTPFrom     string `envconfig:"SMTP_FROM"`
+	// Email is configured entirely through the in-app admin settings
+	// (provider, SMTP host/credentials or Resend API key). There is no
+	// environment-variable configuration for email.
 
 	// Features
 	GuestSubmissionEnabled bool `envconfig:"GUEST_SUBMISSION_ENABLED" default:"false"`
@@ -51,9 +48,4 @@ func Load() (*Config, error) {
 // IsDevelopment returns true when running in development mode.
 func (c *Config) IsDevelopment() bool {
 	return c.AppEnv == "development"
-}
-
-// EmailEnabled returns true when SMTP is configured.
-func (c *Config) EmailEnabled() bool {
-	return c.SMTPHost != "" && c.SMTPFrom != ""
 }

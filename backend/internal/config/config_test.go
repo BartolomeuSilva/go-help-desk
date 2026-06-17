@@ -75,7 +75,7 @@ func TestLoad_RequiredFields(t *testing.T) {
 func TestLoad_Defaults(t *testing.T) {
 	for _, key := range []string{
 		"DATABASE_URL", "BASE_URL", "SESSION_SECRET", "JWT_SECRET",
-		"HTTP_PORT", "SMTP_PORT", "ATTACHMENT_DIR", "APP_ENV",
+		"HTTP_PORT", "ATTACHMENT_DIR", "APP_ENV",
 		"SAML_ENABLED", "GUEST_SUBMISSION_ENABLED", "SLA_ENABLED", "MFA_ENABLED",
 	} {
 		os.Unsetenv(key)
@@ -93,28 +93,9 @@ func TestLoad_Defaults(t *testing.T) {
 	cfg, err := config.Load()
 	require.NoError(t, err)
 	require.Equal(t, 8080, cfg.HTTPPort)
-	require.Equal(t, 587, cfg.SMTPPort)
 	require.Equal(t, "/data/attachments", cfg.AttachmentDir)
 	require.Equal(t, "production", cfg.AppEnv)
 	require.False(t, cfg.GuestSubmissionEnabled)
 	require.False(t, cfg.SLAEnabled)
 	require.False(t, cfg.MFAEnabled)
-}
-
-func TestConfig_EmailEnabled(t *testing.T) {
-	cases := []struct {
-		name string
-		cfg  config.Config
-		want bool
-	}{
-		{name: "host and from set", cfg: config.Config{SMTPHost: "smtp.example.com", SMTPFrom: "noreply@example.com"}, want: true},
-		{name: "host missing", cfg: config.Config{SMTPFrom: "noreply@example.com"}, want: false},
-		{name: "from missing", cfg: config.Config{SMTPHost: "smtp.example.com"}, want: false},
-		{name: "both missing", cfg: config.Config{}, want: false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, tc.cfg.EmailEnabled())
-		})
-	}
 }
