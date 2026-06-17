@@ -1049,6 +1049,15 @@ func (s *Server) handleWhatsAppStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ensure devices paired before webhook auto-registration existed still get
+	// wired to deliver inbound messages. Best-effort and idempotent.
+	if info.State == "open" {
+		webhookURL := strings.TrimSuffix(s.cfg.BaseURL, "/") + "/api/v1/webhooks/whatsapp"
+		if err := client.SetWebhook(r.Context(), webhookURL); err != nil {
+			slog.Error("whatsapp set webhook failed", "url", webhookURL, "error", err)
+		}
+	}
+
 	JSON(w, http.StatusOK, map[string]string{
 		"status": info.State,
 		"number": info.Number,
@@ -1063,6 +1072,16 @@ func (s *Server) handleWhatsAppQRCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := whatsapp.NewClient(apiURL, apiToken, instanceName)
+
+	// Wire the instance to deliver inbound messages to our webhook before
+	// pairing. Pairing alone only connects the device; without this the
+	// attendance flow never starts. Best-effort: a failure here must not block
+	// QR generation, so we log and continue.
+	webhookURL := strings.TrimSuffix(s.cfg.BaseURL, "/") + "/api/v1/webhooks/whatsapp"
+	if err := client.SetWebhook(r.Context(), webhookURL); err != nil {
+		slog.Error("whatsapp set webhook failed", "url", webhookURL, "error", err)
+	}
+
 	code, err := client.GetQRCode(r.Context())
 	if err != nil {
 		slog.Error("whatsapp qrcode generation failed", "error", err)
@@ -1089,6 +1108,23 @@ func (s *Server) handleWhatsAppQRCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	JSON(w, http.StatusOK, map[string]string{"qrcode": finalQRCode})
+}
+
+func (s *Server) handleWhatsAppDisconnect(w http.ResponseWriter, r *http.Request) {
+	apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
+	if apiURL == "" || apiToken == "" || instanceName == "" {
+		Error(w, http.StatusBadRequest, "bad_request", "whatsapp is not configured")
+		return
+	}
+
+	client := whatsapp.NewClient(apiURL, apiToken, instanceName)
+	if err := client.Logout(r.Context()); err != nil {
+		slog.Error("whatsapp disconnect failed", "error", err)
+		Error(w, http.StatusInternalServerError, "api_error", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // ── Plugins ──────────────────────────────────────────────────────────────────

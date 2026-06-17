@@ -558,4 +558,8 @@ export async function getWhatsAppQRCode(): Promise<{ qrcode: string }> {
   return res.data
 }
 
+export async function disconnectWhatsApp(): Promise<void> {
+  await api.delete('/admin/settings/whatsapp/disconnect')
+}
+
 

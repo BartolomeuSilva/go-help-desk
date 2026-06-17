@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getSettings, updateSettings, getSAMLConfig, saveSAMLConfig, getSiteConfig, uploadLogo, deleteLogo, uploadLogoDark, deleteLogoDark, listStatuses, listCategories, listSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy, getWhatsAppStatus, getWhatsAppQRCode } from '@/api/admin'
+import { getSettings, updateSettings, getSAMLConfig, saveSAMLConfig, getSiteConfig, uploadLogo, deleteLogo, uploadLogoDark, deleteLogoDark, listStatuses, listCategories, listSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy, getWhatsAppStatus, getWhatsAppQRCode, disconnectWhatsApp } from '@/api/admin'
 import type { SLAPolicy } from '@/api/types'
 import { extractError } from '@/api/client'
 import { Layout } from '@/components/Layout'
@@ -1145,6 +1145,7 @@ function WhatsAppPanel({
   const [whatsappNumber, setWhatsappNumber] = useState<string>('')
   const [qrCode, setQrCode] = useState<string>('')
   const [checking, setChecking] = useState<boolean>(false)
+  const [disconnecting, setDisconnecting] = useState<boolean>(false)
 
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: listCategories })
   const activeCategories = categories.filter((c) => c.active)
@@ -1222,6 +1223,22 @@ function WhatsAppPanel({
     } catch (err) {
       console.error(err)
       setStatus('error')
+    }
+  }
+
+  const handleDisconnect = async () => {
+    if (!window.confirm(t('settings.whatsapp.disconnect_confirm'))) return
+    setDisconnecting(true)
+    try {
+      await disconnectWhatsApp()
+      setStatus('close')
+      setWhatsappNumber('')
+      setQrCode('')
+    } catch (err) {
+      console.error(err)
+      setStatus('error')
+    } finally {
+      setDisconnecting(false)
     }
   }
 
@@ -1334,6 +1351,20 @@ function WhatsAppPanel({
                 >
                   {t('settings.whatsapp.test_connection')}
                 </Button>
+
+                {status === 'open' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={disconnecting}
+                    onClick={handleDisconnect}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    {disconnecting
+                      ? t('settings.whatsapp.disconnecting')
+                      : t('settings.whatsapp.disconnect')}
+                  </Button>
+                )}
               </div>
             </SettingRow>
 
