@@ -2,7 +2,9 @@ package server
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -53,6 +55,13 @@ func (b *SSEBroker) Unsubscribe(ticketID uuid.UUID, ch chan string) {
 func (b *SSEBroker) Broadcast(ticketID uuid.UUID, eventType string, data string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	// Never emit an empty data field: a bare "data:" line is an ambiguous SSE
+	// frame that some proxies/polyfills mishandle. A monotonic timestamp also
+	// keeps every frame unique, so nothing dedupes a "refresh" against a prior.
+	if data == "" {
+		data = strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
 
 	message := fmt.Sprintf("event: %s\ndata: %s\n\n", eventType, data)
 

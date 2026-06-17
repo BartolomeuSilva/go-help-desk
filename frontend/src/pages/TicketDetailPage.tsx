@@ -484,11 +484,6 @@ export function TicketDetailPage() {
       withCredentials: true,
     })
 
-    eventSource.onopen = () => {
-      setSseStatus('connected')
-      setSseError(null)
-    }
-
     const handleRefresh = () => {
       qc.invalidateQueries({ queryKey: ['ticket', id] })
       qc.invalidateQueries({ queryKey: ['replies', id] })
@@ -496,6 +491,16 @@ export function TicketDetailPage() {
       qc.invalidateQueries({ queryKey: ['attachments', id] })
       qc.invalidateQueries({ queryKey: ['customFields', id] })
     };
+
+    eventSource.onopen = () => {
+      setSseStatus('connected')
+      setSseError(null)
+      // Catch up on every (re)connect: EventSource auto-reconnects after drops
+      // (proxy timeouts, sleep, network blips) and any 'refresh' emitted during
+      // the gap is lost forever. Refetching on open recovers it without a manual
+      // page reload.
+      handleRefresh()
+    }
 
     eventSource.addEventListener('refresh', handleRefresh)
 
@@ -513,16 +518,22 @@ export function TicketDetailPage() {
 
 
 
+  // SSE is the instant path. These short intervals are a safety net so the
+  // conversation self-heals within seconds if a 'refresh' is ever dropped on a
+  // live connection — never requiring a manual reload. Polling pauses when the
+  // tab is backgrounded (refetchIntervalInBackground defaults to false).
   const { data: replies = [] } = useQuery({
     queryKey: ['replies', id],
     queryFn: () => listReplies(id),
     enabled: !!ticket,
+    refetchInterval: 15_000,
   })
 
   const { data: statusHistory = [] } = useQuery({
     queryKey: ['statusHistory', id],
     queryFn: () => listStatusHistory(id),
     enabled: !!ticket,
+    refetchInterval: 15_000,
   })
 
   type TimelineItem =
