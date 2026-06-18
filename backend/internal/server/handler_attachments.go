@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -19,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
+	"github.com/publiciallc/go-help-desk/backend/internal/integration/whatsapp"
 	authmw "github.com/publiciallc/go-help-desk/backend/internal/middleware"
 	"golang.org/x/image/bmp"
 )
@@ -303,6 +305,27 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request) 
 	}
 
 	s.sseBroker.Broadcast(ticketID, "refresh", "")
+
+	// If a staff/admin uploaded a file to a WhatsApp ticket, forward it to the
+	// customer over WhatsApp so they can see what support sent. base64 is used
+	// so the Evolution server doesn't have to fetch our authenticated URL.
+	if a.Role != "user" && t.Source == "whatsapp" && t.WhatsappPhone != nil && *t.WhatsappPhone != "" &&
+		s.adminSvc.WhatsAppEnabled(r.Context()) {
+		apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(r.Context())
+		if apiURL != "" && apiToken != "" && instanceName != "" {
+			phone := *t.WhatsappPhone
+			client := whatsapp.NewClient(apiURL, apiToken, instanceName)
+			fileBytes := data
+			go func() {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				if err := client.SendMediaBase64(bgCtx, phone, fileBytes, mime, origName, ""); err != nil {
+					slog.Error("failed to send attachment to whatsapp", "phone", phone, "error", err)
+				}
+			}()
+		}
+	}
+
 	JSON(w, http.StatusCreated, att)
 }
 

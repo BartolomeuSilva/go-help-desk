@@ -3,6 +3,7 @@ package whatsapp
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -130,6 +131,143 @@ func (c *Client) SendMedia(ctx context.Context, number, mediaURL, fileName, capt
 	return nil
 }
 
+// GetMediaBase64 fetches and decrypts a received media message from the
+// Evolution server, returning the raw file bytes. WhatsApp media URLs in the
+// webhook payload are end-to-end encrypted and cannot be downloaded directly;
+// this endpoint returns the decoded content for a given message ID.
+func (c *Client) GetMediaBase64(ctx context.Context, messageID string) (data []byte, mimeType, fileName string, err error) {
+	if c.apiURL == "" || c.apiToken == "" || c.instanceName == "" {
+		return nil, "", "", fmt.Errorf("whatsapp client is not fully configured")
+	}
+	if messageID == "" {
+		return nil, "", "", fmt.Errorf("message id is required")
+	}
+
+	url := fmt.Sprintf("%s/chat/getBase64FromMediaMessage/%s", c.apiURL, c.instanceName)
+	payload := map[string]any{
+		"message":      map[string]any{"key": map[string]any{"id": messageID}},
+		"convertToMp4": false,
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("marshaling getBase64 payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return nil, "", "", fmt.Errorf("creating getBase64 request: %w", err)
+	}
+	req.Header.Set("apikey", c.apiToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("calling getBase64 API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, "", "", fmt.Errorf("getBase64 API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var res struct {
+		Base64   string `json:"base64"`
+		FileName string `json:"fileName"`
+		MimeType string `json:"mimetype"`
+		MimeAlt  string `json:"mimeType"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return nil, "", "", fmt.Errorf("decoding getBase64 response: %w", err)
+	}
+	if res.Base64 == "" {
+		return nil, "", "", fmt.Errorf("getBase64 API returned empty media")
+	}
+	data, err = base64.StdEncoding.DecodeString(res.Base64)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("decoding media base64: %w", err)
+	}
+	return data, firstNonEmpty(res.MimeType, res.MimeAlt), res.FileName, nil
+}
+
+// SendMediaBase64 sends a file to a number, embedding it as base64 (Evolution v2
+// flat payload) so the Evolution server doesn't need to fetch an authenticated
+// URL from this app.
+func (c *Client) SendMediaBase64(ctx context.Context, number string, data []byte, mimeType, fileName, caption string) error {
+	if c.apiURL == "" || c.apiToken == "" || c.instanceName == "" {
+		return fmt.Errorf("whatsapp client is not fully configured")
+	}
+
+	number = strings.TrimPrefix(number, "+")
+	url := fmt.Sprintf("%s/message/sendMedia/%s", c.apiURL, c.instanceName)
+
+	payload := map[string]any{
+		"number":    number,
+		"mediatype": mediaTypeFor(mimeType, fileName),
+		"mimetype":  mimeType,
+		"media":     base64.StdEncoding.EncodeToString(data),
+		"fileName":  fileName,
+		"caption":   caption,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshaling sendMedia payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return fmt.Errorf("creating sendMedia request: %w", err)
+	}
+	req.Header.Set("apikey", c.apiToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("calling sendMedia API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("sendMedia API returned status %d: %s", resp.StatusCode, string(body))
+	}
+	return nil
+}
+
+// mediaTypeFor maps a MIME type (with filename fallback) to the Evolution
+// media category: "image", "video", "audio" or "document".
+func mediaTypeFor(mimeType, fileName string) string {
+	m := strings.ToLower(mimeType)
+	switch {
+	case strings.HasPrefix(m, "image/"):
+		return "image"
+	case strings.HasPrefix(m, "video/"):
+		return "video"
+	case strings.HasPrefix(m, "audio/"):
+		return "audio"
+	}
+	f := strings.ToLower(fileName)
+	switch {
+	case hasAnySuffix(f, ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"):
+		return "image"
+	case hasAnySuffix(f, ".mp4", ".mov", ".avi", ".mkv"):
+		return "video"
+	case hasAnySuffix(f, ".mp3", ".ogg", ".oga", ".m4a", ".wav"):
+		return "audio"
+	}
+	return "document"
+}
+
+func hasAnySuffix(s string, suffixes ...string) bool {
+	for _, suf := range suffixes {
+		if strings.HasSuffix(s, suf) {
+			return true
+		}
+	}
+	return false
+}
+
 // GetConnectionStatus checks if the WhatsApp instance is connected.
 // Returns status: "open", "close", "connecting", or error.
 func (c *Client) GetConnectionStatus(ctx context.Context) (string, error) {
@@ -161,9 +299,17 @@ func (c *Client) GetConnectionStatus(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("connectionState API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
+	// Parse every known shape: the state may live under "instance.state",
+	// "instance.status", "instance.connectionStatus", or at the top level,
+	// depending on the Evolution API version. Reading only one of these caused
+	// a connected instance to look disconnected in the app.
 	var res struct {
-		Instance struct {
-			State string `json:"state"`
+		State    string `json:"state"`
+		Status   string `json:"status"`
+		Instance *struct {
+			State            string `json:"state"`
+			Status           string `json:"status"`
+			ConnectionStatus string `json:"connectionStatus"`
 		} `json:"instance"`
 	}
 
@@ -171,7 +317,26 @@ func (c *Client) GetConnectionStatus(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("decoding connectionState response: %w", err)
 	}
 
-	return res.Instance.State, nil
+	state := firstNonEmpty(res.State, res.Status)
+	if res.Instance != nil {
+		state = firstNonEmpty(
+			res.Instance.State,
+			res.Instance.Status,
+			res.Instance.ConnectionStatus,
+			state,
+		)
+	}
+	return state, nil
+}
+
+// firstNonEmpty returns the first non-empty string from the arguments.
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // ConnectionInfo holds status and number for the WhatsApp instance connection.

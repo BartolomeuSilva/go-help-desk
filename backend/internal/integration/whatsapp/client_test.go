@@ -2,6 +2,7 @@ package whatsapp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -87,6 +88,54 @@ func TestGetQRCodeUnconfigured(t *testing.T) {
 	}
 }
 
+func TestGetConnectionStatus(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"nested instance.state", `{"instance":{"state":"open"}}`, "open"},
+		{"nested instance.status", `{"instance":{"status":"open"}}`, "open"},
+		{"nested connectionStatus", `{"instance":{"connectionStatus":"open"}}`, "open"},
+		{"top-level state", `{"state":"open"}`, "open"},
+		{"top-level status", `{"status":"connecting"}`, "connecting"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+
+			c := NewClient(srv.URL, "token", "inst")
+			got, err := c.GetConnectionStatus(context.Background())
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestGetConnectionStatusNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "token", "inst")
+	got, err := c.GetConnectionStatus(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "disconnected" {
+		t.Errorf("got %q, want %q", got, "disconnected")
+	}
+}
+
 func TestSetWebhook(t *testing.T) {
 	t.Run("sends v2 payload to the correct endpoint", func(t *testing.T) {
 		var gotPath string
@@ -141,6 +190,81 @@ func TestSetWebhook(t *testing.T) {
 			t.Fatal("expected error for unconfigured client")
 		}
 	})
+}
+
+func TestGetMediaBase64(t *testing.T) {
+	want := []byte("hello-bytes")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/getBase64FromMediaMessage/inst" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		resp := map[string]any{
+			"base64":   base64.StdEncoding.EncodeToString(want),
+			"fileName": "print.jpg",
+			"mimetype": "image/jpeg",
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "token", "inst")
+	data, mime, name, err := c.GetMediaBase64(context.Background(), "MSGID")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if string(data) != string(want) {
+		t.Errorf("data = %q, want %q", data, want)
+	}
+	if mime != "image/jpeg" {
+		t.Errorf("mime = %q", mime)
+	}
+	if name != "print.jpg" {
+		t.Errorf("name = %q", name)
+	}
+}
+
+func TestSendMediaBase64(t *testing.T) {
+	var gotBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/message/sendMedia/inst" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotBody)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "token", "inst")
+	if err := c.SendMediaBase64(context.Background(), "+5511999", []byte("x"), "image/png", "a.png", "cap"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotBody["mediatype"] != "image" {
+		t.Errorf("mediatype = %v, want image", gotBody["mediatype"])
+	}
+	if gotBody["number"] != "5511999" {
+		t.Errorf("number = %v (should strip +)", gotBody["number"])
+	}
+	if gotBody["media"] != base64.StdEncoding.EncodeToString([]byte("x")) {
+		t.Errorf("media not base64-encoded: %v", gotBody["media"])
+	}
+}
+
+func TestMediaTypeFor(t *testing.T) {
+	cases := []struct{ mime, file, want string }{
+		{"image/jpeg", "x", "image"},
+		{"video/mp4", "x", "video"},
+		{"audio/ogg", "x", "audio"},
+		{"application/pdf", "doc.pdf", "document"},
+		{"", "photo.PNG", "image"},
+		{"", "clip.mp4", "video"},
+		{"", "file.unknown", "document"},
+	}
+	for _, tc := range cases {
+		if got := mediaTypeFor(tc.mime, tc.file); got != tc.want {
+			t.Errorf("mediaTypeFor(%q,%q) = %q, want %q", tc.mime, tc.file, got, tc.want)
+		}
+	}
 }
 
 func TestLogout(t *testing.T) {

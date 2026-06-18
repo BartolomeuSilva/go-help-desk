@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -1094,7 +1095,15 @@ func (s *Server) handleWhatsAppQRCode(w http.ResponseWriter, r *http.Request) {
 		finalQRCode = code
 	} else {
 		if code == "" {
-			Error(w, http.StatusBadRequest, "bad_request", "no QR code returned. Check if the instance is already connected or try logging out.")
+			// No QR usually means the instance is already paired (Evolution
+			// won't issue a QR while connected). Surface the real state so the
+			// operator knows to disconnect first instead of guessing.
+			state, _ := client.GetConnectionStatus(r.Context())
+			if state == "open" {
+				Error(w, http.StatusConflict, "already_connected", "WhatsApp is already connected on the Evolution server. Click Disconnect first, then generate a new QR Code.")
+				return
+			}
+			Error(w, http.StatusBadRequest, "bad_request", fmt.Sprintf("no QR code returned (instance state: %q). Try Disconnect and then generate the QR Code again.", state))
 			return
 		}
 		pngBytes, err := qrcode.Encode(code, qrcode.Medium, 256)

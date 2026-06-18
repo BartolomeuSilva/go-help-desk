@@ -1352,19 +1352,20 @@ function WhatsAppPanel({
                   {t('settings.whatsapp.test_connection')}
                 </Button>
 
-                {status === 'open' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={disconnecting}
-                    onClick={handleDisconnect}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    {disconnecting
-                      ? t('settings.whatsapp.disconnecting')
-                      : t('settings.whatsapp.disconnect')}
-                  </Button>
-                )}
+                {/* Always available so a desynced instance (Evolution shows
+                    connected, app shows disconnected) can be force–logged out
+                    and re-paired, instead of deadlocking. */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={disconnecting}
+                  onClick={handleDisconnect}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  {disconnecting
+                    ? t('settings.whatsapp.disconnecting')
+                    : t('settings.whatsapp.disconnect')}
+                </Button>
               </div>
             </SettingRow>
 

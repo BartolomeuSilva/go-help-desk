@@ -298,7 +298,7 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 		// Download and attach media if present
 		if mediaURL != "" {
-			go s.downloadAndAttachMedia(context.Background(), activeTicket.ID, mediaURL, bodyText, defaultFileName, mimeType)
+			go s.downloadAndAttachMedia(context.Background(), activeTicket.ID, externalMsgID, mediaURL, bodyText, defaultFileName, mimeType)
 		}
 
 		s.sseBroker.Broadcast(activeTicket.ID, "refresh", "")
@@ -353,10 +353,13 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 			// Download and attach media if present
 			if mediaURL != "" {
-				go s.downloadAndAttachMedia(context.Background(), activeTicket.ID, mediaURL, bodyText, defaultFileName, mimeType)
+				go s.downloadAndAttachMedia(context.Background(), activeTicket.ID, externalMsgID, mediaURL, bodyText, defaultFileName, mimeType)
 			}
 
 			s.sseBroker.Broadcast(activeTicket.ID, "refresh", "")
+			// Ring the bell for the support team so the inbound message is seen
+			// even by agents not viewing this ticket.
+			s.broadcastReplyNotification(r.Context(), activeTicket, reply, false)
 			JSON(w, http.StatusOK, reply)
 			return
 
@@ -451,8 +454,15 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 				session, err := s.tickets.GetWhatsAppSession(r.Context(), phone)
 				if err != nil {
 					if errors.Is(err, ticket.ErrNotFound) {
-						// 1. First contact: Create temporary session and send welcome message
-						if err := s.tickets.CreateWhatsAppSession(r.Context(), phone, bodyText, mediaURL, mimeType); err != nil {
+						// 1. First contact: Create temporary session and send welcome message.
+						// For media, store the WhatsApp message ID (not the URL): the
+						// raw URL is end-to-end encrypted, so the file is fetched on
+						// demand via the Evolution API when the ticket is created.
+						mediaRef := ""
+						if mediaURL != "" {
+							mediaRef = externalMsgID
+						}
+						if err := s.tickets.CreateWhatsAppSession(r.Context(), phone, bodyText, mediaRef, mimeType); err != nil {
 							slog.Error("failed to create whatsapp session", "phone", phone, "error", err)
 							Error(w, http.StatusInternalServerError, "db_error", "failed to initialize chatbot session")
 							return
@@ -528,27 +538,30 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 
-					// Download and attach media if saved in the session
+					// Attach media from the first message (session stores its
+					// WhatsApp message ID, not a URL).
 					if session.MediaURL != "" {
-						go s.downloadAndAttachMedia(context.Background(), newTicket.ID, session.MediaURL, session.InitialMessage, "attachment", session.MimeType)
+						go s.downloadAndAttachMedia(context.Background(), newTicket.ID, session.MediaURL, "", session.InitialMessage, "attachment", session.MimeType)
 					}
-					// Also download and attach media if present in the current option message
+					// Also attach media if present in the current option message
 					if mediaURL != "" {
-						go s.downloadAndAttachMedia(context.Background(), newTicket.ID, mediaURL, bodyText, defaultFileName, mimeType)
+						go s.downloadAndAttachMedia(context.Background(), newTicket.ID, externalMsgID, mediaURL, bodyText, defaultFileName, mimeType)
 					}
 
 					// Delete session
 					_ = s.tickets.DeleteWhatsAppSession(r.Context(), phone)
 
 					s.sseBroker.Broadcast(newTicket.ID, "refresh", "")
+					s.notifyNewWhatsAppTicket(r.Context(), newTicket, session.InitialMessage, pushName)
 					JSON(w, http.StatusCreated, newTicket)
 					return
 				} else {
-					// Client typed an invalid option: resend the welcome menu message
-					invalidMsg := "Opção inválida. Por favor, selecione uma das opções do menu:\n\n" + welcomeMessage
+					// Option didn't match the menu: just resend the menu cleanly.
+					// No "invalid option" prefix — on first contact the customer
+					// hasn't seen the options yet, so scolding them is confusing.
 					if wsClient != nil {
-						if err := wsClient.SendText(r.Context(), phone, invalidMsg); err != nil {
-							slog.Error("failed to send whatsapp welcome message on invalid input", "phone", phone, "error", err)
+						if err := wsClient.SendText(r.Context(), phone, welcomeMessage); err != nil {
+							slog.Error("failed to resend whatsapp menu on unmatched input", "phone", phone, "error", err)
 						}
 					}
 
@@ -598,71 +611,120 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 			// Download and attach media if present
 			if mediaURL != "" {
-				go s.downloadAndAttachMedia(context.Background(), newTicket.ID, mediaURL, bodyText, defaultFileName, mimeType)
+				go s.downloadAndAttachMedia(context.Background(), newTicket.ID, externalMsgID, mediaURL, bodyText, defaultFileName, mimeType)
 			}
 
 			s.sseBroker.Broadcast(newTicket.ID, "refresh", "")
+			s.notifyNewWhatsAppTicket(r.Context(), newTicket, bodyText, pushName)
 			JSON(w, http.StatusCreated, newTicket)
 			return
 		}
 	}
 }
 
-func (s *Server) downloadAndAttachMedia(ctx context.Context, ticketID uuid.UUID, mediaURL, caption, defaultName, mimeType string) {
-	if mediaURL == "" {
+// notifyNewWhatsAppTicket rings the support team's bell for a ticket that was
+// just opened from WhatsApp. It reuses the per-user notification stream by
+// synthesising a customer "reply" from the ticket's first message.
+func (s *Server) notifyNewWhatsAppTicket(ctx context.Context, t ticket.Ticket, message, authorName string) {
+	name := authorName
+	s.broadcastReplyNotification(ctx, t, ticket.Reply{
+		ID:         uuid.New(),
+		TicketID:   t.ID,
+		AuthorName: &name,
+		Body:       message,
+		CreatedAt:  time.Now(),
+	}, false)
+}
+
+// downloadAndAttachMedia saves an inbound WhatsApp media file as a ticket
+// attachment. It prefers the Evolution API (decrypted bytes via the message ID,
+// the only reliable path since WhatsApp media URLs are end-to-end encrypted) and
+// falls back to a direct URL download when a reachable URL is available.
+func (s *Server) downloadAndAttachMedia(ctx context.Context, ticketID uuid.UUID, messageID, mediaURL, caption, defaultName, mimeType string) {
+	if messageID == "" && mediaURL == "" {
 		return
 	}
 
-	// 1. Download file
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mediaURL, nil)
-	if err != nil {
-		slog.Error("failed to create media download request", "url", mediaURL, "error", err)
-		return
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		slog.Error("failed to download media from Evolution API", "url", mediaURL, "error", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("Evolution API media download returned non-200", "status", resp.StatusCode, "url", mediaURL)
-		return
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("failed to read downloaded media body", "error", err)
-		return
-	}
-
-	// 2. Determine file name
+	var data []byte
 	fileName := defaultName
-	if lastSlash := strings.LastIndex(mediaURL, "/"); lastSlash != -1 {
-		potentialName := mediaURL[lastSlash+1:]
-		if strings.Contains(potentialName, ".") && len(potentialName) < 100 {
-			fileName = potentialName
+
+	if messageID != "" {
+		apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(ctx)
+		if apiURL != "" && apiToken != "" && instanceName != "" {
+			client := whatsapp.NewClient(apiURL, apiToken, instanceName)
+			b, mt, fn, err := client.GetMediaBase64(ctx, messageID)
+			if err != nil {
+				slog.Error("failed to fetch media from Evolution", "message_id", messageID, "error", err)
+			} else {
+				data = b
+				if mt != "" {
+					mimeType = mt
+				}
+				if fn != "" {
+					fileName = fn
+				}
+			}
 		}
 	}
 
+	if data == nil && mediaURL != "" {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, mediaURL, nil)
+		if err != nil {
+			slog.Error("failed to create media download request", "url", mediaURL, "error", err)
+			return
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			slog.Error("failed to download media", "url", mediaURL, "error", err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("media download returned non-200", "status", resp.StatusCode, "url", mediaURL)
+			return
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			slog.Error("failed to read downloaded media body", "error", err)
+			return
+		}
+		data = body
+		if lastSlash := strings.LastIndex(mediaURL, "/"); lastSlash != -1 {
+			potentialName := mediaURL[lastSlash+1:]
+			if strings.Contains(potentialName, ".") && len(potentialName) < 100 {
+				fileName = potentialName
+			}
+		}
+	}
+
+	if len(data) == 0 {
+		slog.Error("media attach produced no data", "ticket_id", ticketID, "message_id", messageID)
+		return
+	}
+
+	if fileName == "" {
+		fileName = "attachment"
+	}
 	ext := strings.ToLower(filepath.Ext(fileName))
 	if ext == "" {
-		switch mimeType {
-		case "image/jpeg":
+		switch {
+		case mimeType == "image/jpeg":
 			ext = ".jpg"
-		case "image/png":
+		case mimeType == "image/png":
 			ext = ".png"
-		case "application/pdf":
+		case mimeType == "application/pdf":
 			ext = ".pdf"
+		case strings.HasPrefix(mimeType, "audio/"):
+			ext = ".ogg"
+		case strings.HasPrefix(mimeType, "video/"):
+			ext = ".mp4"
 		default:
 			ext = ".bin"
 		}
 		fileName += ext
 	}
 
-	// 3. Write to disk
+	// Write to disk
 	storageID := uuid.New()
 	subdir := filepath.Join(s.cfg.AttachmentDir, "tickets", ticketID.String())
 	if err := os.MkdirAll(subdir, 0o755); err != nil {
