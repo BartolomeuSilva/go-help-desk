@@ -563,12 +563,10 @@ func (s *Server) handleAddReply(w http.ResponseWriter, r *http.Request) {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
 		return
 	}
-	sanitizedBody := bluemonday.UGCPolicy().Sanitize(body.Body)
-	if strings.TrimSpace(sanitizedBody) == "" {
-		Error(w, http.StatusBadRequest, "bad_request", "body is required")
-		return
-	}
-	body.Body = sanitizedBody
+	// An empty body is allowed for attachment-only replies: the file is uploaded
+	// in a follow-up request right after this call. Downstream notifiers skip
+	// empty text (WhatsApp/email), so no blank message is delivered.
+	body.Body = bluemonday.UGCPolicy().Sanitize(body.Body)
 
 	// Internal replies are staff/admin only.
 	if body.Internal && a.Role == user.RoleUser {

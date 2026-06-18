@@ -206,6 +206,7 @@ func TestEventToEmailTicketRepliedAcceptsPascalCaseReporterEmail(t *testing.T) {
 			"ReporterEmail":  "reporter@example.com",
 			"TrackingNumber": "HD-456",
 			"Subject":        "Update",
+			"ReplyBody":      "some reply text",
 		},
 	})
 
@@ -226,6 +227,22 @@ func TestEventToEmailTicketRepliedAcceptsPascalCaseReporterEmail(t *testing.T) {
 	}
 }
 
+func TestEventToEmailTicketRepliedEmptyBodyDoesNotMap(t *testing.T) {
+	d := &EmailDispatcher{}
+	_, _, _, _, ok := d.eventToEmail(notification.Event{
+		Type: notification.EventTicketReplied,
+		Payload: map[string]any{
+			"ReporterEmail":  "reporter@example.com",
+			"TrackingNumber": "HD-000",
+			"Subject":        "Attachment only",
+			"ReplyBody":      "",
+		},
+	})
+	if ok {
+		t.Fatalf("attachment-only reply (empty body) must not produce an email")
+	}
+}
+
 func TestEventToEmailTicketRepliedMissingReporterEmailStillMaps(t *testing.T) {
 	d := &EmailDispatcher{}
 	templateName, subject, to, data, ok := d.eventToEmail(notification.Event{
@@ -233,6 +250,7 @@ func TestEventToEmailTicketRepliedMissingReporterEmailStillMaps(t *testing.T) {
 		Payload: map[string]any{
 			"TrackingNumber": "HD-789",
 			"Subject":        "No recipient",
+			"ReplyBody":      "some reply text",
 		},
 	})
 

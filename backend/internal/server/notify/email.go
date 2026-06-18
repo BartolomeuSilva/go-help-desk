@@ -132,6 +132,11 @@ func (d *EmailDispatcher) eventToEmail(event notification.Event) (templateName, 
 			fmt.Sprintf("[%s] %s", tracking, subj),
 			recipient, payload, true
 	case notification.EventTicketReplied:
+		// Attachment-only replies carry no text — don't send a blank email.
+		replyBody, _ := payload["ReplyBody"].(string)
+		if strings.TrimSpace(replyBody) == "" {
+			return "", "", "", nil, false
+		}
 		reporterEmail, _ := payload["reporter_email"].(string)
 		if reporterEmail == "" {
 			reporterEmail, _ = payload["ReporterEmail"].(string)

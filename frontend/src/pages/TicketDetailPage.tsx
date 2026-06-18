@@ -693,7 +693,7 @@ export function TicketDetailPage() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (!replyMutation.isPending && !replyUploadStates && replyBody.trim()) {
+      if (!replyMutation.isPending && !replyUploadStates && (replyBody.trim() || replyFiles.length > 0)) {
         replyMutation.mutate()
       }
     }
@@ -879,7 +879,9 @@ export function TicketDetailPage() {
                           {formatDate(r.created_at)}
                         </span>
                       </div>
-                      <p className={`whitespace-pre-wrap ${textClass}`}>{r.body}</p>
+                      {r.body
+                        ? <p className={`whitespace-pre-wrap ${textClass}`}>{r.body}</p>
+                        : <p className={`italic opacity-70 ${textClass}`}>📎 {t('tickets.detail.attachment_only')}</p>}
                     </div>
                   )
                 }
@@ -1009,22 +1011,25 @@ export function TicketDetailPage() {
                           </>
                         )}
                       </div>
-
-                      <AttachmentUpload
-                        files={replyFiles}
-                        onChange={setReplyFiles}
-                        uploadStates={replyUploadStates}
-                        disabled={!!replyUploadStates}
-                        maxFiles={5}
-                      />
                     </>
                   )}
+
+                  {/* Attachments are available to anyone who can reply —
+                      including the customer — so they can send screenshots and
+                      files from the web app, just like over WhatsApp. */}
+                  <AttachmentUpload
+                    files={replyFiles}
+                    onChange={setReplyFiles}
+                    uploadStates={replyUploadStates}
+                    disabled={!!replyUploadStates}
+                    maxFiles={5}
+                  />
 
                   {replyError && <p className="text-sm text-red-600">{replyError}</p>}
 
                   <Button
                     onClick={() => replyMutation.mutate()}
-                    disabled={replyMutation.isPending || !!replyUploadStates || !replyBody.trim()}
+                    disabled={replyMutation.isPending || !!replyUploadStates || (!replyBody.trim() && replyFiles.length === 0)}
                   >
                     {replyMutation.isPending
                       ? t('tickets.detail.saving')
