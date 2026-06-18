@@ -157,7 +157,6 @@ export function Layout({ children }: LayoutProps) {
             <NavItem to="/admin/statuses" icon={<CircleDotIcon className="h-4 w-4" />} label={t('nav.statuses')} />
             <NavItem to="/admin/tags" icon={<TagIcon className="h-4 w-4" />} label={t('nav.tags')} />
             <NavItem to="/admin/custom-fields" icon={<SlidersIcon className="h-4 w-4" />} label={t('nav.custom_fields')} />
-            <NavItem to="/admin/plugins" icon={<PuzzleIcon className="h-4 w-4" />} label={t('nav.plugins')} />
             <NavItem to="/admin/canned-responses" icon={<MessageSquare className="h-4 w-4" />} label={t('nav.canned_responses')} />
             <NavItem to="/admin/kb" icon={<BookOpen className="h-4 w-4" />} label={t('nav.kb_management')} />
             <NavItem to="/admin/settings" icon={<SettingsIcon className="h-4 w-4" />} label={t('nav.settings')} />
