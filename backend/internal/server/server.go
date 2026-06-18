@@ -236,6 +236,7 @@ func (s *Server) buildRouter() *chi.Mux {
 		r.Mount("/auth", s.authRouter())
 		r.Mount("/tickets", s.ticketRouter())
 		r.Mount("/groups", s.groupsRouter())
+		r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff, user.RoleUser)).Get("/dashboard/summary", s.handleDashboardSummary)
 		r.With(authmw.RequireRole(user.RoleAdmin, user.RoleStaff, user.RoleUser)).Get("/tags", s.handleListActiveTags)
 		// Public category/type/item listing (active only, no admin required).
 		r.Get("/categories", s.handleListPublicCategories)

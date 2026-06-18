@@ -161,7 +161,7 @@ func run() error {
 	registrationSvc := registration.NewService(regStore, userSvc, emailDisp, cfg.BaseURL)
 
 	// ── Ticket service ────────────────────────────────────────────────────────
-	ticketSvc := ticket.NewService(tStore, tStore, dispatcher, auStore, slaSvc)
+	ticketSvc := ticket.NewService(tStore, tStore, gStore, dispatcher, auStore, slaSvc)
 	if err := ticketSvc.LoadSystemStatuses(ctx); err != nil {
 		return fmt.Errorf("loading system statuses: %w", err)
 	}

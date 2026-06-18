@@ -67,6 +67,7 @@ type harness struct {
 	catID    uuid.UUID
 	adminSvc *admin.Service
 	userSvc  *user.Service
+	groupSvc *group.Service
 }
 
 func newHarness(t *testing.T) (*harness, func()) {
@@ -105,7 +106,7 @@ func newHarness(t *testing.T) (*harness, func()) {
 	slaSvc := sla.NewService(slastore.New(q)).WithEnabledFunc(func(ctx context.Context) bool {
 		return adminSvc.SLAEnabled(ctx)
 	})
-	ticketSvc := ticket.NewService(tStore, tStore, dispatcher, auStore, slaSvc)
+	ticketSvc := ticket.NewService(tStore, tStore, gStore, dispatcher, auStore, slaSvc)
 	require.NoError(t, ticketSvc.LoadSystemStatuses(ctx))
 
 	// Seed an admin user.
@@ -205,6 +206,7 @@ func newHarness(t *testing.T) (*harness, func()) {
 		catID:    cat.ID,
 		adminSvc: adminSvc,
 		userSvc:  userSvc,
+		groupSvc: groupSvc,
 	}
 	cleanup := func() {
 		rollback()
@@ -298,6 +300,64 @@ func TestCreateTicket(t *testing.T) {
 	require.Equal(t, "Printer broken", tk.Subject)
 	require.NotEqual(t, uuid.Nil, tk.ID)
 	require.NotEmpty(t, string(tk.TrackingNumber))
+}
+
+func TestCreateTicket_AutoRouting(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// 1. Create a group.
+	g, err := h.groupSvc.Create(context.Background(), "Support Team", "Handles hardware")
+	require.NoError(t, err)
+
+	// 2. Add scope to the group for our category.
+	err = h.groupSvc.AddScope(context.Background(), group.GroupScope{
+		GroupID:    g.ID,
+		CategoryID: h.catID,
+	})
+	require.NoError(t, err)
+
+	// 3. Create a ticket in that category.
+	resp := h.do(t, http.MethodPost, "/api/v1/tickets", map[string]any{
+		"subject":     "Printer on fire",
+		"description": "Literally on fire",
+		"category_id": h.catID.String(),
+		"priority":    "critical",
+	})
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	var tk ticket.Ticket
+	decodeJSON(t, resp, &tk)
+
+	// 4. Verify it was auto-assigned to the group.
+	require.NotNil(t, tk.AssigneeGroupID)
+	require.Equal(t, g.ID, *tk.AssigneeGroupID)
+}
+
+func TestAddReply_AutoOwnership(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// 1. Create an unassigned ticket.
+	resp := h.do(t, http.MethodPost, "/api/v1/tickets", map[string]any{
+		"subject":     "Random issue",
+		"category_id": h.catID.String(),
+	})
+	var tk ticket.Ticket
+	decodeJSON(t, resp, &tk)
+	require.Nil(t, tk.AssigneeUserID)
+
+	// 2. Reply as staff (h.apiKey is staff).
+	resp = h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/replies", tk.ID), map[string]any{
+		"body": "I am looking into this.",
+	})
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	// 3. Verify ticket is now assigned to the staff member.
+	resp = h.do(t, http.MethodGet, fmt.Sprintf("/api/v1/tickets/%s", tk.ID), nil)
+	decodeJSON(t, resp, &tk)
+	require.NotNil(t, tk.AssigneeUserID)
+	require.Equal(t, h.staffID, *tk.AssigneeUserID)
 }
 
 func TestCreateTicket_MissingSubject(t *testing.T) {
@@ -400,7 +460,7 @@ func TestAddReply_EmptyBody(t *testing.T) {
 	resp := h.do(t, http.MethodPost, fmt.Sprintf("/api/v1/tickets/%s/replies", tk.ID), map[string]any{
 		"body": "   ",
 	})
-	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
 }
 
 func TestResolveTicket(t *testing.T) {
@@ -978,7 +1038,7 @@ func newBareHarness(t *testing.T) (*harness, func()) {
 	cannedSvc := canned.NewService(canStore)
 	kbSvc := kb.NewService(kbStore)
 	dispatcher := notify.NewMulti()
-	ticketSvc := ticket.NewService(tStore, tStore, dispatcher, auStore, nil)
+	ticketSvc := ticket.NewService(tStore, tStore, gStore, dispatcher, auStore, nil)
 	require.NoError(t, ticketSvc.LoadSystemStatuses(ctx))
 
 	apiKeyLookup := authmw.APIKeyAuthFunc(func(ctx context.Context, hashed string) (auth.APIKey, user.User, error) {

@@ -68,6 +68,17 @@ const translations = {
   'dashboard.welcome':        { pt: 'Bem-vindo de volta', en: 'Welcome back' },
   'dashboard.new_ticket':     { pt: 'Novo Ticket',        en: 'New Ticket' },
   'dashboard.view_all':       { pt: 'Ver todos os tickets', en: 'View all tickets' },
+  'dashboard.my_tickets':     { pt: 'Meus Tickets Recentes', en: 'My Recent Tickets' },
+  'dashboard.group_unassigned': { pt: 'Aguardando Atendente', en: 'Awaiting Assignee' },
+  'dashboard.no_tickets':     { pt: 'Nenhum ticket atribuído.', en: 'No tickets assigned.' },
+  'dashboard.no_group_tickets': { pt: 'Tudo em dia!', en: 'All clear!' },
+
+  'common.view_all':          { pt: 'Ver todos',         en: 'View all' },
+
+  'priority.low':             { pt: 'Baixa',             en: 'Low' },
+  'priority.medium':          { pt: 'Média',             en: 'Medium' },
+  'priority.high':            { pt: 'Alta',              en: 'High' },
+  'priority.critical':        { pt: 'Crítica',           en: 'Critical' },
 
   // ── Statuses ───────────────────────────────────────────────────
   'status.new':               { pt: 'Novo',              en: 'New' },

@@ -290,5 +290,11 @@ export interface KBArticle {
   updated_at: string
 }
 
+export interface DashboardSummary {
+  statuses: Status[]
+  my_recent_tickets: Ticket[]
+  unassigned_group_tickets: Ticket[]
+}
+
 
 

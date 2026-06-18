@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/audit"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/group"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/notification"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
 )
@@ -40,12 +41,18 @@ type systemStatuses struct {
 type Service struct {
 	store      Store
 	statuses   StatusStore
+	groupStore GroupStore
 	dispatcher notification.Dispatcher
 	auditStore audit.Store
 	sla        SLAService // may be nil when SLA is disabled
 
 	// cached at startup
 	sys *systemStatuses
+}
+
+// GroupStore is the narrow interface the ticket service needs from the group layer.
+type GroupStore interface {
+	ListGroupsInScope(ctx context.Context, categoryID uuid.UUID, typeID *uuid.UUID) ([]group.Group, error)
 }
 
 // SLAService is the narrow interface the ticket service needs from the SLA layer.
@@ -58,6 +65,7 @@ type SLAService interface {
 func NewService(
 	store Store,
 	statuses StatusStore,
+	groupStore GroupStore,
 	dispatcher notification.Dispatcher,
 	auditStore audit.Store,
 	sla SLAService, // nil when SLA feature is disabled
@@ -65,6 +73,7 @@ func NewService(
 	return &Service{
 		store:      store,
 		statuses:   statuses,
+		groupStore: groupStore,
 		dispatcher: dispatcher,
 		auditStore: auditStore,
 		sla:        sla,
@@ -160,6 +169,14 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Ticket, error) {
 		UpdatedAt:      now,
 		Source:         source,
 		WhatsappPhone:  in.WhatsappPhone,
+	}
+
+	// Auto-routing based on CTI scope: find groups responsible for this classification.
+	if s.groupStore != nil {
+		groups, err := s.groupStore.ListGroupsInScope(ctx, t.CategoryID, t.TypeID)
+		if err == nil && len(groups) > 0 {
+			t.AssigneeGroupID = &groups[0].ID
+		}
 	}
 
 	if err := s.store.Create(ctx, t); err != nil {
@@ -307,6 +324,14 @@ func (s *Service) AddReply(ctx context.Context, ticketID uuid.UUID, body string,
 	}
 	if err := s.store.CreateReply(ctx, reply); err != nil {
 		return Reply{}, fmt.Errorf("creating reply: %w", err)
+	}
+
+	// Auto-ownership: if the ticket has no individual assignee and the reply is
+	// from staff/admin, assign it to the responder automatically.
+	if t.AssigneeUserID == nil && actor.Role != user.RoleUser && actor.UserID != nil {
+		t.AssigneeUserID = actor.UserID
+		t.UpdatedAt = time.Now()
+		_ = s.store.Update(ctx, t)
 	}
 
 	// Auto-reopen: user reply to a Resolved ticket within the window.
