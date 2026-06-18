@@ -179,7 +179,7 @@ const translations = {
   'tickets.detail.timeline_internal':        { pt: 'Interno',                          en: 'Internal' },
   'tickets.detail.timeline_support':         { pt: 'Suporte',                          en: 'Support' },
   'tickets.detail.timeline_customer':        { pt: 'Cliente',                          en: 'Customer' },
-  'tickets.detail.attachment_only':          { pt: 'Anexo enviado',                    en: 'Attachment sent' },
+  'tickets.detail.attachment_download':      { pt: 'Baixar arquivo',                   en: 'Download file' },
   'tickets.detail.timeline_opened_as':       { pt: 'Ticket aberto como',               en: 'Ticket opened as' },
   'tickets.detail.timeline_system':          { pt: 'Sistema',                          en: 'System' },
   'tickets.detail.reply_title_staff':        { pt: 'Registrar andamento / Nota interna', en: 'Add work log entry' },

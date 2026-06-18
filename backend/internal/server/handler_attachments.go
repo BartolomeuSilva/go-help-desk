@@ -42,6 +42,17 @@ var allowedExt = map[string]string{
 	".jpeg": "image/jpeg",
 	".png":  "image/png",
 	".bmp":  "image/bmp",
+	".webp": "image/webp",
+	".gif":  "image/gif",
+	// Audio (so support can send voice notes/audio to WhatsApp customers).
+	".mp3":  "audio/mpeg",
+	".ogg":  "audio/ogg",
+	".oga":  "audio/ogg",
+	".opus": "audio/ogg",
+	".m4a":  "audio/mp4",
+	".wav":  "audio/wav",
+	// Video.
+	".mp4": "video/mp4",
 }
 
 // imageExt lists extensions that are treated as raster images and recompressed.

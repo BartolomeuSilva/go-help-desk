@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,24 +57,30 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			PushName string `json:"pushName"`
 			Message  struct {
 				Conversation        string `json:"conversation"`
+				Base64              string `json:"base64"`
 				ExtendedTextMessage *struct {
 					Text string `json:"text"`
 				} `json:"extendedTextMessage"`
 				ImageMessage *struct {
-					Caption string `json:"caption"`
-					Url     string `json:"url"`
+					Caption  string `json:"caption"`
+					Url      string `json:"url"`
+					Mimetype string `json:"mimetype"`
 				} `json:"imageMessage"`
 				DocumentMessage *struct {
-					Title   string `json:"title"`
-					Caption string `json:"caption"`
-					Url     string `json:"url"`
+					Title    string `json:"title"`
+					FileName string `json:"fileName"`
+					Caption  string `json:"caption"`
+					Url      string `json:"url"`
+					Mimetype string `json:"mimetype"`
 				} `json:"documentMessage"`
 				VideoMessage *struct {
-					Caption string `json:"caption"`
-					Url     string `json:"url"`
+					Caption  string `json:"caption"`
+					Url      string `json:"url"`
+					Mimetype string `json:"mimetype"`
 				} `json:"videoMessage"`
 				AudioMessage *struct {
-					Url     string `json:"url"`
+					Url      string `json:"url"`
+					Mimetype string `json:"mimetype"`
 				} `json:"audioMessage"`
 			} `json:"message"`
 			MessageType string `json:"messageType"`
@@ -102,11 +109,22 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 	phone := strings.Split(jid, "@")[0]
 	externalMsgID := payload.Data.Key.ID
 
-	// Extract message body text
+	// Extract message body text and any media (decoded base64 when Evolution
+	// includes it in the webhook, plus the URL/mimetype as fallbacks).
 	var bodyText string
 	var mediaURL string
 	var mimeType string
 	var defaultFileName string
+	mediaBase64 := payload.Data.Message.Base64
+
+	firstNonEmpty := func(vals ...string) string {
+		for _, v := range vals {
+			if v != "" {
+				return v
+			}
+		}
+		return ""
+	}
 
 	if payload.Data.Message.Conversation != "" {
 		bodyText = payload.Data.Message.Conversation
@@ -117,11 +135,9 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 		if bodyText == "" {
 			bodyText = "[Imagem]"
 		}
-		if payload.Data.Message.ImageMessage.Url != "" {
-			mediaURL = payload.Data.Message.ImageMessage.Url
-			mimeType = "image/jpeg"
-			defaultFileName = "image.jpg"
-		}
+		mediaURL = payload.Data.Message.ImageMessage.Url
+		mimeType = firstNonEmpty(payload.Data.Message.ImageMessage.Mimetype, "image/jpeg")
+		defaultFileName = "image.jpg"
 	} else if payload.Data.Message.DocumentMessage != nil {
 		bodyText = payload.Data.Message.DocumentMessage.Caption
 		if bodyText == "" {
@@ -130,32 +146,25 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 		if bodyText == "" {
 			bodyText = "[Documento]"
 		}
-		if payload.Data.Message.DocumentMessage.Url != "" {
-			mediaURL = payload.Data.Message.DocumentMessage.Url
-			mimeType = "application/octet-stream"
-			defaultFileName = payload.Data.Message.DocumentMessage.Title
-			if defaultFileName == "" {
-				defaultFileName = "document.bin"
-			}
-		}
+		mediaURL = payload.Data.Message.DocumentMessage.Url
+		mimeType = firstNonEmpty(payload.Data.Message.DocumentMessage.Mimetype, "application/octet-stream")
+		defaultFileName = firstNonEmpty(payload.Data.Message.DocumentMessage.FileName, payload.Data.Message.DocumentMessage.Title, "document.bin")
 	} else if payload.Data.Message.VideoMessage != nil {
 		bodyText = payload.Data.Message.VideoMessage.Caption
 		if bodyText == "" {
 			bodyText = "[Vídeo]"
 		}
-		if payload.Data.Message.VideoMessage.Url != "" {
-			mediaURL = payload.Data.Message.VideoMessage.Url
-			mimeType = "video/mp4"
-			defaultFileName = "video.mp4"
-		}
+		mediaURL = payload.Data.Message.VideoMessage.Url
+		mimeType = firstNonEmpty(payload.Data.Message.VideoMessage.Mimetype, "video/mp4")
+		defaultFileName = "video.mp4"
 	} else if payload.Data.Message.AudioMessage != nil {
 		bodyText = "[Áudio]"
-		if payload.Data.Message.AudioMessage.Url != "" {
-			mediaURL = payload.Data.Message.AudioMessage.Url
-			mimeType = "audio/ogg"
-			defaultFileName = "audio.ogg"
-		}
+		mediaURL = payload.Data.Message.AudioMessage.Url
+		mimeType = firstNonEmpty(payload.Data.Message.AudioMessage.Mimetype, "audio/ogg")
+		defaultFileName = "audio.ogg"
 	}
+
+	hasMedia := mediaBase64 != "" || mediaURL != ""
 
 	if bodyText == "" {
 		JSON(w, http.StatusOK, map[string]string{"status": "empty_body"})
@@ -297,8 +306,8 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Download and attach media if present
-		if mediaURL != "" {
-			go s.downloadAndAttachMedia(context.Background(), activeTicket.ID, externalMsgID, mediaURL, bodyText, defaultFileName, mimeType)
+		if hasMedia {
+			go s.attachMedia(context.Background(), activeTicket.ID, mediaBase64, externalMsgID, mediaURL, defaultFileName, mimeType)
 		}
 
 		s.sseBroker.Broadcast(activeTicket.ID, "refresh", "")
@@ -352,8 +361,8 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Download and attach media if present
-			if mediaURL != "" {
-				go s.downloadAndAttachMedia(context.Background(), activeTicket.ID, externalMsgID, mediaURL, bodyText, defaultFileName, mimeType)
+			if hasMedia {
+				go s.attachMedia(context.Background(), activeTicket.ID, mediaBase64, externalMsgID, mediaURL, defaultFileName, mimeType)
 			}
 
 			s.sseBroker.Broadcast(activeTicket.ID, "refresh", "")
@@ -455,12 +464,15 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					if errors.Is(err, ticket.ErrNotFound) {
 						// 1. First contact: Create temporary session and send welcome message.
-						// For media, store the WhatsApp message ID (not the URL): the
-						// raw URL is end-to-end encrypted, so the file is fetched on
-						// demand via the Evolution API when the ticket is created.
+						// Media is attached only after the customer picks a menu option,
+						// so we stash it now: the decrypted base64 if the webhook carried
+						// it, otherwise the message ID to fetch on demand. (The raw URL is
+						// end-to-end encrypted and useless on its own.)
 						mediaRef := ""
-						if mediaURL != "" {
-							mediaRef = externalMsgID
+						if mediaBase64 != "" {
+							mediaRef = "b64:" + mediaBase64
+						} else if mediaURL != "" {
+							mediaRef = "id:" + externalMsgID
 						}
 						if err := s.tickets.CreateWhatsAppSession(r.Context(), phone, bodyText, mediaRef, mimeType); err != nil {
 							slog.Error("failed to create whatsapp session", "phone", phone, "error", err)
@@ -538,14 +550,15 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 
-					// Attach media from the first message (session stores its
-					// WhatsApp message ID, not a URL).
+					// Attach media from the first message (session stashed either the
+					// decrypted base64 as "b64:…" or the message ID as "id:…").
 					if session.MediaURL != "" {
-						go s.downloadAndAttachMedia(context.Background(), newTicket.ID, session.MediaURL, "", session.InitialMessage, "attachment", session.MimeType)
+						b64, msgID := parseSessionMediaRef(session.MediaURL)
+						go s.attachMedia(context.Background(), newTicket.ID, b64, msgID, "", "attachment", session.MimeType)
 					}
 					// Also attach media if present in the current option message
-					if mediaURL != "" {
-						go s.downloadAndAttachMedia(context.Background(), newTicket.ID, externalMsgID, mediaURL, bodyText, defaultFileName, mimeType)
+					if hasMedia {
+						go s.attachMedia(context.Background(), newTicket.ID, mediaBase64, externalMsgID, mediaURL, defaultFileName, mimeType)
 					}
 
 					// Delete session
@@ -610,8 +623,8 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Download and attach media if present
-			if mediaURL != "" {
-				go s.downloadAndAttachMedia(context.Background(), newTicket.ID, externalMsgID, mediaURL, bodyText, defaultFileName, mimeType)
+			if hasMedia {
+				go s.attachMedia(context.Background(), newTicket.ID, mediaBase64, externalMsgID, mediaURL, defaultFileName, mimeType)
 			}
 
 			s.sseBroker.Broadcast(newTicket.ID, "refresh", "")
@@ -636,19 +649,41 @@ func (s *Server) notifyNewWhatsAppTicket(ctx context.Context, t ticket.Ticket, m
 	}, false)
 }
 
-// downloadAndAttachMedia saves an inbound WhatsApp media file as a ticket
-// attachment. It prefers the Evolution API (decrypted bytes via the message ID,
-// the only reliable path since WhatsApp media URLs are end-to-end encrypted) and
-// falls back to a direct URL download when a reachable URL is available.
-func (s *Server) downloadAndAttachMedia(ctx context.Context, ticketID uuid.UUID, messageID, mediaURL, caption, defaultName, mimeType string) {
-	if messageID == "" && mediaURL == "" {
+// parseSessionMediaRef decodes the media reference stashed on a chatbot session:
+// "b64:<base64>" carries the decrypted file, "id:<messageID>" is fetched later.
+func parseSessionMediaRef(ref string) (base64Data, messageID string) {
+	switch {
+	case strings.HasPrefix(ref, "b64:"):
+		return strings.TrimPrefix(ref, "b64:"), ""
+	case strings.HasPrefix(ref, "id:"):
+		return "", strings.TrimPrefix(ref, "id:")
+	default:
+		return "", ref // legacy value: treat as a message ID
+	}
+}
+
+// attachMedia saves an inbound WhatsApp media file as a ticket attachment. It
+// tries, in order: base64 carried in the webhook, the Evolution getBase64 API
+// (by message ID), then a direct URL download. WhatsApp media URLs are
+// end-to-end encrypted, so the first two are the reliable paths.
+func (s *Server) attachMedia(ctx context.Context, ticketID uuid.UUID, base64Data, messageID, mediaURL, defaultName, mimeType string) {
+	if base64Data == "" && messageID == "" && mediaURL == "" {
 		return
 	}
 
 	var data []byte
 	fileName := defaultName
 
-	if messageID != "" {
+	// Preferred: base64 included directly in the webhook (Evolution decrypts it).
+	if base64Data != "" {
+		if b, err := base64.StdEncoding.DecodeString(base64Data); err == nil {
+			data = b
+		} else {
+			slog.Error("failed to decode webhook media base64", "ticket_id", ticketID, "error", err)
+		}
+	}
+
+	if data == nil && messageID != "" {
 		apiURL, apiToken, instanceName := s.adminSvc.WhatsAppConfig(ctx)
 		if apiURL != "" && apiToken != "" && instanceName != "" {
 			client := whatsapp.NewClient(apiURL, apiToken, instanceName)

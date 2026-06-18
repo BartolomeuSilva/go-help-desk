@@ -511,11 +511,15 @@ func (c *Client) SetWebhook(ctx context.Context, webhookURL string) error {
 
 	payload := map[string]any{
 		"webhook": map[string]any{
-			"enabled":  true,
-			"url":      webhookURL,
+			"enabled": true,
+			"url":     webhookURL,
 			"byEvents": false,
-			"base64":   false,
-			"events":   []string{"MESSAGES_UPSERT"},
+			// base64:true makes Evolution include decrypted media as base64 in
+			// the messages.upsert payload, so received images/audio/files can be
+			// saved directly — WhatsApp media URLs are encrypted and can't be
+			// downloaded otherwise.
+			"base64": true,
+			"events": []string{"MESSAGES_UPSERT"},
 		},
 	}
 

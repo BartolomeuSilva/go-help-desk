@@ -536,13 +536,26 @@ export function TicketDetailPage() {
     refetchInterval: 15_000,
   })
 
+  const { data: attachments = [] } = useQuery({
+    queryKey: ['attachments', id],
+    queryFn: () => listAttachments(id),
+    enabled: !!ticket,
+    refetchInterval: 15_000,
+  })
+
+  const imageAttachments = attachments.filter((a) => {
+    return a.mime_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(a.filename)
+  })
+
   type TimelineItem =
     | { kind: 'reply'; ts: string; data: typeof replies[0] }
     | { kind: 'status'; ts: string; data: StatusHistoryEntry }
+    | { kind: 'attachment'; ts: string; data: typeof attachments[0] }
 
   const timeline: TimelineItem[] = [
     ...replies.map((r) => ({ kind: 'reply' as const, ts: r.created_at, data: r })),
     ...statusHistory.map((h) => ({ kind: 'status' as const, ts: h.created_at, data: h })),
+    ...attachments.map((a) => ({ kind: 'attachment' as const, ts: a.created_at, data: a })),
   ].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
 
   const { data: statuses = [] } = useQuery({
@@ -619,16 +632,6 @@ export function TicketDetailPage() {
     queryKey: ['canned-responses'],
     queryFn: listCannedResponses,
     enabled: isStaffOrAdmin,
-  })
-
-  const { data: attachments = [] } = useQuery({
-    queryKey: ['attachments', id],
-    queryFn: () => listAttachments(id),
-    enabled: !!ticket,
-  })
-
-  const imageAttachments = attachments.filter((a) => {
-    return a.mime_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(a.filename)
   })
 
   useEffect(() => {
@@ -820,6 +823,9 @@ export function TicketDetailPage() {
               {timeline.map((item) => {
                 if (item.kind === 'reply') {
                   const r = item.data
+                  // Attachment-only replies have no text; the file renders as
+                  // its own inline timeline item, so skip the empty bubble.
+                  if (!r.body || !r.body.trim()) return null
                   const isSupport = r.author_id && r.author_id !== ticket.reporter_user_id
 
                   // Resolve author display name: prefer server-supplied author_name,
@@ -879,9 +885,51 @@ export function TicketDetailPage() {
                           {formatDate(r.created_at)}
                         </span>
                       </div>
-                      {r.body
-                        ? <p className={`whitespace-pre-wrap ${textClass}`}>{r.body}</p>
-                        : <p className={`italic opacity-70 ${textClass}`}>📎 {t('tickets.detail.attachment_only')}</p>}
+                      <p className={`whitespace-pre-wrap ${textClass}`}>{r.body}</p>
+                    </div>
+                  )
+                }
+
+                if (item.kind === 'attachment') {
+                  const a = item.data
+                  const url = attachmentDownloadUrl(id, a.id)
+                  const isImg = a.mime_type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(a.filename)
+                  const isAudio = a.mime_type?.startsWith('audio/') || /\.(mp3|ogg|oga|m4a|wav|opus|aac)$/i.test(a.filename)
+                  const isVideo = a.mime_type?.startsWith('video/') || /\.(mp4|mov|webm|mkv|avi)$/i.test(a.filename)
+                  return (
+                    <div
+                      key={`att-${a.id}`}
+                      className="rounded-lg border border-gray-100 dark:border-[#2a2a2a] bg-gray-50/60 dark:bg-[#1a1a1a] p-3"
+                    >
+                      <div className="mb-1.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        <span>📎</span>
+                        <span className="truncate max-w-[220px]">{a.filename}</span>
+                        <span className="ml-auto tabular-nums">{formatDate(a.created_at)}</span>
+                      </div>
+                      {isImg ? (
+                        <img
+                          src={url}
+                          alt={a.filename}
+                          loading="lazy"
+                          className="max-h-64 rounded cursor-pointer object-contain"
+                          onClick={() => {
+                            const idx = imageAttachments.findIndex((img) => img.id === a.id)
+                            if (idx !== -1) setPreviewImageIndex(idx)
+                          }}
+                        />
+                      ) : isAudio ? (
+                        <audio controls src={url} className="w-full" />
+                      ) : isVideo ? (
+                        <video controls src={url} className="max-h-64 w-full rounded" />
+                      ) : (
+                        <a
+                          href={url}
+                          download={a.filename}
+                          className="text-sm text-blue-600 dark:text-[#faff69] hover:underline"
+                        >
+                          {t('tickets.detail.attachment_download')}
+                        </a>
+                      )}
                     </div>
                   )
                 }

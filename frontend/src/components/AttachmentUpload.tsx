@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
 
-const ACCEPTED = '.pdf,.docx,.xlsx,.txt,.log,.jpg,.jpeg,.png,.bmp'
+const ACCEPTED = '.pdf,.docx,.xlsx,.txt,.log,.jpg,.jpeg,.png,.bmp,.webp,.gif,.mp3,.ogg,.oga,.opus,.m4a,.wav,.mp4'
 const MAX_SIZE_BYTES = 25 * 1024 * 1024
 
 export interface UploadState {

@@ -1,13 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { listPlugins, installPlugin, updatePlugin, uninstallPlugin } from '@/api/admin'
-import { extractError } from '@/api/client'
+import { listPlugins, updatePlugin, uninstallPlugin } from '@/api/admin'
 import { Layout } from '@/components/Layout'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
-import { PuzzleIcon, UploadCloudIcon, Trash2Icon } from 'lucide-react'
+import { PuzzleIcon, Trash2Icon } from 'lucide-react'
 import type { Plugin } from '@/api/types'
 import { cn } from '@/lib/utils'
 import { useT } from '@/i18n'
@@ -15,9 +14,6 @@ import { useT } from '@/i18n'
 export function PluginsPage() {
   const { t } = useT()
   const qc = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploadError, setUploadError] = useState('')
-  const [isUploading, setIsUploading] = useState(false)
   const [pendingUninstall, setPendingUninstall] = useState<Plugin | null>(null)
 
   const { data: plugins = [], isLoading } = useQuery({
@@ -41,27 +37,6 @@ export function PluginsPage() {
     },
   })
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setIsUploading(true)
-    setUploadError('')
-    try {
-      await installPlugin(file)
-      qc.invalidateQueries({ queryKey: ['admin', 'plugins'] })
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    } catch (err) {
-      setUploadError(extractError(err))
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const triggerUpload = () => {
-    fileInputRef.current?.click()
-  }
-
   return (
     <Layout>
       <div className="space-y-6">
@@ -72,30 +47,6 @@ export function PluginsPage() {
               {t('plugins.subtitle')}
             </p>
           </div>
-        </div>
-
-        {/* Upload box */}
-        <div className="rounded-lg border border-dashed border-gray-300 dark:border-[#3a3a3a] bg-white dark:bg-[#1a1a1a] p-6 text-center">
-          <UploadCloudIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-          <div className="mt-4 flex justify-center text-sm leading-6 text-gray-600 dark:text-gray-300">
-            <button
-              type="button"
-              onClick={triggerUpload}
-              disabled={isUploading}
-              className="relative cursor-pointer rounded-md font-semibold text-blue-600 dark:text-[#faff69] focus-within:outline-none hover:text-blue-500 dark:hover:text-[#e6eb52]"
-            >
-              <span>{isUploading ? t('plugins.upload.uploading') : t('plugins.upload.action')}</span>
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept=".zip"
-              className="sr-only"
-            />
-          </div>
-          <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">{t('plugins.upload.hint')}</p>
-          {uploadError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{uploadError}</p>}
         </div>
 
         {/* List of plugins */}
