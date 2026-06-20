@@ -242,6 +242,11 @@ func (s *Server) adminRouter() *chi.Mux {
 		r.Delete("/{id}", s.handleDeleteKBArticle)
 	})
 
+	r.Route("/kb", func(r chi.Router) {
+		r.Use(s.RequirePermissionMiddleware(user.PermKBManage))
+		r.Post("/sync-embeddings", s.handleSyncKBEmbeddings)
+	})
+
 	r.Route("/api-keys", func(r chi.Router) {
 		r.Use(s.RequirePermissionMiddleware(user.PermSettingsManage))
 		r.Get("/", s.handleListAPIKeys)

@@ -52,6 +52,25 @@ func (s *Service) GetString(ctx context.Context, key string) (string, error) {
 	return v, nil
 }
 
+// GetFloat returns a float setting value.
+func (s *Service) GetFloat(ctx context.Context, key string) (float64, error) {
+	raw, err := s.store.Get(ctx, key)
+	if err != nil {
+		return 0, fmt.Errorf("getting setting %q: %w", key, err)
+	}
+	var v float64
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return 0, fmt.Errorf("parsing setting %q as float: %w", key, err)
+	}
+	return v, nil
+}
+
+// SetFloat persists a float setting.
+func (s *Service) SetFloat(ctx context.Context, key string, v float64) error {
+	b := []byte(strconv.FormatFloat(v, 'f', -1, 64))
+	return s.store.Set(ctx, key, b)
+}
+
 // SetBool persists a boolean setting.
 func (s *Service) SetBool(ctx context.Context, key string, v bool) error {
 	b := []byte(strconv.FormatBool(v))
@@ -292,5 +311,17 @@ func (s *Service) WhatsAppChatbotEnabled(ctx context.Context) bool {
 func (s *Service) WhatsAppChatbotConfig(ctx context.Context) (welcomeMessage, menuConfig string) {
 	welcomeMessage, _ = s.GetString(ctx, KeyWhatsAppWelcomeMessage)
 	menuConfig, _ = s.GetString(ctx, KeyWhatsAppMenuConfig)
+	return
+}
+
+// WhatsAppAIConfig returns the AI support configuration.
+func (s *Service) WhatsAppAIConfig(ctx context.Context) (enabled bool, prompt, handoverMsg string, threshold float64) {
+	enabled, _ = s.GetBool(ctx, KeyWhatsAppAIEnabled)
+	prompt, _ = s.GetString(ctx, KeyWhatsAppAIPrompt)
+	handoverMsg, _ = s.GetString(ctx, KeyWhatsAppAIHandoverMsg)
+	threshold, _ = s.GetFloat(ctx, KeyWhatsAppAIThreshold)
+	if threshold <= 0 {
+		threshold = 0.4
+	}
 	return
 }

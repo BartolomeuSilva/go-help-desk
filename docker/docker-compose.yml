@@ -4,7 +4,7 @@ networks:
 
 services:
   db:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-helpdesk}
       POSTGRES_USER: ${POSTGRES_USER:-helpdesk}

@@ -7,8 +7,9 @@ INSERT INTO tickets (
     category_id, type_id, item_id, priority, status_id,
     assignee_user_id, assignee_group_id, reporter_user_id, guest_email,
     guest_name, guest_phone, ticket_type,
-    created_at, updated_at, source, whatsapp_phone
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20);
+    created_at, updated_at, source, whatsapp_phone,
+    ai_active, ai_transferred
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22);
 
 -- name: GetTicketByID :one
 SELECT * FROM tickets WHERE id = $1;
@@ -20,7 +21,13 @@ SELECT * FROM tickets WHERE tracking_number = $1;
 UPDATE tickets
 SET subject = $2, description = $3, type_id = $4, item_id = $5,
     priority = $6, status_id = $7, assignee_user_id = $8, assignee_group_id = $9,
-    resolution_notes = $10, resolved_at = $11, closed_at = $12, ticket_type = $13, updated_at = $14
+    resolution_notes = $10, resolved_at = $11, closed_at = $12, ticket_type = $13, updated_at = $14,
+    ai_active = $15, ai_transferred = $16
+WHERE id = $1;
+
+-- name: UpdateTicketAIState :exec
+UPDATE tickets
+SET ai_active = $2, ai_transferred = $3, updated_at = $4
 WHERE id = $1;
 
 -- name: UpdateTicketCTI :exec

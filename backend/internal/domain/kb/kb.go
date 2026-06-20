@@ -42,6 +42,7 @@ type Article struct {
 	Views       int32     `json:"views"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	Distance    float32   `json:"distance,omitempty"`
 }
 
 // Store defines database operations for KB
@@ -61,6 +62,8 @@ type Store interface {
 	DeleteArticle(ctx context.Context, id uuid.UUID) error
 	IncrementArticleViews(ctx context.Context, id uuid.UUID) error
 	SearchArticles(ctx context.Context, query string, isStaffOrAdmin bool) ([]Article, error)
+	UpdateArticleEmbedding(ctx context.Context, id uuid.UUID, embedding []float32) error
+	GetSimilarArticles(ctx context.Context, embedding []float32, limit int) ([]Article, error)
 }
 
 // Service defines KB business logic operations
@@ -78,4 +81,6 @@ type Service interface {
 	UpdateArticle(ctx context.Context, id uuid.UUID, categoryID uuid.UUID, title, content, status string) (Article, error)
 	DeleteArticle(ctx context.Context, id uuid.UUID) error
 	SearchArticles(ctx context.Context, query string, isStaffOrAdmin bool) ([]Article, error)
+	UpdateArticleEmbedding(ctx context.Context, id uuid.UUID, embedding []float32) error
+	GetSimilarArticles(ctx context.Context, embedding []float32, limit int) ([]Article, error)
 }

@@ -169,6 +169,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Ticket, error) {
 		UpdatedAt:      now,
 		Source:         source,
 		WhatsappPhone:  in.WhatsappPhone,
+		AIActive:       true,
 	}
 
 	// Auto-routing based on CTI scope: find groups responsible for this classification.
@@ -330,6 +331,14 @@ func (s *Service) AddReply(ctx context.Context, ticketID uuid.UUID, body string,
 	// from staff/admin, assign it to the responder automatically.
 	if t.AssigneeUserID == nil && actor.Role != user.RoleUser && actor.UserID != nil {
 		t.AssigneeUserID = actor.UserID
+		t.UpdatedAt = time.Now()
+		_ = s.store.Update(ctx, t)
+	}
+
+	// Auto-deactivate AI: if a reply is made by a human staff/admin, pause the AI support.
+	// We check actor.UserID != nil to distinguish human agents from the system actor.
+	if actor.Role != user.RoleUser && actor.UserID != nil && t.AIActive {
+		t.AIActive = false
 		t.UpdatedAt = time.Now()
 		_ = s.store.Update(ctx, t)
 	}
@@ -826,4 +835,9 @@ func (s *Service) GetWhatsAppSession(ctx context.Context, phone string) (WhatsAp
 // DeleteWhatsAppSession removes a temporary triage session.
 func (s *Service) DeleteWhatsAppSession(ctx context.Context, phone string) error {
 	return s.store.DeleteWhatsAppSession(ctx, phone)
+}
+
+// UpdateAIState updates the AI active and transferred flags for a ticket.
+func (s *Service) UpdateAIState(ctx context.Context, ticketID uuid.UUID, aiActive, aiTransferred bool) error {
+	return s.store.UpdateAIState(ctx, ticketID, aiActive, aiTransferred)
 }

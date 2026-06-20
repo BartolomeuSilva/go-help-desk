@@ -11,7 +11,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className={cn('relative w-full', !hasHeight && 'h-10', className)}>
         <select
-          className="flex h-full w-full appearance-none rounded-md border border-input bg-background pl-3 pr-10 py-1 text-inherit ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-full w-full appearance-none rounded-md border border-input bg-background pl-3 pr-10 py-1 text-gray-900 dark:text-gray-100 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           ref={ref}
           {...props}
         >

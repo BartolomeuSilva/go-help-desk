@@ -76,3 +76,8 @@ export async function searchKBArticles(query: string): Promise<KBArticle[]> {
   const res = await api.get<KBArticle[]>('/kb/search', { params: { q: query } })
   return res.data
 }
+
+export async function syncKBEmbeddings(): Promise<{ status: string; message: string }> {
+  const res = await api.post<{ status: string; message: string }>('/admin/kb/sync-embeddings')
+  return res.data
+}

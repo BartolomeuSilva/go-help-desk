@@ -12,12 +12,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/ticket"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
+	"github.com/publiciallc/go-help-desk/backend/internal/integration/gemini"
 	"github.com/publiciallc/go-help-desk/backend/internal/integration/whatsapp"
 )
 
@@ -97,6 +100,12 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 	// Check if this is messages.upsert event
 	if payload.Event != "messages.upsert" {
 		JSON(w, http.StatusOK, map[string]string{"status": "ignored_event"})
+		return
+	}
+
+	// Ignore messages sent by ourselves (system, bot, or agent replies)
+	if payload.Data.Key.FromMe {
+		JSON(w, http.StatusOK, map[string]string{"status": "ignored_from_me"})
 		return
 	}
 
@@ -205,52 +214,73 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 	hasActive := false
 	if hasTicket {
 		slog.Info("whatsapp webhook: found ticket", "ticket_id", latestTicket.ID, "statusName", statusName, "fromMe", payload.Data.Key.FromMe)
-		if statusName != ticket.StatusNameResolved && statusName != ticket.StatusNameClosed {
+		
+		statusNameLower := strings.ToLower(statusName)
+		isResolved := latestTicket.ResolvedAt != nil ||
+			statusName == ticket.StatusNameResolved ||
+			statusNameLower == "resolvido" ||
+			statusNameLower == "resolved"
+		isClosed := latestTicket.ClosedAt != nil ||
+			statusName == ticket.StatusNameClosed ||
+			statusNameLower == "fechado" ||
+			statusNameLower == "closed" ||
+			statusNameLower == "encerrado" ||
+			statusNameLower == "finalizado" ||
+			statusNameLower == "cancelado"
+
+		if !isResolved && !isClosed {
 			hasActive = true
-		} else if statusName == ticket.StatusNameResolved {
-			// Check if reopen window has expired
-			reopenDays := s.adminSvc.ReopenWindowDays(r.Context())
-			windowExpired := true
-			if latestTicket.ResolvedAt != nil {
-				deadline := latestTicket.ResolvedAt.AddDate(0, 0, reopenDays)
-				windowExpired = time.Now().After(deadline)
-			}
-			slog.Info("whatsapp webhook: resolved ticket reopen check", "ticket_id", latestTicket.ID, "reopenDays", reopenDays, "windowExpired", windowExpired, "resolvedAt", latestTicket.ResolvedAt)
-			
-			if !windowExpired {
-				if !payload.Data.Key.FromMe {
-					// Client message. Check if it's a rating response.
-					choice := strings.TrimSpace(bodyText)
-					isRatingChoice := choice == "1" || choice == "2" || choice == "3" || choice == "4" || choice == "5"
-					
-					isWaitingForRating := false
-					if isRatingChoice && latestTicket.Rating == nil {
-						// Verify that the last reply was indeed the rating request
-						replies, err := s.tickets.ListReplies(r.Context(), latestTicket.ID)
-						if err == nil && len(replies) > 0 {
-							lastReply := replies[len(replies)-1]
-							if strings.Contains(lastReply.Body, "1. Excelente") {
-								isWaitingForRating = true
+		} else if isResolved {
+			chatbotEnabled := s.adminSvc.WhatsAppChatbotEnabled(r.Context())
+			if chatbotEnabled {
+				// If chatbot is enabled, resolved tickets are not reopened via WhatsApp;
+				// we treat them as inactive so they trigger the chatbot menu flow again.
+				hasActive = false
+			} else {
+				// Check if reopen window has expired
+				reopenDays := s.adminSvc.ReopenWindowDays(r.Context())
+				windowExpired := true
+				if latestTicket.ResolvedAt != nil {
+					deadline := latestTicket.ResolvedAt.AddDate(0, 0, reopenDays)
+					windowExpired = time.Now().After(deadline)
+				}
+				slog.Info("whatsapp webhook: resolved ticket reopen check", "ticket_id", latestTicket.ID, "reopenDays", reopenDays, "windowExpired", windowExpired, "resolvedAt", latestTicket.ResolvedAt)
+				
+				if !windowExpired {
+					if !payload.Data.Key.FromMe {
+						// Client message. Check if it's a rating response.
+						choice := strings.TrimSpace(bodyText)
+						isRatingChoice := choice == "1" || choice == "2" || choice == "3" || choice == "4" || choice == "5"
+						
+						isWaitingForRating := false
+						if isRatingChoice && latestTicket.Rating == nil {
+							// Verify that the last reply was indeed the rating request
+							replies, err := s.tickets.ListReplies(r.Context(), latestTicket.ID)
+							if err == nil && len(replies) > 0 {
+								lastReply := replies[len(replies)-1]
+								if strings.Contains(lastReply.Body, "1. Excelente") {
+									isWaitingForRating = true
+								}
 							}
 						}
-					}
-					
-					if isWaitingForRating {
-						slog.Info("whatsapp webhook: treating as rating response", "ticket_id", latestTicket.ID, "choice", choice)
-						// Treating as not active so we fall into the rating flow
-						hasActive = false
+						
+						if isWaitingForRating {
+							slog.Info("whatsapp webhook: treating as rating response", "ticket_id", latestTicket.ID, "choice", choice)
+							// Treating as not active so we fall into the rating flow
+							hasActive = false
+						} else {
+							slog.Info("whatsapp webhook: treating as reopen trigger", "ticket_id", latestTicket.ID, "bodyText", bodyText)
+							// Normal message, treating as active to reopen it
+							hasActive = true
+						}
 					} else {
-						slog.Info("whatsapp webhook: treating as reopen trigger", "ticket_id", latestTicket.ID, "bodyText", bodyText)
-						// Normal message, treating as active to reopen it
-						hasActive = true
+						// Message from the company. Do not treat as active for reopen.
+						hasActive = false
 					}
 				} else {
-					// Message from the company. Do not treat as active for reopen.
+					// Window expired
 					hasActive = false
 				}
-			} else {
-				// Window expired
-				hasActive = false
 			}
 		} else {
 			// Status is Closed
@@ -366,6 +396,15 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 
 			s.sseBroker.Broadcast(activeTicket.ID, "refresh", "")
+			aiEnabled, _, _, _ := s.adminSvc.WhatsAppAIConfig(r.Context())
+			slog.Info("whatsapp webhook: check AI support activation",
+				"ticket_id", activeTicket.ID,
+				"ticket_ai_active", activeTicket.AIActive,
+				"ai_enabled", aiEnabled,
+			)
+			if activeTicket.AIActive && aiEnabled {
+				go s.processAISupport(context.Background(), activeTicket, bodyText, wsClient, phone)
+			}
 			// Ring the bell for the support team so the inbound message is seen
 			// even by agents not viewing this ticket.
 			s.broadcastReplyNotification(r.Context(), activeTicket, reply, false)
@@ -389,7 +428,19 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 				hasSession = sessionErr == nil
 			}
 
-			if isRatingChoice && !hasSession && hasTicket && (statusName == ticket.StatusNameResolved || statusName == ticket.StatusNameClosed) && latestTicket.Rating == nil {
+			isResolved := latestTicket.ResolvedAt != nil ||
+				statusName == ticket.StatusNameResolved ||
+				strings.ToLower(statusName) == "resolvido" ||
+				strings.ToLower(statusName) == "resolved"
+			isClosed := latestTicket.ClosedAt != nil ||
+				statusName == ticket.StatusNameClosed ||
+				strings.ToLower(statusName) == "fechado" ||
+				strings.ToLower(statusName) == "closed" ||
+				strings.ToLower(statusName) == "encerrado" ||
+				strings.ToLower(statusName) == "finalizado" ||
+				strings.ToLower(statusName) == "cancelado"
+
+			if isRatingChoice && !hasSession && hasTicket && (isResolved || isClosed) && latestTicket.Rating == nil {
 				// We found a recently resolved or closed ticket for this number that is not yet rated!
 				// Let's verify that a rating request was actually sent (to prevent randomly typing "1" from rating a random ticket).
 				// We check if the last reply on the ticket contains the rating options: "1. Excelente".
@@ -574,6 +625,10 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 					s.sseBroker.Broadcast(newTicket.ID, "refresh", "")
 					s.notifyNewWhatsAppTicket(r.Context(), newTicket, session.InitialMessage, pushName)
+					aiEnabled, _, _, _ := s.adminSvc.WhatsAppAIConfig(r.Context())
+					if newTicket.AIActive && aiEnabled && !isGreetingOrShort(session.InitialMessage) {
+						go s.processAISupport(context.Background(), newTicket, session.InitialMessage, wsClient, phone)
+					}
 					JSON(w, http.StatusCreated, newTicket)
 					return
 				} else {
@@ -799,4 +854,270 @@ func (s *Server) attachMedia(ctx context.Context, ticketID uuid.UUID, base64Data
 	}
 
 	s.sseBroker.Broadcast(ticketID, "refresh", "")
+}
+
+// performHandover transitions a WhatsApp ticket to a human agent, updates its status to 'New', and deactivates AI support for it.
+func (s *Server) performHandover(ctx context.Context, t ticket.Ticket, handoverMsg string, wsClient *whatsapp.Client, phone string) {
+	err := s.tickets.UpdateAIState(ctx, t.ID, false, true)
+	if err != nil {
+		slog.Error("failed to update ticket AI state to inactive", "ticket_id", t.ID, "error", err)
+	}
+
+	_, err = s.tickets.AddReply(
+		ctx,
+		t.ID,
+		handoverMsg,
+		false, // internal
+		false, // notifyCustomer
+		"",    // reporterEmail
+		ticket.SystemActor,
+		0,          // reopenWindowDays
+		uuid.Nil,   // reopenTargetStatusID
+		"whatsapp", // source
+		nil,        // externalMsgID
+		false,      // sendAgentName
+	)
+	if err != nil {
+		slog.Error("failed to save handover message to database", "ticket_id", t.ID, "error", err)
+	}
+
+	if wsClient != nil {
+		if err := wsClient.SendText(ctx, phone, handoverMsg); err != nil {
+			slog.Error("failed to send handover message via WhatsApp", "phone", phone, "error", err)
+		}
+	}
+
+	var newStatusID uuid.UUID
+	if statuses, err := s.tickets.ListStatuses(ctx); err == nil {
+		for _, st := range statuses {
+			if st.Name == ticket.StatusNameNew {
+				newStatusID = st.ID
+				break
+			}
+		}
+	}
+
+	if newStatusID != uuid.Nil {
+		_, _ = s.tickets.UpdateStatus(ctx, t.ID, newStatusID, ticket.SystemActor)
+	}
+
+	s.sseBroker.Broadcast(t.ID, "refresh", "")
+	s.notifyNewWhatsAppTicket(ctx, t, handoverMsg, "Zendflow AI")
+}
+
+// processAISupport processes incoming customer messages on tickets where AI support is active.
+// It retrieves semantically similar articles from the knowledge base and queries the Gemini
+// API. If it can answer the query confidently, it responds; otherwise, it triggers a handover
+// to human agents.
+func (s *Server) processAISupport(ctx context.Context, t ticket.Ticket, messageText string, wsClient *whatsapp.Client, phone string) {
+	slog.Info("AI Support: processAISupport started", "ticket_id", t.ID, "message", messageText)
+
+	// 1. Check if AI is enabled globally
+	aiEnabled, err1 := s.adminSvc.GetBool(ctx, admin.KeyWhatsAppAIEnabled)
+	apiKey, err2 := s.adminSvc.GetString(ctx, admin.KeyGeminiAPIKey)
+
+	slog.Info("AI Support: Settings fetched", "ticket_id", t.ID, "ai_enabled", aiEnabled, "err1", err1, "has_api_key", apiKey != "", "err2", err2)
+
+	if !aiEnabled {
+		return
+	}
+	if apiKey == "" {
+		slog.Warn("AI support is enabled but gemini_api_key is empty")
+		return
+	}
+
+	// 2. Fetch AI settings
+	systemPrompt, _ := s.adminSvc.GetString(ctx, admin.KeyWhatsAppAIPrompt)
+	handoverMsg, _ := s.adminSvc.GetString(ctx, admin.KeyWhatsAppAIHandoverMsg)
+	if handoverMsg == "" {
+		handoverMsg = "Não tenho essa resposta na minha base de conhecimento. Vou transferir você para um atendente humano. Por favor, aguarde um momento."
+	}
+
+	// 3. Initialize Gemini client
+	geminiClient := gemini.NewClient(apiKey)
+
+	// 4. Generate embedding of user message
+	emb, err := geminiClient.GenerateEmbedding(ctx, messageText)
+	if err != nil {
+		slog.Error("failed to generate embedding for AI support, triggering handover", "ticket_id", t.ID, "error", err)
+		s.performHandover(ctx, t, handoverMsg, wsClient, phone)
+		return
+	}
+
+	// 5. Search similar articles in KB
+	articles, err := s.kb.GetSimilarArticles(ctx, emb, 3)
+	if err != nil {
+		slog.Error("failed to search similar articles for AI support, triggering handover", "ticket_id", t.ID, "error", err)
+		s.performHandover(ctx, t, handoverMsg, wsClient, phone)
+		return
+	}
+
+	// Fetch threshold setting
+	thresholdStr, _ := s.adminSvc.GetString(ctx, admin.KeyWhatsAppAIThreshold)
+	threshold := 0.4 // default
+	if thresholdStr != "" {
+		if val, err := strconv.ParseFloat(thresholdStr, 64); err == nil {
+			threshold = val
+		}
+	}
+
+	slog.Info("AI Support: Search similar articles",
+		"ticket_id", t.ID,
+		"message", messageText,
+		"threshold", threshold,
+		"found_articles_count", len(articles),
+	)
+
+	// Check if we have any articles meeting the similarity threshold.
+	// pgvector distance is cosine distance (0 to 2, where 0 is identical).
+	// Cosine similarity is 1.0 - distance.
+	// So we need similarity >= threshold, which is (1.0 - distance) >= threshold.
+	hasMatchingArticle := false
+	for i, art := range articles {
+		similarity := 1.0 - float64(art.Distance)
+		slog.Info("AI Support: Checked article similarity",
+			"index", i+1,
+			"article_id", art.ID,
+			"title", art.Title,
+			"status", art.Status,
+			"distance", art.Distance,
+			"similarity", similarity,
+			"passes_threshold", similarity >= threshold,
+		)
+		if similarity >= threshold {
+			hasMatchingArticle = true
+		}
+	}
+
+	if !hasMatchingArticle {
+		slog.Info("no similar articles found above confidence threshold, triggering handover", "ticket_id", t.ID, "threshold", threshold)
+		s.performHandover(ctx, t, handoverMsg, wsClient, phone)
+		return
+	}
+
+	var kbContext strings.Builder
+	for i, art := range articles {
+		similarity := 1.0 - float64(art.Distance)
+		if similarity >= threshold {
+			kbContext.WriteString(fmt.Sprintf("Artigo %d:\nTítulo: %s\nConteúdo:\n%s\n\n", i+1, art.Title, art.Content))
+		}
+	}
+
+	// 6. Formulate prompt for Gemini
+	prompt := fmt.Sprintf(`%s
+
+Artigos da Base de Conhecimento disponíveis:
+%s
+
+Dúvida do Cliente: "%s"
+
+Responda estritamente no formato JSON abaixo, sem formatação markdown adicional (não inclua '''json ou '''):
+{
+  "answered": true,
+  "response_text": "sua resposta aqui...",
+  "needs_human_handover": false
+}
+`, systemPrompt, kbContext.String(), messageText)
+
+	// 7. Generate content from Gemini
+	slog.Info("AI Support: Sending prompt to Gemini", "ticket_id", t.ID)
+	resText, err := geminiClient.GenerateContent(ctx, "gemini-2.5-flash", prompt, true)
+	if err != nil {
+		slog.Error("failed to generate content from Gemini for AI support, triggering handover", "ticket_id", t.ID, "error", err)
+		s.performHandover(ctx, t, handoverMsg, wsClient, phone)
+		return
+	}
+	slog.Info("AI Support: Raw response from Gemini", "ticket_id", t.ID, "response", resText)
+
+	type aiResponse struct {
+		Answered           bool   `json:"answered"`
+		ResponseText       string `json:"response_text"`
+		NeedsHumanHandover bool   `json:"needs_human_handover"`
+	}
+
+	// Clean code block ticks if any (Gemini sometimes returns markdown despite instructions)
+	resTextClean := strings.TrimSpace(resText)
+	resTextClean = strings.TrimPrefix(resTextClean, "```json")
+	resTextClean = strings.TrimPrefix(resTextClean, "```")
+	resTextClean = strings.TrimSuffix(resTextClean, "```")
+	resTextClean = strings.TrimSpace(resTextClean)
+
+	var aiRes aiResponse
+	if err := json.Unmarshal([]byte(resTextClean), &aiRes); err != nil {
+		slog.Error("failed to parse AI response JSON, triggering handover", "ticket_id", t.ID, "raw", resText, "error", err)
+		s.performHandover(ctx, t, handoverMsg, wsClient, phone)
+		return
+	}
+	slog.Info("AI Support: Parsed Gemini response",
+		"ticket_id", t.ID,
+		"answered", aiRes.Answered,
+		"needs_human_handover", aiRes.NeedsHumanHandover,
+		"response_length", len(aiRes.ResponseText),
+	)
+
+	// 8. Act on response
+	if !aiRes.NeedsHumanHandover && aiRes.Answered && aiRes.ResponseText != "" {
+		// AI successfully answered the client
+		_, err = s.tickets.AddReply(
+			ctx,
+			t.ID,
+			aiRes.ResponseText,
+			false, // internal
+			false, // notifyCustomer
+			"",    // reporterEmail
+			ticket.SystemActor,
+			0,          // reopenWindowDays
+			uuid.Nil,   // reopenTargetStatusID
+			"whatsapp", // source
+			nil,        // externalMsgID
+			false,      // sendAgentName
+		)
+		if err != nil {
+			slog.Error("failed to save AI reply to database", "ticket_id", t.ID, "error", err)
+		}
+
+		if wsClient != nil {
+			if err := wsClient.SendText(ctx, phone, aiRes.ResponseText); err != nil {
+				slog.Error("failed to send AI response via WhatsApp", "phone", phone, "error", err)
+			}
+		}
+
+		s.sseBroker.Broadcast(t.ID, "refresh", "")
+	} else {
+		slog.Info("AI response requested handover", "ticket_id", t.ID, "needs_handover", aiRes.NeedsHumanHandover, "answered", aiRes.Answered)
+		s.performHandover(ctx, t, handoverMsg, wsClient, phone)
+	}
+}
+
+func isGreetingOrShort(msg string) bool {
+	m := strings.TrimSpace(strings.ToLower(msg))
+	// Remove basic punctuation
+	m = strings.ReplaceAll(m, "!", "")
+	m = strings.ReplaceAll(m, "?", "")
+	m = strings.ReplaceAll(m, ".", "")
+	m = strings.ReplaceAll(m, ",", "")
+	m = strings.TrimSpace(m)
+
+	if len(m) < 4 { // "oi", "ola", "hi", "ok", "1"
+		return true
+	}
+
+	greetings := map[string]bool{
+		"olá":       true,
+		"ola":       true,
+		"oi":        true,
+		"hi":        true,
+		"hello":     true,
+		"bom dia":   true,
+		"boa tarde": true,
+		"boa noite": true,
+		"tudo bem":  true,
+		"como vai":  true,
+		"teste":     true,
+		"test":      true,
+		"suporte":   true,
+		"ajuda":     true,
+	}
+
+	return greetings[m]
 }

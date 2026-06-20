@@ -200,3 +200,26 @@
 .dark .border-gray-300 {
   border-color: #2a2a2a !important;
 }
+
+/* Force readable text colors for form fields, placeholders, and labels in dark mode */
+.dark input,
+.dark textarea,
+.dark select {
+  color: #ffffff !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #737373 !important;
+}
+
+.dark label,
+.dark label span,
+.dark .text-gray-900 {
+  color: #ffffff !important;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #a3a3a3 !important;
+}

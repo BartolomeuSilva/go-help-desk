@@ -1,14 +1,20 @@
 package server
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	authmw "github.com/publiciallc/go-help-desk/backend/internal/middleware"
+	"github.com/publiciallc/go-help-desk/backend/internal/domain/admin"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/kb"
 	"github.com/publiciallc/go-help-desk/backend/internal/domain/user"
+	"github.com/publiciallc/go-help-desk/backend/internal/integration/gemini"
+	authmw "github.com/publiciallc/go-help-desk/backend/internal/middleware"
 )
 
 // Helper to determine if current actor is staff or admin
@@ -261,4 +267,51 @@ func (s *Server) handleSearchKBArticles(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	JSON(w, http.StatusOK, articles)
+}
+
+// POST /api/v1/admin/kb/sync-embeddings
+func (s *Server) handleSyncKBEmbeddings(w http.ResponseWriter, r *http.Request) {
+	apiKey, _ := s.adminSvc.GetString(r.Context(), admin.KeyGeminiAPIKey)
+	if apiKey == "" {
+		Error(w, http.StatusBadRequest, "missing_gemini_key", "Gemini API key is not configured in settings")
+		return
+	}
+
+	articles, err := s.kb.ListArticles(r.Context(), true)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+
+		geminiClient := gemini.NewClient(apiKey)
+		var count int
+		for _, art := range articles {
+			if art.Status != "published" {
+				continue
+			}
+
+			textToEmbed := fmt.Sprintf("Título: %s\n\n%s", art.Title, art.Content)
+			emb, err := geminiClient.GenerateEmbedding(ctx, textToEmbed)
+			if err != nil {
+				slog.Error("failed to generate embedding during sync", "article_id", art.ID, "error", err)
+				continue
+			}
+
+			if err := s.kb.UpdateArticleEmbedding(ctx, art.ID, emb); err != nil {
+				slog.Error("failed to update article embedding during sync", "article_id", art.ID, "error", err)
+				continue
+			}
+			count++
+		}
+		slog.Info("KB articles embedding sync completed", "count", count)
+	}()
+
+	JSON(w, http.StatusAccepted, map[string]string{
+		"status":  "sync_started",
+		"message": "Embedding sync started in background",
+	})
 }

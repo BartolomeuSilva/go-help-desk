@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSettings, updateSettings, getSAMLConfig, saveSAMLConfig, getSiteConfig, uploadLogo, deleteLogo, uploadLogoDark, deleteLogoDark, listStatuses, listCategories, listSLAPolicies, createSLAPolicy, updateSLAPolicy, deleteSLAPolicy, getWhatsAppStatus, getWhatsAppQRCode, disconnectWhatsApp } from '@/api/admin'
 import type { SLAPolicy } from '@/api/types'
 import { extractError } from '@/api/client'
+import { syncKBEmbeddings } from '@/api/kb'
 import { Layout } from '@/components/Layout'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -57,8 +58,8 @@ function SettingRow({
   return (
     <div className="flex items-center justify-between gap-8 px-5 py-4">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-gray-900">{label}</div>
-        {description && <div className="mt-0.5 text-sm text-gray-500">{description}</div>}
+        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</div>
+        {description && <div className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{description}</div>}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -157,7 +158,7 @@ function SAMLSection() {
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">{t('settings.saml.idp_metadata_url')}</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.saml.idp_metadata_url')}</label>
         <Input
           placeholder="https://idp.example.com/saml/metadata"
           value={metadataURL}
@@ -167,7 +168,7 @@ function SAMLSection() {
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {t('settings.saml.sp_cert')}
           {saml?.configured && !certPEM && <span className="ml-2 text-xs font-normal text-gray-400">{t('settings.saml.already_configured')}</span>}
         </label>
@@ -179,13 +180,13 @@ function SAMLSection() {
           onChange={(e) => { const f = e.target.files?.[0]; if (f) readFile(f, setCertPEM) }} />
         {certPEM && (
           <textarea rows={4}
-            className="mt-1 w-full max-w-lg rounded border border-gray-300 p-2 font-mono text-xs text-gray-600"
+            className="mt-1 w-full max-w-lg rounded border border-gray-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2 font-mono text-xs text-gray-600 dark:text-gray-300"
             value={certPEM} onChange={(e) => setCertPEM(e.target.value)} />
         )}
       </div>
 
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
           {t('settings.saml.sp_key')}
           {saml?.configured && !keyPEM && <span className="ml-2 text-xs font-normal text-gray-400">{t('settings.saml.already_configured_replace')}</span>}
         </label>
@@ -197,7 +198,7 @@ function SAMLSection() {
           onChange={(e) => { const f = e.target.files?.[0]; if (f) readFile(f, setKeyPEM) }} />
         {keyPEM && (
           <textarea rows={4}
-            className="mt-1 w-full max-w-lg rounded border border-gray-300 p-2 font-mono text-xs text-gray-600"
+            className="mt-1 w-full max-w-lg rounded border border-gray-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2 font-mono text-xs text-gray-600 dark:text-gray-300"
             value={keyPEM} onChange={(e) => setKeyPEM(e.target.value)} />
         )}
       </div>
@@ -626,13 +627,13 @@ function AuthPanel({
         {bool('self_signup_enabled') && (
           <>
             <div className="border-t px-5 py-4 space-y-2">
-              <div className="text-sm font-medium text-gray-900">{t('settings.auth.allowed_domains')}</div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t('settings.auth.allowed_domains')}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 {t('settings.auth.allowed_domains_desc')}
               </div>
               <textarea
                 rows={3}
-                className="w-full max-w-xs rounded border border-gray-300 p-2 font-mono text-sm"
+                className="w-full max-w-xs rounded border border-gray-300 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2 font-mono text-sm text-gray-900 dark:text-gray-100"
                 placeholder={'company.com\nexample.org'}
                 value={strArr('allowed_email_domains').join('\n')}
                 onChange={(e) =>
@@ -1146,6 +1147,19 @@ function WhatsAppPanel({
   const [qrCode, setQrCode] = useState<string>('')
   const [checking, setChecking] = useState<boolean>(false)
   const [disconnecting, setDisconnecting] = useState<boolean>(false)
+  const [syncing, setSyncing] = useState<boolean>(false)
+
+  const handleSync = async () => {
+    setSyncing(true)
+    try {
+      await syncKBEmbeddings()
+      alert(t('settings.whatsapp.sync_embeddings_success'))
+    } catch (e) {
+      alert(t('settings.whatsapp.sync_embeddings_fail'))
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: listCategories })
   const activeCategories = categories.filter((c) => c.active)
@@ -1495,6 +1509,94 @@ function WhatsAppPanel({
               </>
             )}
           </Section>
+
+          <Section title={t('settings.whatsapp.ai_title')}>
+            <SettingRow
+              label={t('settings.whatsapp.ai_enabled')}
+              description={t('settings.whatsapp.ai_subtitle')}
+            >
+              <Toggle
+                checked={bool('whatsapp_ai_enabled')}
+                onChange={(v) => setBool('whatsapp_ai_enabled', v)}
+              />
+            </SettingRow>
+
+            {bool('whatsapp_ai_enabled') && (
+              <>
+                <SettingRow
+                  label={t('settings.whatsapp.gemini_api_key')}
+                  description="Chave de acesso secreta da API do Gemini para gerar embeddings e respostas."
+                >
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    className="w-80 font-mono text-sm"
+                    placeholder="Digite a chave da API"
+                    value={str('gemini_api_key')}
+                    onChange={(e) => setStr('gemini_api_key', e.target.value)}
+                  />
+                </SettingRow>
+
+                <div className="border-t px-5 py-4 space-y-2">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {t('settings.whatsapp.ai_prompt')}
+                  </label>
+                  <textarea
+                    rows={4}
+                    className="w-full rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2.5 text-sm text-gray-900 dark:text-gray-100"
+                    placeholder="Digite o prompt do sistema..."
+                    value={str('whatsapp_ai_prompt')}
+                    onChange={(e) => setStr('whatsapp_ai_prompt', e.target.value)}
+                  />
+                </div>
+
+                <div className="border-t px-5 py-4 space-y-2">
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {t('settings.whatsapp.ai_handover_msg')}
+                  </label>
+                  <textarea
+                    rows={2}
+                    className="w-full rounded-lg border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-2.5 text-sm text-gray-900 dark:text-gray-100"
+                    placeholder="Mensagem de transferência..."
+                    value={str('whatsapp_ai_handover_msg')}
+                    onChange={(e) => setStr('whatsapp_ai_handover_msg', e.target.value)}
+                  />
+                </div>
+
+                <SettingRow
+                  label={t('settings.whatsapp.ai_threshold')}
+                  description="Nível mínimo de similaridade para aceitar a resposta da IA (sugerido: 0.4)."
+                >
+                  <Input
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="1"
+                    className="w-24 text-sm"
+                    value={str('whatsapp_ai_threshold') || '0.4'}
+                    onChange={(e) => setStr('whatsapp_ai_threshold', e.target.value)}
+                  />
+                </SettingRow>
+
+                <SettingRow
+                  label={t('settings.whatsapp.sync_embeddings')}
+                  description="Gera ou atualiza os vetores de busca semântica para todos os artigos publicados da base de conhecimento."
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={syncing}
+                    onClick={handleSync}
+                    className="px-4 py-2"
+                  >
+                    {syncing
+                      ? t('settings.whatsapp.syncing_btn')
+                      : t('settings.whatsapp.sync_btn')}
+                  </Button>
+                </SettingRow>
+              </>
+            )}
+          </Section>
         </>
       )}
 
@@ -1572,8 +1674,8 @@ export function SettingsPage() {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('settings.title')}</h1>
-          <p className="mt-1 text-sm text-gray-500">{t('settings.subtitle')}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('settings.title')}</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('settings.subtitle')}</p>
         </div>
 
         {/* Tab bar */}

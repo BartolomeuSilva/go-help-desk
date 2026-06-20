@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/publiciallc/go-help-desk/backend/internal/dbgen"
@@ -189,6 +191,54 @@ func (s *Store) SearchArticles(ctx context.Context, query string, isStaffOrAdmin
 	out := make([]kb.Article, len(rows))
 	for i, r := range rows {
 		out[i] = toArticle(r)
+	}
+	return out, nil
+}
+
+func formatVector(v []float32) string {
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, val := range v {
+		if i > 0 {
+			sb.WriteByte(',')
+		}
+		sb.WriteString(strconv.FormatFloat(float64(val), 'f', -1, 32))
+	}
+	sb.WriteByte(']')
+	return sb.String()
+}
+
+func (s *Store) UpdateArticleEmbedding(ctx context.Context, id uuid.UUID, embedding []float32) error {
+	vecStr := formatVector(embedding)
+	return s.q.UpdateKBArticleEmbedding(ctx, dbgen.UpdateKBArticleEmbeddingParams{
+		ID:        id,
+		Embedding: vecStr,
+	})
+}
+
+func (s *Store) GetSimilarArticles(ctx context.Context, embedding []float32, limit int) ([]kb.Article, error) {
+	vecStr := formatVector(embedding)
+	rows, err := s.q.GetSimilarKBArticles(ctx, dbgen.GetSimilarKBArticlesParams{
+		Embedding: vecStr,
+		Limit:     int32(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getting similar kb articles: %w", err)
+	}
+
+	out := make([]kb.Article, len(rows))
+	for i, r := range rows {
+		out[i] = kb.Article{
+			ID:         r.ID,
+			CategoryID: r.CategoryID,
+			Title:      r.Title,
+			Content:    r.Content,
+			Status:     r.Status,
+			Views:      r.Views,
+			CreatedAt:  r.CreatedAt,
+			UpdatedAt:  r.UpdatedAt,
+			Distance:   r.Distance,
+		}
 	}
 	return out, nil
 }

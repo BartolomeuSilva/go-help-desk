@@ -105,6 +105,8 @@ export interface Ticket {
   rated_at?: string
   source?: string
   whatsapp_phone?: string
+  ai_active: boolean
+  ai_transferred: boolean
 }
 
 export interface Attachment {

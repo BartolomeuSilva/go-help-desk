@@ -69,3 +69,16 @@ JOIN kb_categories c ON a.category_id = c.id
 WHERE c.is_public = true AND a.status = 'published'
   AND a.tsv @@ websearch_to_tsquery('simple', $1)
 ORDER BY a.created_at DESC;
+
+-- name: UpdateKBArticleEmbedding :exec
+UPDATE kb_articles
+SET embedding = $2, updated_at = now()
+WHERE id = $1;
+
+-- name: GetSimilarKBArticles :many
+SELECT id, category_id, title, content, status, views, created_at, updated_at,
+       (embedding <=> $1)::float4 as distance
+FROM kb_articles
+WHERE status = 'published' AND embedding IS NOT NULL
+ORDER BY embedding <=> $1
+LIMIT $2;

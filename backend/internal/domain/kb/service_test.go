@@ -162,6 +162,23 @@ func (m *mockStore) SearchArticles(ctx context.Context, query string, isStaffOrA
 	return out, nil
 }
 
+func (m *mockStore) UpdateArticleEmbedding(ctx context.Context, id uuid.UUID, embedding []float32) error {
+	return nil
+}
+
+func (m *mockStore) GetSimilarArticles(ctx context.Context, embedding []float32, limit int) ([]Article, error) {
+	out := make([]Article, 0)
+	for _, art := range m.articles {
+		if art.Status == StatusPublished {
+			out = append(out, art)
+		}
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
 func TestService_Categories(t *testing.T) {
 	ctx := context.Background()
 	store := newMockStore()

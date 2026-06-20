@@ -46,6 +46,7 @@ export async function updateTicket(
     type_id?: string | null
     item_id?: string | null
     ticket_type?: string
+    ai_active?: boolean
   }
 ): Promise<Ticket> {
   const res = await api.patch<Ticket>(`/tickets/${id}`, patch)

@@ -46,6 +46,8 @@ func (s *Store) Create(ctx context.Context, t ticket.Ticket) error {
 		UpdatedAt:       t.UpdatedAt,
 		Source:          t.Source,
 		WhatsappPhone:   database.NullString(t.WhatsappPhone),
+		AiActive:        t.AIActive,
+		AiTransferred:   t.AITransferred,
 	})
 }
 
@@ -91,6 +93,8 @@ func (s *Store) Update(ctx context.Context, t ticket.Ticket) error {
 		ClosedAt:        database.NullTime(t.ClosedAt),
 		TicketType:      nullTicketType(t.TicketType),
 		UpdatedAt:       time.Now(),
+		AiActive:        t.AIActive,
+		AiTransferred:   t.AITransferred,
 	})
 }
 
@@ -100,6 +104,15 @@ func (s *Store) UpdateRating(ctx context.Context, id uuid.UUID, rating int, comm
 		Rating:        sql.NullInt32{Int32: int32(rating), Valid: true},
 		RatingComment: database.NullString(comment),
 		RatedAt:       sql.NullTime{Time: ratedAt, Valid: true},
+	})
+}
+
+func (s *Store) UpdateAIState(ctx context.Context, id uuid.UUID, aiActive, aiTransferred bool) error {
+	return s.q.UpdateTicketAIState(ctx, dbgen.UpdateTicketAIStateParams{
+		ID:            id,
+		AiActive:      aiActive,
+		AiTransferred: aiTransferred,
+		UpdatedAt:     time.Now(),
 	})
 }
 
@@ -518,6 +531,8 @@ func fromRow(r dbgen.Ticket) ticket.Ticket {
 		RatedAt:         database.TimePtr(r.RatedAt),
 		Source:          r.Source,
 		WhatsappPhone:   database.StringPtr(r.WhatsappPhone),
+		AIActive:        r.AiActive,
+		AITransferred:   r.AiTransferred,
 	}
 }
 

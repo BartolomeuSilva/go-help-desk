@@ -488,9 +488,16 @@ func (s *Server) handleUpdateTicket(w http.ResponseWriter, r *http.Request) {
 		TypeID          *uuid.UUID `json:"type_id"`
 		ItemID          *uuid.UUID `json:"item_id"`
 		TicketType      *string    `json:"ticket_type"` // ITSM v4; staff/admin only
+		AIActive        *bool      `json:"ai_active"`   // AI toggle; staff/admin only
 	}
 	if err := DecodeJSON(r, &body); err != nil {
 		Error(w, http.StatusBadRequest, "bad_request", "invalid JSON")
+		return
+	}
+
+	t, err := s.tickets.GetByID(r.Context(), id)
+	if err != nil {
+		handleError(w, err)
 		return
 	}
 
@@ -534,8 +541,18 @@ func (s *Server) handleUpdateTicket(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if body.AIActive != nil {
+		if a.Role == user.RoleUser {
+			Error(w, http.StatusForbidden, "forbidden", "only staff can toggle AI support")
+			return
+		}
+		if err := s.tickets.UpdateAIState(r.Context(), id, *body.AIActive, t.AITransferred); err != nil {
+			handleError(w, err)
+			return
+		}
+	}
 
-	t, err := s.tickets.GetByID(r.Context(), id)
+	t, err = s.tickets.GetByID(r.Context(), id)
 	if err != nil {
 		handleError(w, err)
 		return

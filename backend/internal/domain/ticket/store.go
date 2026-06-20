@@ -19,6 +19,7 @@ type Store interface {
 	Update(ctx context.Context, t Ticket) error
 	UpdateCTI(ctx context.Context, id, categoryID uuid.UUID, typeID, itemID *uuid.UUID) error
 	UpdateRating(ctx context.Context, id uuid.UUID, rating int, comment *string, ratedAt time.Time) error
+	UpdateAIState(ctx context.Context, id uuid.UUID, aiActive, aiTransferred bool) error
 
 	// Listings
 	ListByReporter(ctx context.Context, userID uuid.UUID, limit, offset int) ([]Ticket, error)

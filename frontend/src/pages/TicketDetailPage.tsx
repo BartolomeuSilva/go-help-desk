@@ -476,6 +476,21 @@ export function TicketDetailPage() {
     onError: (err) => setDetailsError(extractError(err)),
   })
 
+  const [togglingAI, setTogglingAI] = useState(false)
+  const toggleAIMutation = useMutation({
+    mutationFn: (aiActive: boolean) => updateTicket(id, { ai_active: aiActive }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ticket', id] })
+    },
+    onSettled: () => setTogglingAI(false)
+  })
+
+  const handleToggleAI = () => {
+    if (!ticket) return
+    setTogglingAI(true)
+    toggleAIMutation.mutate(!ticket.ai_active)
+  }
+
   useEffect(() => {
     setSseStatus('connecting')
     setSseError(null)
@@ -1113,6 +1128,32 @@ export function TicketDetailPage() {
                     <span className="text-gray-500 dark:text-white/70">{t('tickets.detail.whatsapp_phone')}</span>
                     <span className="text-right text-xs text-gray-900 dark:text-white font-mono">{ticket.whatsapp_phone || ticket.guest_phone || ''}</span>
                   </div>
+                  {isStaffOrAdmin && (
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-800">
+                      <span className="text-gray-500 dark:text-white/70 flex items-center gap-1" title={t('tickets.detail.whatsapp_ai_active_tooltip')}>
+                        {t('tickets.detail.whatsapp_ai_active')}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={ticket.ai_active}
+                        onClick={() => handleToggleAI()}
+                        disabled={togglingAI}
+                        className={cn(
+                          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                          ticket.ai_active ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700',
+                          togglingAI && 'opacity-50 cursor-not-allowed'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition-transform',
+                            ticket.ai_active ? 'translate-x-4' : 'translate-x-0'
+                          )}
+                        />
+                      </button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

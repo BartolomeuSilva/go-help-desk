@@ -29,6 +29,12 @@ const (
 	KeyWhatsAppWelcomeMessage = "whatsapp_welcome_message"
 	KeyWhatsAppMenuConfig     = "whatsapp_menu_config"
 
+	// WhatsApp AI settings
+	KeyWhatsAppAIEnabled     = "whatsapp_ai_enabled"
+	KeyWhatsAppAIPrompt      = "whatsapp_ai_prompt"
+	KeyWhatsAppAIHandoverMsg = "whatsapp_ai_handover_msg"
+	KeyWhatsAppAIThreshold   = "whatsapp_ai_threshold"
+
 	KeyGeminiAPIKey           = "gemini_api_key"
 
 	// Email settings

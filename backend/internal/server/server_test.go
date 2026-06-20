@@ -68,6 +68,7 @@ type harness struct {
 	adminSvc *admin.Service
 	userSvc  *user.Service
 	groupSvc *group.Service
+	kbSvc    kb.Service
 }
 
 func newHarness(t *testing.T) (*harness, func()) {
@@ -207,6 +208,7 @@ func newHarness(t *testing.T) (*harness, func()) {
 		adminSvc: adminSvc,
 		userSvc:  userSvc,
 		groupSvc: groupSvc,
+		kbSvc:    kbSvc,
 	}
 	cleanup := func() {
 		rollback()
@@ -484,6 +486,62 @@ func TestResolveTicket(t *testing.T) {
 	var resolved ticket.Ticket
 	decodeJSON(t, resolveResp, &resolved)
 	require.NotNil(t, resolved.ResolvedAt)
+}
+
+func TestUpdateTicket_AIActive(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	// 1. Create a ticket.
+	resp := h.do(t, http.MethodPost, "/api/v1/tickets", map[string]any{
+		"subject":     "AI Test Ticket",
+		"description": "Will toggle AI",
+		"category_id": h.catID.String(),
+	})
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	var tk ticket.Ticket
+	decodeJSON(t, resp, &tk)
+	require.True(t, tk.AIActive)
+
+	// 2. Toggle AI off as staff (h.apiKey is staff).
+	patchResp := h.do(t, http.MethodPatch, "/api/v1/tickets/"+tk.ID.String(), map[string]any{
+		"ai_active": false,
+	})
+	require.Equal(t, http.StatusOK, patchResp.StatusCode)
+	var updated ticket.Ticket
+	decodeJSON(t, patchResp, &updated)
+	require.False(t, updated.AIActive)
+
+	// 3. Toggle AI on as staff.
+	patchResp2 := h.do(t, http.MethodPatch, "/api/v1/tickets/"+tk.ID.String(), map[string]any{
+		"ai_active": true,
+	})
+	require.Equal(t, http.StatusOK, patchResp2.StatusCode)
+	var updated2 ticket.Ticket
+	decodeJSON(t, patchResp2, &updated2)
+	require.True(t, updated2.AIActive)
+}
+
+func TestSyncKBEmbeddings(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// 1. Try to sync when Gemini API key is missing -> Should return 400 Bad Request
+	syncResp := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/kb/sync-embeddings", nil)
+	require.Equal(t, http.StatusBadRequest, syncResp.StatusCode)
+
+	// 2. Set Gemini API key
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyGeminiAPIKey, "test-api-key"))
+
+	// 3. Try to sync as guest -> Should return 401 Unauthorized
+	syncRespGuest := h.doUnauth(t, http.MethodPost, "/api/v1/admin/kb/sync-embeddings", nil)
+	require.Equal(t, http.StatusUnauthorized, syncRespGuest.StatusCode)
+
+	// 4. Try to sync as admin -> Should return 202 Accepted
+	syncRespAdmin := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/kb/sync-embeddings", nil)
+	require.Equal(t, http.StatusAccepted, syncRespAdmin.StatusCode)
 }
 
 // ── List tickets: admin scopes + scoped dashboard counts ─────────────────────

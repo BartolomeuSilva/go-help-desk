@@ -134,6 +134,8 @@ type Ticket struct {
 	RatedAt         *time.Time     `json:"rated_at,omitempty"`
 	Source          string         `json:"source"`
 	WhatsappPhone   *string        `json:"whatsapp_phone,omitempty"`
+	AIActive        bool           `json:"ai_active"`
+	AITransferred   bool           `json:"ai_transferred"`
 }
 
 // Reply is a message on a ticket thread, from either a staff member or the

@@ -240,3 +240,20 @@ func (s *service) SearchArticles(ctx context.Context, query string, isStaffOrAdm
 	}
 	return s.store.SearchArticles(ctx, query, isStaffOrAdmin)
 }
+
+func (s *service) UpdateArticleEmbedding(ctx context.Context, id uuid.UUID, embedding []float32) error {
+	if id == uuid.Nil {
+		return ErrArticleNotFound
+	}
+	return s.store.UpdateArticleEmbedding(ctx, id, embedding)
+}
+
+func (s *service) GetSimilarArticles(ctx context.Context, embedding []float32, limit int) ([]Article, error) {
+	if len(embedding) == 0 {
+		return []Article{}, nil
+	}
+	if limit <= 0 {
+		limit = 3
+	}
+	return s.store.GetSimilarArticles(ctx, embedding, limit)
+}

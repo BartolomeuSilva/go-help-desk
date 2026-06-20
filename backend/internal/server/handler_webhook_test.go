@@ -588,3 +588,137 @@ func TestWhatsAppWebhook_ChatbotMenuNotHijackedByRating(t *testing.T) {
 	require.Equal(t, "WhatsApp: Oi", newTk.Subject)
 }
 
+func TestWhatsAppWebhook_ChatbotMenuWithTranslatedStatusNames(t *testing.T) {
+	h, cleanup := newHarness(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	require.NoError(t, h.adminSvc.SetBool(ctx, admin.KeyWhatsAppChatbotEnabled, true))
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppWelcomeMessage, "Welcome! Please reply:\n1. Support\n2. Billing"))
+
+	catID := h.catID
+
+	menuConfig := map[string]string{
+		"1": catID.String(),
+	}
+	menuJSON, err := json.Marshal(menuConfig)
+	require.NoError(t, err)
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppMenuConfig, string(menuJSON)))
+	require.NoError(t, h.adminSvc.SetString(ctx, admin.KeyWhatsAppAPIToken, ""))
+
+	// 1. Send first message -> Should create a session and send welcome message
+	payload1 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-1",
+			},
+			"pushName": "John Doe",
+			"message": map[string]any{
+				"conversation": "I need help",
+			},
+			"messageType": "conversation",
+		},
+	}
+	resp1 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload1)
+	require.Equal(t, http.StatusOK, resp1.StatusCode)
+
+	var statusResp1 map[string]string
+	decodeJSON(t, resp1, &statusResp1)
+	require.Equal(t, "welcome_sent", statusResp1["status"])
+
+	// 2. Select option "1" -> should create a ticket
+	payload2 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-2",
+			},
+			"pushName": "John Doe",
+			"message": map[string]any{
+				"conversation": "1",
+			},
+			"messageType": "conversation",
+		},
+	}
+	resp2 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload2)
+	require.Equal(t, http.StatusCreated, resp2.StatusCode)
+
+	var tk ticket.Ticket
+	decodeJSON(t, resp2, &tk)
+	require.Equal(t, "5511888888888", *tk.WhatsappPhone)
+
+	// 3. Create a custom closed status named "Fechado"
+	createStatusResp := h.doAsAdmin(t, http.MethodPost, "/api/v1/admin/statuses", map[string]any{
+		"name":       "Fechado",
+		"sort_order": 90,
+		"color":      "#aabbcc",
+	})
+	require.Equal(t, http.StatusCreated, createStatusResp.StatusCode)
+	var createdStatus map[string]any
+	decodeJSON(t, createStatusResp, &createdStatus)
+	fechadoStatusID := createdStatus["id"].(string)
+
+	// 4. Update the ticket's status to "Fechado"
+	patchResp := h.doAsAdmin(t, http.MethodPatch, "/api/v1/tickets/"+tk.ID.String(), map[string]any{
+		"status_id": fechadoStatusID,
+	})
+	require.Equal(t, http.StatusOK, patchResp.StatusCode)
+
+	// 5. Send message "Olá" for a second contact -> Should trigger welcome message / session again
+	payload3 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-3",
+			},
+			"pushName": "John Doe",
+			"message": map[string]any{
+				"conversation": "Olá",
+			},
+			"messageType": "conversation",
+		},
+	}
+	resp3 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload3)
+	require.Equal(t, http.StatusOK, resp3.StatusCode)
+
+	var statusResp3 map[string]string
+	decodeJSON(t, resp3, &statusResp3)
+	require.Equal(t, "welcome_sent", statusResp3["status"])
+
+	// 6. Send "1" (option 1) to the chatbot menu -> Should create a new ticket!
+	payload4 := map[string]any{
+		"event":    "messages.upsert",
+		"instance": "test",
+		"data": map[string]any{
+			"key": map[string]any{
+				"remoteJid": "5511888888888@s.whatsapp.net",
+				"fromMe":    false,
+				"id":        "msg-4",
+			},
+			"pushName": "John Doe",
+			"message": map[string]any{
+				"conversation": "1",
+			},
+			"messageType": "conversation",
+		},
+	}
+	resp4 := h.doUnauth(t, http.MethodPost, "/api/v1/webhooks/whatsapp", payload4)
+	require.Equal(t, http.StatusCreated, resp4.StatusCode) // should create a new ticket!
+
+	var newTk ticket.Ticket
+	decodeJSON(t, resp4, &newTk)
+	require.NotEqual(t, tk.ID, newTk.ID)
+	require.Equal(t, "WhatsApp: Olá", newTk.Subject)
+}
+
+
