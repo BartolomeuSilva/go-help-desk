@@ -377,7 +377,19 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 			choice := strings.TrimSpace(bodyText)
 			isRatingChoice := choice == "1" || choice == "2" || choice == "3" || choice == "4" || choice == "5"
 
-			if isRatingChoice && hasTicket && (statusName == ticket.StatusNameResolved || statusName == ticket.StatusNameClosed) && latestTicket.Rating == nil {
+			chatbotEnabled := s.adminSvc.WhatsAppChatbotEnabled(r.Context())
+			welcomeMessage, menuConfigJSON := s.adminSvc.WhatsAppChatbotConfig(r.Context())
+
+			var session ticket.WhatsAppSession
+			var sessionErr error
+			hasSession := false
+
+			if chatbotEnabled && welcomeMessage != "" && menuConfigJSON != "" && menuConfigJSON != "{}" {
+				session, sessionErr = s.tickets.GetWhatsAppSession(r.Context(), phone)
+				hasSession = sessionErr == nil
+			}
+
+			if isRatingChoice && !hasSession && hasTicket && (statusName == ticket.StatusNameResolved || statusName == ticket.StatusNameClosed) && latestTicket.Rating == nil {
 				// We found a recently resolved or closed ticket for this number that is not yet rated!
 				// Let's verify that a rating request was actually sent (to prevent randomly typing "1" from rating a random ticket).
 				// We check if the last reply on the ticket contains the rating options: "1. Excelente".
@@ -455,14 +467,10 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			chatbotEnabled := s.adminSvc.WhatsAppChatbotEnabled(r.Context())
-			welcomeMessage, menuConfigJSON := s.adminSvc.WhatsAppChatbotConfig(r.Context())
-
 			if chatbotEnabled && welcomeMessage != "" && menuConfigJSON != "" && menuConfigJSON != "{}" {
 				// Chatbot is active, check for temporary session
-				session, err := s.tickets.GetWhatsAppSession(r.Context(), phone)
-				if err != nil {
-					if errors.Is(err, ticket.ErrNotFound) {
+				if sessionErr != nil {
+					if errors.Is(sessionErr, ticket.ErrNotFound) {
 						// 1. First contact: Create temporary session and send welcome message.
 						// Media is attached only after the customer picks a menu option,
 						// so we stash it now: the decrypted base64 if the webhook carried

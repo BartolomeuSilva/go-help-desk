@@ -9,7 +9,7 @@ import { getSiteConfig } from '@/api/admin'
 import { Button } from '@/components/ui/button'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useNotificationStream } from '@/hooks/useNotificationStream'
-import { TicketIcon, UsersIcon, SettingsIcon, LogOutIcon, HomeIcon, FolderIcon, CircleDotIcon, ShieldIcon, UsersRoundIcon, TagIcon, SlidersIcon, PuzzleIcon, MessageSquare, Sun, Moon, BookOpen, HelpCircle, BarChart3, Menu, X } from 'lucide-react'
+import { TicketIcon, UsersIcon, SettingsIcon, LogOutIcon, HomeIcon, FolderIcon, CircleDotIcon, ShieldIcon, UsersRoundIcon, TagIcon, SlidersIcon, MessageSquare, Sun, Moon, BookOpen, HelpCircle, BarChart3, Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NavItemProps {
