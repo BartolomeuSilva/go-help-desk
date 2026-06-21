@@ -602,7 +602,18 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 					}
 
 					// Send confirmation message to customer on WhatsApp
-					confMsg := fmt.Sprintf("Perfeito! Seu chamado foi aberto com sucesso sob o número *%s*.\n\nUm atendente entrará em contato em breve.", newTicket.TrackingNumber)
+					aiEnabled, _, _, _ := s.adminSvc.WhatsAppAIConfig(r.Context())
+					var confMsg string
+					if aiEnabled {
+						if isGreetingOrShort(session.InitialMessage) {
+							confMsg = fmt.Sprintf("Perfeito! Seu chamado foi aberto com sucesso sob o número *%s*.\n\nVocê já pode enviar sua dúvida por aqui! Nosso assistente virtual tentará te ajudar imediatamente. Se preferir, um atendente humano falará com você em breve.", newTicket.TrackingNumber)
+						} else {
+							confMsg = fmt.Sprintf("Perfeito! Seu chamado foi aberto com sucesso sob o número *%s*.\n\nNosso assistente virtual já está analisando a sua dúvida...", newTicket.TrackingNumber)
+						}
+					} else {
+						confMsg = fmt.Sprintf("Perfeito! Seu chamado foi aberto com sucesso sob o número *%s*.\n\nUm atendente entrará em contato em breve.", newTicket.TrackingNumber)
+					}
+
 					if wsClient != nil {
 						if err := wsClient.SendText(r.Context(), phone, confMsg); err != nil {
 							slog.Error("failed to send whatsapp confirmation message", "phone", phone, "error", err)
@@ -625,7 +636,6 @@ func (s *Server) handleWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
 
 					s.sseBroker.Broadcast(newTicket.ID, "refresh", "")
 					s.notifyNewWhatsAppTicket(r.Context(), newTicket, session.InitialMessage, pushName)
-					aiEnabled, _, _, _ := s.adminSvc.WhatsAppAIConfig(r.Context())
 					if newTicket.AIActive && aiEnabled && !isGreetingOrShort(session.InitialMessage) {
 						go s.processAISupport(context.Background(), newTicket, session.InitialMessage, wsClient, phone)
 					}
